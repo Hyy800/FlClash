@@ -279,33 +279,36 @@ class ListItem<T> extends StatelessWidget {
     return Builder(
       builder: (context) {
         final colorScheme = context.colorScheme;
-        return Container(
+        return Padding(
           key: key,
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-          decoration: BoxDecoration(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          child: Material(
             color: color ?? colorScheme.surfaceContainerLow.withAlpha(225),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withAlpha(85),
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            dense: dense,
-            visualDensity: visualDensity,
-            titleTextStyle: titleTextStyle,
-            subtitleTextStyle: subtitleTextStyle,
-            leading: leading ?? this.leading,
-            horizontalTitleGap: horizontalTitleGap,
-            title: title,
-            minTileHeight: minTileHeight,
-            minVerticalPadding: minVerticalPadding,
-            subtitle: subtitle,
-            titleAlignment: tileTitleAlignment,
-            onTap: onTap,
-            trailing: trailing ?? this.trailing,
-            contentPadding: padding,
+            clipBehavior: Clip.antiAlias,
             shape: RoundedSuperellipseBorder(
+              side: BorderSide(
+                color: colorScheme.outlineVariant.withAlpha(85),
+              ),
               borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              dense: dense,
+              visualDensity: visualDensity,
+              titleTextStyle: titleTextStyle,
+              subtitleTextStyle: subtitleTextStyle,
+              leading: leading ?? this.leading,
+              horizontalTitleGap: horizontalTitleGap,
+              title: title,
+              minTileHeight: minTileHeight,
+              minVerticalPadding: minVerticalPadding,
+              subtitle: subtitle,
+              titleAlignment: tileTitleAlignment,
+              onTap: onTap,
+              trailing: trailing ?? this.trailing,
+              contentPadding: padding,
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         );
