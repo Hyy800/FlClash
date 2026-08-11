@@ -166,10 +166,8 @@ class _ThemeItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListItem.open(
-      leading: const Icon(Icons.dashboard_customize_outlined),
-      title: Text(
-        '${context.appLocalizations.custom} UI',
-      ),
+      leading: const Icon(Icons.brightness_auto_rounded),
+      title: Text(context.appLocalizations.theme),
       subtitle: Text(context.appLocalizations.themeDesc),
       delegate: const OpenDelegate(widget: ThemeView()),
     );

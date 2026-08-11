@@ -36,11 +36,11 @@ class ApplicationState extends ConsumerState<Application> {
     },
   );
 
-  ColorScheme _getAppColorScheme({
-    required Brightness brightness,
-    int? primaryColor,
-  }) {
-    return ref.read(genColorSchemeProvider(brightness));
+  ColorScheme _getAppColorScheme({required Brightness brightness}) {
+    return ColorScheme.fromSeed(
+      seedColor: const Color(0xFF4D7DFF),
+      brightness: brightness,
+    );
   }
 
   @override
@@ -137,7 +137,9 @@ class ApplicationState extends ConsumerState<Application> {
         final locale = ref.watch(
           appSettingProvider.select((state) => state.locale),
         );
-        final themeProps = ref.watch(themeSettingProvider);
+        final themeMode = ref.watch(
+          themeSettingProvider.select((state) => state.themeMode),
+        );
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: globalState.navigatorKey,
@@ -160,21 +162,14 @@ class ApplicationState extends ConsumerState<Application> {
           title: appName,
           locale: utils.getLocaleForString(locale),
           supportedLocales: AppLocalizations.delegate.supportedLocales,
-          themeMode: themeProps.themeMode,
+          themeMode: themeMode,
           theme: AppTheme.build(
             pageTransitionsTheme: _pageTransitionsTheme,
-            baseScheme: _getAppColorScheme(
-              brightness: Brightness.light,
-              primaryColor: themeProps.primaryColor,
-            ),
+            baseScheme: _getAppColorScheme(brightness: Brightness.light),
           ),
           darkTheme: AppTheme.build(
             pageTransitionsTheme: _pageTransitionsTheme,
-            pureBlack: themeProps.pureBlack,
-            baseScheme: _getAppColorScheme(
-              brightness: Brightness.dark,
-              primaryColor: themeProps.primaryColor,
-            ),
+            baseScheme: _getAppColorScheme(brightness: Brightness.dark),
           ),
           home: child!,
         );

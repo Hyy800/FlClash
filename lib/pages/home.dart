@@ -155,12 +155,11 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       return;
     }
     final isAnimateToPage = ref.read(appSettingProvider).isAnimateToPage;
-    final isMobile = ref.read(isMobileViewProvider);
-    if (isAnimateToPage && isMobile && !ignoreAnimateTo) {
+    if (isAnimateToPage && !ignoreAnimateTo) {
       await _pageController.animateToPage(
         index,
-        duration: kTabScrollDuration,
-        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
       );
     } else {
       _pageController.jumpToPage(index);
@@ -208,7 +207,7 @@ class _AppBottomDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppGlassPanel(
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(30),
       padding: const EdgeInsets.all(6),
       child: SizedBox(
         height: 62,
@@ -253,14 +252,14 @@ class _AppBottomDockItem extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(19),
+            borderRadius: BorderRadius.circular(22),
             onTap: onPressed,
             child: AnimatedContainer(
               duration: midDuration,
               curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(19),
+                borderRadius: BorderRadius.circular(22),
                 color: isSelected
                     ? colorScheme.primary.withAlpha(24)
                     : Colors.transparent,

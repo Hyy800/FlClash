@@ -261,7 +261,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
 
   PreferredSizeWidget _buildAppBar(VoidCallback? backAction) {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(72),
+      preferredSize: const Size.fromHeight(86),
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -303,8 +303,8 @@ class CommonScaffoldState extends State<CommonScaffold> {
             },
           ),
           Positioned(
-            left: 18,
-            right: 18,
+            left: 24,
+            right: 24,
             bottom: 0,
             child: Divider(color: context.colorScheme.outlineVariant),
           ),

@@ -127,13 +127,6 @@ class AppEnvManager extends StatelessWidget {
         );
       }
     }
-    if (globalState.isPre) {
-      return Banner(
-        message: 'PRE',
-        location: BannerLocation.topEnd,
-        child: child,
-      );
-    }
     return child;
   }
 }
@@ -142,21 +135,6 @@ class AppSidebarContainer extends ConsumerWidget {
   final Widget child;
 
   const AppSidebarContainer({super.key, required this.child});
-
-  // Widget _buildLoading() {
-  //   return Consumer(
-  //     builder: (_, ref, _) {
-  //       final loading = ref.watch(loadingProvider);
-  //       final isMobileView = ref.watch(isMobileViewProvider);
-  //       return loading && !isMobileView
-  //           ? RotatedBox(
-  //               quarterTurns: 1,
-  //               child: const LinearProgressIndicator(),
-  //             )
-  //           : Container();
-  //     },
-  //   );
-  // }
 
   void _updateSideBarWidth(WidgetRef ref, double contentWidth) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,65 +159,106 @@ class AppSidebarContainer extends ConsumerWidget {
       return child;
     }
     final currentIndex = navigationState.currentIndex;
-    return Row(
-      children: [
-        Container(
-          width: 72,
-          margin: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          decoration: BoxDecoration(
-            color: context.colorScheme.surfaceContainerLow,
-            border: Border.all(
-              color: context.colorScheme.outlineVariant.withAlpha(90),
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                if (system.isMacOS) const SizedBox(height: 18),
-                if (!system.isMacOS) const AppIcon(),
-                const SizedBox(height: 18),
-                Expanded(
-                  child: ScrollConfiguration(
-                    behavior: HiddenBarScrollBehavior(),
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: navigationItems.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 7),
-                      itemBuilder: (context, index) {
-                        final item = navigationItems[index];
-                        return _AppRailItem(
-                          item: item,
-                          isSelected: currentIndex == index,
-                          onPressed: () {
-                            _handleToPage(item.label);
-                          },
-                        );
-                      },
+    return SafeArea(
+      minimum: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final groupWidth = constraints.maxWidth > 1408
+              ? 1408.0
+              : constraints.maxWidth;
+          final panelHeight = constraints.maxHeight > 900
+              ? 900.0
+              : constraints.maxHeight;
+          final availableRailHeight = panelHeight - 28;
+          final railHeight = availableRailHeight
+              .clamp(300.0, 620.0)
+              .toDouble();
+          const contentLeft = 48.0;
+          return Center(
+            child: SizedBox(
+              width: groupWidth,
+              height: panelHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    left: contentLeft,
+                    child: AppGlassPanel(
+                      borderRadius: BorderRadius.circular(34),
+                      child: LayoutBuilder(
+                        builder: (_, contentConstraints) {
+                          _updateSideBarWidth(ref, contentConstraints.maxWidth);
+                          return child;
+                        },
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    left: 0,
+                    top: (panelHeight - railHeight) / 2,
+                    child: SizedBox(
+                      width: 72,
+                      height: railHeight,
+                      child: AppGlassPanel(
+                        borderRadius: BorderRadius.circular(36),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
+                        child: Column(
+                          children: [
+                            if (system.isMacOS) const SizedBox(height: 8),
+                            if (!system.isMacOS)
+                              Container(
+                                width: 46,
+                                height: 46,
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: context.colorScheme.primary.withAlpha(
+                                    30,
+                                  ),
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: const AppIcon(),
+                              ),
+                            const SizedBox(height: 14),
+                            Expanded(
+                              child: ScrollConfiguration(
+                                behavior: HiddenBarScrollBehavior(),
+                                child: ListView.separated(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: navigationItems.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 6),
+                                  itemBuilder: (context, index) {
+                                    final item = navigationItems[index];
+                                    return _AppRailItem(
+                                      item: item,
+                                      isSelected: currentIndex == index,
+                                      onPressed: () {
+                                        _handleToPage(item.label);
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          child: ClipRect(
-            child: LayoutBuilder(
-              builder: (_, constraints) {
-                _updateSideBarWidth(ref, constraints.maxWidth);
-                return child;
-              },
-            ),
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 }
 
-class _AppRailItem extends StatelessWidget {
+class _AppRailItem extends StatefulWidget {
   final NavigationItem item;
   final bool isSelected;
   final VoidCallback onPressed;
@@ -251,52 +270,73 @@ class _AppRailItem extends StatelessWidget {
   });
 
   @override
+  State<_AppRailItem> createState() => _AppRailItemState();
+}
+
+class _AppRailItemState extends State<_AppRailItem> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
-    final foregroundColor = isSelected
+    final foregroundColor = widget.isSelected
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
     final content = SizedBox(
-      height: 50,
+      height: 48,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onPressed,
-          child: AnimatedContainer(
-            duration: midDuration,
+          borderRadius: BorderRadius.circular(18),
+          onTap: widget.onPressed,
+          onHover: (value) {
+            if (_isHovered != value) {
+              setState(() {
+                _isHovered = value;
+              });
+            }
+          },
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primary.withAlpha(24)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (isSelected)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: 3,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                IconTheme(
-                  data: IconThemeData(color: foregroundColor, size: 22),
-                  child: item.icon,
+            scale: _isHovered && !widget.isSelected ? 1.06 : 1,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                color: widget.isSelected
+                    ? colorScheme.primary
+                    : _isHovered
+                    ? colorScheme.surfaceContainerHighest.withAlpha(180)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: widget.isSelected
+                    ? [
+                        BoxShadow(
+                          color: colorScheme.primary.withAlpha(74),
+                          blurRadius: 18,
+                          offset: const Offset(0, 7),
+                        ),
+                      ]
+                    : const [],
+              ),
+              child: IconTheme(
+                data: IconThemeData(
+                  color: widget.isSelected
+                      ? colorScheme.onPrimary
+                      : foregroundColor,
+                  size: 22,
                 ),
-              ],
+                child: widget.item.icon,
+              ),
             ),
           ),
         ),
       ),
     );
-    return Tooltip(message: Intl.message(item.label.name), child: content);
+    return Tooltip(
+      message: Intl.message(widget.item.label.name),
+      child: content,
+    );
   }
 }
