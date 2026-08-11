@@ -23,37 +23,25 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HomeBackScopeContainer(
-      child: AppSidebarContainer(
-        child: Material(
-          color: context.colorScheme.surface,
+      child: AppBackdrop(
+        child: AppSidebarContainer(
           child: Consumer(
             builder: (context, ref, child) {
               final state = ref.watch(navigationStateProvider);
               final isMobile = state.viewMode == ViewMode.mobile;
               final navigationItems = state.navigationItems;
               final currentIndex = state.currentIndex;
-              final bottomNavigationBar = NavigationBarTheme(
-                data: _NavigationBarDefaultsM3(context),
-                child: NavigationBar(
-                  destinations: navigationItems
-                      .map(
-                        (e) => NavigationDestination(
-                          icon: e.icon,
-                          label: Intl.message(e.label.name),
-                        ),
-                      )
-                      .toList(),
-                  onDestinationSelected: (index) {
-                    _handleToPage(navigationItems[index].label);
-                  },
-                  selectedIndex: currentIndex,
-                ),
+              final bottomNavigationBar = _AppBottomDock(
+                items: navigationItems,
+                currentIndex: currentIndex,
+                onSelected: (index) {
+                  _handleToPage(navigationItems[index].label);
+                },
               );
               if (isMobile) {
                 return Column(
                   children: [
-                    Flexible(
-                      flex: 1,
+                    Expanded(
                       child: MediaQuery.removePadding(
                         removeTop: false,
                         removeBottom: true,
@@ -69,7 +57,11 @@ class HomePage extends StatelessWidget {
                       removeLeft: true,
                       removeRight: true,
                       context: context,
-                      child: bottomNavigationBar,
+                      child: SafeArea(
+                        top: false,
+                        minimum: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                        child: bottomNavigationBar,
+                      ),
                     ),
                   ],
                 );
@@ -202,60 +194,110 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   }
 }
 
-class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
-  _NavigationBarDefaultsM3(this.context)
-    : super(
-        height: 80.0,
-        elevation: 3.0,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      );
+class _AppBottomDock extends StatelessWidget {
+  final List<NavigationItem> items;
+  final int currentIndex;
+  final OnSelected onSelected;
 
-  final BuildContext context;
-  late final ColorScheme _colors = Theme.of(context).colorScheme;
-  late final TextTheme _textTheme = Theme.of(context).textTheme;
-
-  @override
-  Color? get backgroundColor => _colors.surfaceContainer;
+  const _AppBottomDock({
+    required this.items,
+    required this.currentIndex,
+    required this.onSelected,
+  });
 
   @override
-  Color? get shadowColor => Colors.transparent;
-
-  @override
-  Color? get surfaceTintColor => Colors.transparent;
-
-  @override
-  WidgetStateProperty<IconThemeData?>? get iconTheme {
-    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
-      return IconThemeData(
-        size: 24.0,
-        color: states.contains(WidgetState.disabled)
-            ? _colors.onSurfaceVariant.opacity38
-            : states.contains(WidgetState.selected)
-            ? _colors.onSecondaryContainer
-            : _colors.onSurfaceVariant,
-      );
-    });
+  Widget build(BuildContext context) {
+    return AppGlassPanel(
+      borderRadius: BorderRadius.circular(26),
+      padding: const EdgeInsets.all(6),
+      child: SizedBox(
+        height: 62,
+        child: Row(
+          children: [
+            for (var index = 0; index < items.length; index++)
+              Expanded(
+                child: _AppBottomDockItem(
+                  item: items[index],
+                  isSelected: currentIndex == index,
+                  onPressed: () {
+                    onSelected(index);
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
+}
+
+class _AppBottomDockItem extends StatelessWidget {
+  final NavigationItem item;
+  final bool isSelected;
+  final VoidCallback onPressed;
+
+  const _AppBottomDockItem({
+    required this.item,
+    required this.isSelected,
+    required this.onPressed,
+  });
 
   @override
-  Color? get indicatorColor => _colors.secondaryContainer;
-
-  @override
-  ShapeBorder? get indicatorShape => const StadiumBorder();
-
-  @override
-  WidgetStateProperty<TextStyle?>? get labelTextStyle {
-    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
-      final TextStyle style = _textTheme.labelMedium!;
-      return style.apply(
-        overflow: TextOverflow.ellipsis,
-        color: states.contains(WidgetState.disabled)
-            ? _colors.onSurfaceVariant.opacity38
-            : states.contains(WidgetState.selected)
-            ? _colors.onSurface
-            : _colors.onSurfaceVariant,
-      );
-    });
+  Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    return Semantics(
+      selected: isSelected,
+      button: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(19),
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: midDuration,
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(19),
+                color: isSelected
+                    ? colorScheme.primaryContainer
+                    : Colors.transparent,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconTheme(
+                    data: IconThemeData(
+                      size: 22,
+                      color: isSelected
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    child: item.icon,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    Intl.message(item.label.name),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: isSelected
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onSurfaceVariant,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

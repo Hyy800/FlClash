@@ -13,13 +13,13 @@ class Navigation {
     return [
       NavigationItem(
         keep: false,
-        icon: const Icon(Icons.space_dashboard),
+        icon: const Icon(Icons.dashboard_customize_outlined),
         label: PageLabel.dashboard,
         builder: (_) =>
             const DashboardView(key: GlobalObjectKey(PageLabel.dashboard)),
       ),
       NavigationItem(
-        icon: const Icon(Icons.article),
+        icon: const Icon(Icons.hub_outlined),
         label: PageLabel.proxies,
         builder: (_) =>
             const ProxiesView(key: GlobalObjectKey(PageLabel.proxies)),
@@ -28,13 +28,13 @@ class Navigation {
             : [],
       ),
       NavigationItem(
-        icon: const Icon(Icons.folder),
+        icon: const Icon(Icons.layers_outlined),
         label: PageLabel.profiles,
         builder: (_) =>
             const ProfilesView(key: GlobalObjectKey(PageLabel.profiles)),
       ),
       NavigationItem(
-        icon: const Icon(Icons.view_timeline),
+        icon: const Icon(Icons.data_object_rounded),
         label: PageLabel.requests,
         builder: (_) =>
             const RequestsView(key: GlobalObjectKey(PageLabel.requests)),
@@ -42,7 +42,7 @@ class Navigation {
         modes: [NavigationItemMode.desktop, NavigationItemMode.more],
       ),
       NavigationItem(
-        icon: const Icon(Icons.ballot),
+        icon: const Icon(Icons.lan_outlined),
         label: PageLabel.connections,
         builder: (_) =>
             const ConnectionsView(key: GlobalObjectKey(PageLabel.connections)),
@@ -50,7 +50,7 @@ class Navigation {
         modes: [NavigationItemMode.desktop, NavigationItemMode.more],
       ),
       NavigationItem(
-        icon: const Icon(Icons.storage),
+        icon: const Icon(Icons.database_outlined),
         label: PageLabel.resources,
         description: 'resourcesDesc',
         builder: (_) =>
@@ -58,7 +58,7 @@ class Navigation {
         modes: [NavigationItemMode.more],
       ),
       NavigationItem(
-        icon: const Icon(Icons.adb),
+        icon: const Icon(Icons.terminal_rounded),
         label: PageLabel.logs,
         builder: (_) => const LogsView(key: GlobalObjectKey(PageLabel.logs)),
         description: 'logsDesc',
@@ -67,7 +67,7 @@ class Navigation {
             : [],
       ),
       NavigationItem(
-        icon: const Icon(Icons.construction),
+        icon: const Icon(Icons.tune_rounded),
         label: PageLabel.tools,
         builder: (_) => const ToolsView(key: GlobalObjectKey(PageLabel.tools)),
         modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],

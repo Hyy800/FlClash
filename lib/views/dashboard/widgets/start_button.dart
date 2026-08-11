@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -72,93 +74,150 @@ class _StartButtonState extends ConsumerState<StartButton>
       profilesProvider.select((state) => state.isNotEmpty),
     );
     if (!hasProfile) {
-      return Container();
+      return const SizedBox.shrink();
     }
     final suspend = ref.watch(suspendProvider);
-    final theme = Theme.of(context);
+    final colorScheme = context.colorScheme;
     final appLocalizations = context.appLocalizations;
     return RepaintBoundary(
-      child: Theme(
-        data: theme.copyWith(
-          floatingActionButtonTheme: theme.floatingActionButtonTheme.copyWith(
-            sizeConstraints: const BoxConstraints(minWidth: 56, maxWidth: 200),
-          ),
-        ),
-        child: AnimatedBuilder(
-          animation: _controller!.view,
-          builder: (_, child) {
-            final textWidth = suspend
-                ? globalState.measure
-                          .computeTextSize(
-                            Text(
-                              appLocalizations.suspended,
-                              style: context.textTheme.titleMedium,
-                            ),
-                          )
-                          .width +
-                      24
-                : globalState.measure
-                          .computeTextSize(
-                            Text(
-                              utils.getTimeDifference(DateTime.now()),
-                              style: context.textTheme.titleMedium?.toSoftBold,
-                            ),
-                          )
-                          .width +
-                      16;
-            return FloatingActionButton(
-              clipBehavior: Clip.antiAlias,
-              materialTapTargetSize: MaterialTapTargetSize.padded,
-              heroTag: null,
-              onPressed: () {
-                handleSwitchStart();
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 56,
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16 - 8 * _animation.value,
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedIcon(
-                      icon: AnimatedIcons.play_pause,
-                      progress: _animation,
-                    ),
+      child: AnimatedBuilder(
+        animation: _controller!.view,
+        builder: (_, child) {
+          final progress = _animation.value.clamp(0.0, 1.0).toDouble();
+          final activeColor = suspend
+              ? colorScheme.tertiary
+              : Color.lerp(
+                  const Color(0xFF18A978),
+                  colorScheme.primary,
+                  0.18,
+                )!;
+          final accentColor = Color.lerp(
+            colorScheme.primary,
+            activeColor,
+            progress,
+          )!;
+          final foregroundColor = Color.lerp(
+            colorScheme.onPrimaryContainer,
+            Colors.white,
+            progress,
+          )!;
+          final shape = RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(22),
+          );
+          return Semantics(
+            button: true,
+            toggled: isStart,
+            child: AnimatedContainer(
+              duration: midDuration,
+              curve: Curves.easeOutCubic,
+              constraints: const BoxConstraints(minHeight: 60),
+              decoration: ShapeDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    accentColor,
+                    Color.lerp(
+                      colorScheme.primaryContainer,
+                      activeColor.withAlpha(205),
+                      progress,
+                    )!,
+                  ],
+                ),
+                shape: shape.copyWith(
+                  side: BorderSide(color: Colors.white.withAlpha(42)),
+                ),
+                shadows: [
+                  BoxShadow(
+                    color: accentColor.withAlpha(80),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
                   ),
-                  SizedBox(width: textWidth * _animation.value, child: child!),
                 ],
               ),
-            );
-          },
-          child: suspend
-              ? Text(
-                  appLocalizations.suspended,
-                  maxLines: 1,
-                  overflow: TextOverflow.visible,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: context.colorScheme.onPrimaryContainer,
-                  ),
-                )
-              : Consumer(
-                  builder: (_, ref, _) {
-                    final runTime = ref.watch(runTimeProvider);
-                    final text = utils.getTimeText(runTime);
-                    return Text(
-                      text,
-                      maxLines: 1,
-                      overflow: TextOverflow.visible,
-                      style: Theme.of(context).textTheme.titleMedium?.toSoftBold
-                          .copyWith(
-                            color: context.colorScheme.onPrimaryContainer,
+              child: Material(
+                color: Colors.transparent,
+                clipBehavior: Clip.antiAlias,
+                shape: shape,
+                child: InkWell(
+                  customBorder: shape,
+                  onTap: handleSwitchStart,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(35),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: Colors.white.withAlpha(40),
+                            ),
                           ),
-                    );
-                  },
+                          child: IconTheme(
+                            data: IconThemeData(color: foregroundColor),
+                            child: AnimatedIcon(
+                              icon: AnimatedIcons.play_pause,
+                              progress: _animation,
+                            ),
+                          ),
+                        ),
+                        ClipRect(
+                          child: Align(
+                            widthFactor: progress,
+                            child: Opacity(
+                              opacity: progress,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 12,
+                                  right: 8,
+                                ),
+                                child: DefaultTextStyle(
+                                  style: context.textTheme.titleMedium!.copyWith(
+                                    color: foregroundColor,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                  child: child!,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+              ),
+            ),
+          );
+        },
+        child: suspend
+            ? Text(
+                appLocalizations.suspended,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
+              )
+            : Consumer(
+                builder: (_, ref, _) {
+                  final runTime = ref.watch(runTimeProvider);
+                  return Text(
+                    utils.getTimeText(runTime),
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                  );
+                },
+              ),
         ),
-      ),
     );
   }
 }

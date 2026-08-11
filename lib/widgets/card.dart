@@ -56,8 +56,9 @@ class InfoHeader extends StatelessWidget {
                       info.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: context.colorScheme.onSurfaceVariant,
+                        letterSpacing: 0.35,
                       ),
                     ),
                   ),
@@ -151,26 +152,19 @@ class CommonCard extends StatelessWidget {
 
   Color? _buildBackgroundColor(BuildContext context) {
     final colorScheme = context.colorScheme;
-    // if (isError) {
-    //   if (type == CommonCardType.filled) {
-    //     return isSelected
-    //         ? colorScheme.errorContainer.opacity80
-    //         : colorScheme.errorContainer;
-    //   }
-    //   return isSelected
-    //       ? colorScheme.errorContainer.opacity60
-    //       : colorScheme.errorContainer.opacity12;
-    // }
+    if (isError) {
+      return colorScheme.errorContainer.withAlpha(isSelected ? 220 : 145);
+    }
     if (type == CommonCardType.filled) {
       if (isSelected) {
-        return colorScheme.secondaryContainer.opacity80;
+        return colorScheme.primaryContainer;
       }
-      return colorScheme.surfaceContainerHigh;
+      return colorScheme.surfaceContainerHigh.withAlpha(230);
     }
     if (isSelected) {
-      return colorScheme.secondaryContainer;
+      return colorScheme.primaryContainer.withAlpha(225);
     }
-    return colorScheme.surfaceContainerLow;
+    return colorScheme.surfaceContainerLow.withAlpha(218);
   }
 
   Color? _buildForegroundColor(BuildContext context) {
@@ -180,12 +174,12 @@ class CommonCard extends StatelessWidget {
     }
     if (type == CommonCardType.filled) {
       if (isSelected) {
-        return colorScheme.onSecondaryContainer;
+        return colorScheme.onPrimaryContainer;
       }
       return colorScheme.onSurfaceVariant;
     }
     if (isSelected) {
-      return colorScheme.onSecondaryContainer;
+      return colorScheme.onPrimaryContainer;
     }
     return colorScheme.onSurfaceVariant;
   }
@@ -222,59 +216,58 @@ class CommonCard extends StatelessWidget {
       childWidget = Stack(children: children);
     }
 
-    final card = switch (type == CommonCardType.filled) {
-      true => FilledButton(
-        onLongPress: onLongPress,
+    final colorScheme = context.colorScheme;
+    final cardShape = (shape ??
+            RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(radius ?? 22),
+            ))
+        .copyWith(side: _buildBorderSide(context, const <WidgetState>{}));
+    final backgroundColor = _buildBackgroundColor(context)!;
+    final secondaryColor = isSelected
+        ? colorScheme.secondaryContainer.withAlpha(205)
+        : colorScheme.surfaceContainer.withAlpha(205);
+    final foregroundColor = _buildForegroundColor(context)!;
+    final card = AnimatedContainer(
+      duration: midDuration,
+      curve: Curves.easeOutCubic,
+      decoration: ShapeDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [backgroundColor, secondaryColor],
+        ),
+        shape: cardShape,
+        shadows: [
+          BoxShadow(
+            color: colorScheme.shadow.withAlpha(
+              colorScheme.brightness == Brightness.dark ? 50 : 18,
+            ),
+            blurRadius: isSelected ? 24 : 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
         clipBehavior: Clip.antiAlias,
-        style:
-            FilledButton.styleFrom(
-              padding: padding ?? EdgeInsets.zero,
-              shape:
-                  shape ??
-                  RoundedSuperellipseBorder(
-                    borderRadius: BorderRadius.circular(radius ?? 14),
-                  ),
-              iconSize: 20,
-              iconColor: _buildIconColor(context),
-              foregroundColor: _buildForegroundColor(context),
-              side: BorderSide.none,
-              elevation: 0,
-            ).copyWith(
-              backgroundColor: WidgetStatePropertyAll(
-                _buildBackgroundColor(context),
-              ),
-              side: WidgetStateProperty.resolveWith(
-                (states) => _buildBorderSide(context, states),
+        shape: cardShape,
+        child: InkWell(
+          customBorder: cardShape,
+          onLongPress: onLongPress,
+          onTap: onPressed,
+          child: Padding(
+            padding: padding ?? EdgeInsets.zero,
+            child: IconTheme.merge(
+              data: IconThemeData(color: _buildIconColor(context), size: 20),
+              child: DefaultTextStyle.merge(
+                style: TextStyle(color: foregroundColor),
+                child: childWidget,
               ),
             ),
-        onPressed: onPressed,
-        child: childWidget,
+          ),
+        ),
       ),
-      false => OutlinedButton(
-        onLongPress: onLongPress,
-        clipBehavior: Clip.antiAlias,
-        style:
-            OutlinedButton.styleFrom(
-              padding: padding ?? EdgeInsets.zero,
-              shape:
-                  shape ??
-                  RoundedSuperellipseBorder(
-                    borderRadius: BorderRadius.circular(radius ?? 14),
-                  ),
-              iconSize: 20,
-              iconColor: _buildIconColor(context),
-              backgroundColor: _buildBackgroundColor(context),
-              foregroundColor: _buildForegroundColor(context),
-              elevation: 0,
-            ).copyWith(
-              side: WidgetStateProperty.resolveWith(
-                (states) => _buildBorderSide(context, states),
-              ),
-            ),
-        onPressed: onPressed,
-        child: childWidget,
-      ),
-    };
+    );
 
     return switch (enterAnimated) {
       true => FadeScaleEnterBox(child: card),
@@ -292,8 +285,8 @@ class SelectIcon extends StatelessWidget {
       color: Theme.of(context).colorScheme.inversePrimary,
       shape: const CircleBorder(),
       child: Container(
-        padding: const EdgeInsets.all(4),
-        child: const Icon(Icons.check, size: 16),
+        padding: const EdgeInsets.all(5),
+        child: const Icon(Icons.check_rounded, size: 16),
       ),
     );
   }
@@ -308,12 +301,12 @@ class SettingsBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         children: [
           InfoHeader(info: Info(label: title)),
-          Card(
-            color: context.colorScheme.surfaceContainer,
+          CommonCard(
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Column(children: settings),
           ),
         ],

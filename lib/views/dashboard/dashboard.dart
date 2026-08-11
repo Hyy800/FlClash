@@ -233,7 +233,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(dashboardStateProvider);
     final columns = max(4 * ((dashboardState.contentWidth / 280).ceil()), 8);
-    final spacing = 14.mAp;
+    final spacing = 16.mAp;
     final children = [
       ...dashboardState.dashboardWidgets
           .where(
@@ -259,7 +259,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         body: Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16).copyWith(bottom: 88),
+            padding: EdgeInsets.fromLTRB(
+              18.mAp,
+              18.mAp,
+              18.mAp,
+              104.mAp,
+            ),
             child: isEdit
                 ? SystemBackBlock(
                     child: CommonPopScope(

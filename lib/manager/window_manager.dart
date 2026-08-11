@@ -278,16 +278,31 @@ class AppIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.surfaceContainerHighest,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(14),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: context.colorScheme.primary.withAlpha(70),
         ),
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            context.colorScheme.primaryContainer,
+            context.colorScheme.tertiaryContainer,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.colorScheme.primary.withAlpha(35),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(9),
       child: Transform.translate(
         offset: const Offset(0, -1),
-        child: Image.asset('assets/images/icon.png', width: 34, height: 34),
+        child: Image.asset('assets/images/icon.png', width: 32, height: 32),
       ),
     );
   }

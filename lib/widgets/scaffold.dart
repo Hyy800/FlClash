@@ -91,10 +91,10 @@ class CommonScaffoldState extends State<CommonScaffold> {
     return Theme(
       data: theme.copyWith(
         appBarTheme: theme.appBarTheme.copyWith(
-          backgroundColor: colorScheme.brightness == Brightness.dark
-              ? Colors.grey[900]
-              : Colors.white,
-          iconTheme: theme.primaryIconTheme.copyWith(color: Colors.grey),
+          backgroundColor: colorScheme.surfaceContainerLow.withAlpha(245),
+          iconTheme: theme.iconTheme.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
           titleTextStyle: theme.textTheme.titleLarge,
           toolbarTextStyle: theme.textTheme.bodyMedium,
         ),
@@ -261,7 +261,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
 
   PreferredSizeWidget _buildAppBar(VoidCallback? backAction) {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(kToolbarHeight),
+      preferredSize: const Size.fromHeight(82),
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -292,9 +292,21 @@ class CommonScaffoldState extends State<CommonScaffold> {
             valueListenable: _loadingNotifier,
             builder: (_, value, _) {
               return value == true
-                  ? const LinearProgressIndicator()
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 18),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.all(Radius.circular(2)),
+                        child: LinearProgressIndicator(minHeight: 3),
+                      ),
+                    )
                   : Container();
             },
+          ),
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: 0,
+            child: Divider(color: context.colorScheme.outlineVariant),
           ),
         ],
       ),
@@ -360,7 +372,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
         },
       ),
       resizeToAvoidBottomInset: widget.resizeToAvoidBottomInset,
-      backgroundColor: widget.backgroundColor,
+      backgroundColor: widget.backgroundColor ?? Colors.transparent,
       floatingActionButton: widget.floatingActionButton != null
           ? ValueListenableBuilder<bool>(
               valueListenable: _isFabExtendedNotifier,

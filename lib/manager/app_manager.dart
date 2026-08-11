@@ -157,23 +157,6 @@ class AppSidebarContainer extends ConsumerWidget {
   //   );
   // }
 
-  Widget _buildBackground({
-    required BuildContext context,
-    required Widget child,
-  }) {
-    return Material(color: context.colorScheme.surfaceContainer, child: child);
-    // if (!system.isMacOS) {
-    //   return Material(
-    //     color: context.colorScheme.surfaceContainer,
-    //     child: child,
-    //   );
-    // }
-    // return child;
-    // return TransparentMacOSSidebar(
-    //   child: Material(color: Colors.transparent, child: child),
-    // );
-  }
-
   void _updateSideBarWidth(WidgetRef ref, double contentWidth) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(sideWidthProvider.notifier).value =
@@ -200,75 +183,108 @@ class AppSidebarContainer extends ConsumerWidget {
     final showLabel = ref.watch(appSettingProvider).showLabel;
     return Row(
       children: [
-        _buildBackground(
-          context: context,
+        AnimatedContainer(
+          duration: midDuration,
+          curve: Curves.easeOutCubic,
+          width: showLabel ? 236 : 88,
+          margin: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: context.colorScheme.outlineVariant.withAlpha(120),
+            ),
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                context.colorScheme.surfaceContainerHigh.withAlpha(225),
+                context.colorScheme.surfaceContainerLow.withAlpha(210),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: context.colorScheme.shadow.withAlpha(60),
+                blurRadius: 36,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
           child: SafeArea(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (system.isMacOS) const SizedBox(height: 22),
-                const SizedBox(height: 10),
-                if (!system.isMacOS) ...[
-                  const ClipRect(child: AppIcon()),
-                  const SizedBox(height: 12),
-                ],
-                Expanded(
-                  child: ScrollConfiguration(
-                    behavior: HiddenBarScrollBehavior(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                if (system.isMacOS) const SizedBox(height: 18),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: showLabel ? 4 : 2,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: showLabel
+                        ? MainAxisAlignment.start
+                        : MainAxisAlignment.center,
+                    children: [
+                      if (!system.isMacOS) const AppIcon(),
+                      if (showLabel && !system.isMacOS) ...[
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: NavigationRail(
-                            scrollable: true,
-                            minExtendedWidth: 200,
-                            backgroundColor: Colors.transparent,
-                            selectedLabelTextStyle: context
-                                .textTheme
-                                .labelLarge!
-                                .copyWith(color: context.colorScheme.onSurface),
-                            unselectedLabelTextStyle: context
-                                .textTheme
-                                .labelLarge!
-                                .copyWith(color: context.colorScheme.onSurface),
-                            destinations: navigationItems
-                                .map(
-                                  (e) => NavigationRailDestination(
-                                    icon: e.icon,
-                                    label: Text(Intl.message(e.label.name)),
-                                  ),
-                                )
-                                .toList(),
-                            onDestinationSelected: (index) {
-                              _handleToPage(navigationItems[index].label);
-                            },
-                            extended: false,
-                            selectedIndex: currentIndex,
-                            labelType: showLabel
-                                ? NavigationRailLabelType.all
-                                : NavigationRailLabelType.none,
+                          child: Text(
+                            appName,
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            style: context.textTheme.titleLarge,
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ScrollConfiguration(
+                    behavior: HiddenBarScrollBehavior(),
+                    child: ListView.separated(
+                      padding: EdgeInsets.zero,
+                      itemCount: navigationItems.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      itemBuilder: (context, index) {
+                        final item = navigationItems[index];
+                        return _AppSidebarItem(
+                          item: item,
+                          isSelected: currentIndex == index,
+                          showLabel: showLabel,
+                          onPressed: () {
+                            _handleToPage(item.label);
+                          },
+                        );
+                      },
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                IconButton(
-                  onPressed: () {
-                    ref
-                        .read(appSettingProvider.notifier)
-                        .update(
-                          (state) =>
-                              state.copyWith(showLabel: !state.showLabel),
-                        );
-                  },
-                  icon: Icon(
-                    Icons.menu,
-                    color: context.colorScheme.onSurfaceVariant,
+                const SizedBox(height: 10),
+                Divider(color: context.colorScheme.outlineVariant),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: showLabel
+                      ? Alignment.centerRight
+                      : Alignment.center,
+                  child: IconButton(
+                    tooltip: showLabel ? null : appName,
+                    onPressed: () {
+                      ref
+                          .read(appSettingProvider.notifier)
+                          .update(
+                            (state) =>
+                                state.copyWith(showLabel: !state.showLabel),
+                          );
+                    },
+                    icon: Icon(
+                      showLabel
+                          ? Icons.keyboard_double_arrow_left_rounded
+                          : Icons.keyboard_double_arrow_right_rounded,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
               ],
             ),
           ),
@@ -286,5 +302,84 @@ class AppSidebarContainer extends ConsumerWidget {
         ),
       ],
     );
+  }
+}
+
+class _AppSidebarItem extends StatelessWidget {
+  final NavigationItem item;
+  final bool isSelected;
+  final bool showLabel;
+  final VoidCallback onPressed;
+
+  const _AppSidebarItem({
+    required this.item,
+    required this.isSelected,
+    required this.showLabel,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    final foregroundColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final content = Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: midDuration,
+            curve: Curves.easeOutCubic,
+            height: 54,
+            padding: EdgeInsets.symmetric(horizontal: showLabel ? 14 : 10),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isSelected
+                    ? colorScheme.primary.withAlpha(70)
+                    : Colors.transparent,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              gradient: isSelected
+                  ? LinearGradient(
+                      colors: [
+                        colorScheme.primaryContainer,
+                        colorScheme.secondaryContainer.withAlpha(210),
+                      ],
+                    )
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: showLabel
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                IconTheme(
+                  data: IconThemeData(color: foregroundColor, size: 22),
+                  child: item.icon,
+                ),
+                if (showLabel) ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      Intl.message(item.label.name),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.labelLarge?.copyWith(
+                        color: foregroundColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+    );
+    if (showLabel) {
+      return content;
+    }
+    return Tooltip(message: Intl.message(item.label.name), child: content);
   }
 }
