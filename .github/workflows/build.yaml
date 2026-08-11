@@ -106,10 +106,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Use CocoaPods for macOS plugins
-        if: matrix.platform == 'macos'
-        run: flutter config --no-enable-swift-package-manager
-
       - name: Setup Xcode
         if: matrix.platform == 'macos'
         run: |
@@ -130,7 +126,22 @@ jobs:
           flutter pub get
 
       - name: Build package
+        if: matrix.platform != 'macos'
         run: dart setup.dart ${{ matrix.platform }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v
+
+      - name: Build macOS package
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          for attempt in 1 2; do
+            if dart setup.dart macos ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              exit 1
+            fi
+            echo '::warning::macOS build failed; retrying once.'
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
