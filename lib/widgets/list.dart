@@ -279,6 +279,28 @@ class ListItem<T> extends StatelessWidget {
     return Builder(
       builder: (context) {
         final colorScheme = context.colorScheme;
+        final listTile = ListTile(
+          dense: dense,
+          visualDensity: visualDensity,
+          titleTextStyle: titleTextStyle,
+          subtitleTextStyle: subtitleTextStyle,
+          leading: leading ?? this.leading,
+          horizontalTitleGap: horizontalTitleGap,
+          title: title,
+          minTileHeight: minTileHeight,
+          minVerticalPadding: minVerticalPadding,
+          subtitle: subtitle,
+          titleAlignment: tileTitleAlignment,
+          onTap: onTap,
+          trailing: trailing ?? this.trailing,
+          contentPadding: padding,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
+        if (CommonCardScope.isInside(context)) {
+          return KeyedSubtree(key: key, child: listTile);
+        }
         return Padding(
           key: key,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -291,25 +313,7 @@ class ListItem<T> extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: ListTile(
-              dense: dense,
-              visualDensity: visualDensity,
-              titleTextStyle: titleTextStyle,
-              subtitleTextStyle: subtitleTextStyle,
-              leading: leading ?? this.leading,
-              horizontalTitleGap: horizontalTitleGap,
-              title: title,
-              minTileHeight: minTileHeight,
-              minVerticalPadding: minVerticalPadding,
-              subtitle: subtitle,
-              titleAlignment: tileTitleAlignment,
-              onTap: onTap,
-              trailing: trailing ?? this.trailing,
-              contentPadding: padding,
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+            child: listTile,
           ),
         );
       },

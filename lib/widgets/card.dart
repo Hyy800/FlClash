@@ -6,6 +6,18 @@ import 'package:flutter/material.dart';
 import 'fade_box.dart';
 import 'text.dart';
 
+class CommonCardScope extends InheritedWidget {
+  const CommonCardScope({super.key, required super.child});
+
+  static bool isInside(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<CommonCardScope>() !=
+        null;
+  }
+
+  @override
+  bool updateShouldNotify(CommonCardScope oldWidget) => false;
+}
+
 class Info {
   final String label;
   final IconData? iconData;
@@ -265,7 +277,7 @@ class CommonCard extends StatelessWidget {
               data: IconThemeData(color: _buildIconColor(context), size: 20),
               child: DefaultTextStyle.merge(
                 style: TextStyle(color: foregroundColor),
-                child: childWidget,
+                child: CommonCardScope(child: childWidget),
               ),
             ),
           ),

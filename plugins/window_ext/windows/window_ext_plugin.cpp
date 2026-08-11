@@ -18,6 +18,18 @@
 #define DWMWA_WINDOW_CORNER_PREFERENCE 33
 #endif
 
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+
+#ifndef DWMWA_COLOR_NONE
+#define DWMWA_COLOR_NONE 0xFFFFFFFE
+#endif
+
 #ifndef DWMWCP_DONOTROUND
 #define DWMWCP_DONOTROUND 1
 #endif
@@ -143,6 +155,30 @@ void WindowExtPlugin::HandleMethodCall(
             use_region_rounding_ = false;
           }
         }
+      }
+    }
+    result->Success();
+  } else if (method_call.method_name().compare("setWindowBrightness") == 0) {
+    HWND hWnd = ::GetAncestor(registrar->GetView()->GetNativeWindow(), GA_ROOT);
+    const auto *args =
+        std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (hWnd && args) {
+      auto dark_it = args->find(flutter::EncodableValue("dark"));
+      if (dark_it != args->end()) {
+        const BOOL dark = std::get<bool>(dark_it->second) ? TRUE : FALSE;
+        DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
+                              sizeof(dark));
+        const COLORREF no_border = DWMWA_COLOR_NONE;
+        const HRESULT border_status = DwmSetWindowAttribute(
+            hWnd, DWMWA_BORDER_COLOR, &no_border, sizeof(no_border));
+        if (FAILED(border_status)) {
+          const COLORREF fallback_border =
+              dark ? RGB(23, 23, 20) : RGB(243, 238, 230);
+          DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, &fallback_border,
+                                sizeof(fallback_border));
+        }
+        RedrawWindow(hWnd, nullptr, nullptr,
+                     RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);
       }
     }
     result->Success();

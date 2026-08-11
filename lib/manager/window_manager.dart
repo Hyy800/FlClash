@@ -28,6 +28,13 @@ class _WindowContainerState extends ConsumerState<WindowManager>
   @override
   void initState() {
     super.initState();
+    ref.listenManual(currentBrightnessProvider, (_, next) {
+      if (system.isWindows) {
+        windowExtManager.setWindowBrightness(
+          dark: next == Brightness.dark,
+        );
+      }
+    }, fireImmediately: true);
     ref.listenManual(appSettingProvider.select((state) => state.autoLaunch), (
       prev,
       next,

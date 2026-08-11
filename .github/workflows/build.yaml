@@ -46,11 +46,43 @@ jobs:
         run: flutter test --reporter expanded
 
   build:
-    name: Build windows amd64
+    name: Build ${{ matrix.platform }} ${{ matrix.arch || 'all' }}
     needs: test
-    runs-on: windows-2022
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-latest
+          - platform: windows
+            os: windows-2022
+            arch: amd64
+          - platform: windows
+            os: windows-11-arm
+            arch: arm64
+          - platform: linux
+            os: ubuntu-22.04
+            arch: amd64
+          - platform: linux
+            os: ubuntu-24.04-arm
+            arch: arm64
+          - platform: macos
+            os: macos-15-intel
+            arch: amd64
+          - platform: macos
+            os: macos-latest
+            arch: arm64
 
     steps:
+      - name: Setup Rust on Windows ARM64
+        if: startsWith(matrix.os, 'windows-11-arm')
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://win.rustup.rs/aarch64" -OutFile rustup-init.exe
+          .\rustup-init.exe -y --default-toolchain stable
+          Add-Content $env:GITHUB_PATH "$env:USERPROFILE\.cargo\bin"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -63,6 +95,7 @@ jobs:
           cache-dependency-path: core/go.sum
 
       - name: Enable Git long paths
+        if: startsWith(matrix.os, 'windows')
         run: git config --global core.longpaths true
 
       - name: Setup Flutter
@@ -72,18 +105,32 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
+      - name: Setup Xcode
+        if: matrix.platform == 'macos'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app || sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
+
+      - name: Setup Android NDK
+        if: matrix.platform == 'android'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28c
+          add-to-path: true
+          link-to-sdk: true
+
       - name: Install Flutter dependencies
         run: |
           flutter --version
           flutter pub get
 
       - name: Build package
-        run: dart setup.dart windows ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v
+        run: dart setup.dart ${{ matrix.platform }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: FlClash-windows-amd64
+          name: FlClash-${{ matrix.platform }}-${{ matrix.arch || 'all' }}
           path: dist/
           if-no-files-found: error
           retention-days: 14

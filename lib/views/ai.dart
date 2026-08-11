@@ -329,10 +329,13 @@ class _AiViewState extends ConsumerState<AiView> {
       if (mounted) setState(() => _streamedText = '');
       return;
     }
+    setState(() {
+      _streamedText = '';
+      _pendingDelta = '';
+    });
     await ref
         .read(aiSessionsProvider.notifier)
         .addMessage(sessionId, AiChatMessage(role: 'assistant', content: reply));
-    if (mounted) setState(() => _streamedText = '');
     _scrollToBottom();
   }
 

@@ -32,6 +32,7 @@ class Window {
     final WindowOptions windowOptions = WindowOptions(
       size: props.size,
       minimumSize: const Size(380, 400),
+      backgroundColor: Colors.transparent,
     );
     if (!system.isMacOS || version > 10) {
       await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
@@ -42,6 +43,11 @@ class Window {
       await windowManager.setPreventClose(true);
       if (system.isWindows) {
         await windowExtManager.setWindowCornerPreference(round: true);
+        await windowExtManager.setWindowBrightness(
+          dark: WidgetsBinding
+                  .instance.platformDispatcher.platformBrightness ==
+              Brightness.dark,
+        );
       }
     });
   }

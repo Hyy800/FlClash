@@ -146,7 +146,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                       mainAxisSpacing: spacing,
                       crossAxisSpacing: spacing,
                       crossAxisCount: state.columns,
-                      mainAxisExtent: 124,
+                      mainAxisExtent: 148,
                       children: [
                         for (int i = 0; i < state.profiles.length; i++)
                           GridItem(

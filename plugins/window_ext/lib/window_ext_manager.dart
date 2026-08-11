@@ -45,6 +45,10 @@ class WindowExtManager {
       'round': round,
     });
   }
+
+  Future<void> setWindowBrightness({required bool dark}) async {
+    await _channel.invokeMethod('setWindowBrightness', {'dark': dark});
+  }
 }
 
 final windowExtManager = WindowExtManager.instance;
