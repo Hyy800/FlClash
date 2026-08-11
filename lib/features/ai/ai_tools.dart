@@ -29,6 +29,7 @@ class AiToolExecutor {
       'switch_profile' => _switchProfile(call.arguments),
       'list_proxy_groups' => _listProxyGroups(),
       'switch_proxy' => _switchProxy(call.arguments),
+      'test_proxy_delays' => _testProxyDelays(call.arguments),
       'set_running' => _setRunning(call.arguments),
       'set_global_overwrite_profile' => _setGlobalOverwriteProfile(
         call.arguments,
@@ -203,6 +204,91 @@ class AiToolExecutor {
         .read(proxiesActionProvider.notifier)
         .changeProxy(groupName: groupName, proxyName: proxyName);
     return {'ok': true, 'group_name': groupName, 'proxy_name': proxyName};
+  }
+
+  Future<Map<String, dynamic>> _testProxyDelays(
+    Map<String, dynamic> arguments,
+  ) async {
+    final container = globalState.container;
+    final groups = container.read(currentGroupsStateProvider).value;
+    if (groups.isEmpty) {
+      return {'ok': false, 'error': 'No proxy groups are available.'};
+    }
+    final requestedGroup = arguments['group_name']?.toString().trim() ?? '';
+    final currentGroupName = container
+        .read(currentProfileProvider)
+        ?.currentGroupName;
+    final fallbackGroup = groups.getGroup(currentGroupName ?? '') ?? groups.first;
+    final group = requestedGroup.isEmpty
+        ? fallbackGroup
+        : groups.getGroup(requestedGroup);
+    if (group == null) {
+      return {
+        'ok': false,
+        'error': 'Proxy group $requestedGroup was not found.',
+      };
+    }
+    final proxyNames = arguments['proxy_names'];
+    if (proxyNames != null && proxyNames is! List) {
+      return {'ok': false, 'error': 'proxy_names must be an array.'};
+    }
+    final requestedNames = (proxyNames as List? ?? const [])
+        .map((item) => item.toString())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final proxies = group.all
+        .where(
+          (proxy) => requestedNames.isEmpty || requestedNames.contains(proxy.name),
+        )
+        .take(100)
+        .toList();
+    if (proxies.isEmpty) {
+      return {'ok': false, 'error': 'No matching proxies were found.'};
+    }
+    final testUrl = container.read(realTestUrlProvider(group.testUrl));
+    final results = <Map<String, dynamic>>[];
+    for (final batch in proxies.batch(20)) {
+      final values = await Future.wait(
+        batch.map((proxy) async {
+          try {
+            final delay = await coreController.getDelay(testUrl, proxy.name);
+            container.read(proxiesActionProvider.notifier).setDelay(delay);
+            final delayValue = delay.value ?? -1;
+            return <String, dynamic>{
+              'name': proxy.name,
+              'delay_ms': delayValue,
+              'available': delayValue > 0,
+            };
+          } catch (error) {
+            return <String, dynamic>{
+              'name': proxy.name,
+              'delay_ms': -1,
+              'available': false,
+              'error': error.toString(),
+            };
+          }
+        }),
+      );
+      results.addAll(values);
+    }
+    results.sort((a, b) {
+      final aDelay = a['delay_ms'] as int;
+      final bDelay = b['delay_ms'] as int;
+      if (aDelay <= 0 && bDelay > 0) return 1;
+      if (bDelay <= 0 && aDelay > 0) return -1;
+      return aDelay.compareTo(bDelay);
+    });
+    container.read(sortNumProvider.notifier).add();
+    final fastest = results.where((item) => item['available'] == true).firstOrNull;
+    return {
+      'ok': true,
+      'group_name': group.name,
+      'test_url': testUrl,
+      'results': results,
+      'fastest': fastest,
+      'tested': results.length,
+      'truncated': proxies.length < group.all.length && requestedNames.isEmpty,
+    };
   }
 
   Future<Map<String, dynamic>> _setRunning(

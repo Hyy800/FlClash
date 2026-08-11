@@ -680,7 +680,7 @@ class AiApiService {
 }
 
 class AiAgent {
-  static const maxToolRounds = 8;
+  static const maxToolRounds = 12;
   final AiApiService service;
 
   const AiAgent(this.service);
@@ -800,6 +800,14 @@ tool result confirms it. Validate YAML before creating or replacing a profile.
 Destructive or security-sensitive tools require in-app confirmation; if denied,
 do not retry to bypass confirmation. Never reveal API keys or request arbitrary
 shell, code execution, reflection, or unrestricted file access.
+
+Persist until the requested application task is complete. If a registered tool
+can perform the next step, call it instead of asking the user to do that step in
+the UI. For multi-step work, inspect state, perform every required action, and
+verify the final state before replying. Pause only when a confirmation was
+denied, required information is genuinely missing, or no registered capability
+can perform the action. Never stop merely because a previous observation was
+empty; refresh or use the relevant diagnostic tool.
 ''';
 
 const aiToolDefinitions = <Map<String, dynamic>>[
@@ -849,6 +857,20 @@ const aiToolDefinitions = <Map<String, dynamic>>[
       'name': 'switch_proxy',
       'description': 'Select a proxy node in one proxy group.',
       'parameters': {'type': 'object', 'properties': {'group_name': {'type': 'string'}, 'proxy_name': {'type': 'string'}}, 'required': ['group_name', 'proxy_name']},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'test_proxy_delays',
+      'description': 'Actively test proxy delays for a group or selected proxy names and return sorted live results.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'group_name': {'type': 'string'},
+          'proxy_names': {'type': 'array', 'items': {'type': 'string'}},
+        },
+      },
     },
   },
   {

@@ -189,4 +189,13 @@ void main() {
 
     expect(AiConfig.fromJson(config.toJson()).toJson(), config.toJson());
   });
+
+  test('agent exposes delay testing and persistence guidance', () {
+    final toolNames = aiToolDefinitions
+        .map((tool) => tool['function'] as Map<String, dynamic>)
+        .map((function) => function['name'])
+        .toSet();
+    expect(toolNames, contains('test_proxy_delays'));
+    expect(aiSystemPrompt, contains('Persist until'));
+  });
 }
