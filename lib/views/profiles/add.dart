@@ -144,7 +144,7 @@ class _URLFormDialogState extends State<URLFormDialog> {
               minLines: 1,
               maxLines: 5,
               inputFormatters: TextInputLimits.limit(TextInputLimits.url),
-              onSubmitted: (_) {
+              onFieldSubmitted: (_) {
                 _handleAddProfileFormURL();
               },
               controller: _urlController,

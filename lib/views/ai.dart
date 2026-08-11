@@ -128,9 +128,10 @@ class _AiViewState extends ConsumerState<AiView> {
       await _service.testModel(_draftConfig());
       return true;
     });
-    if (result == true && mounted) {
-      globalState.showNotifier(context.appLocalizations.connected);
+    if (result != true || !mounted) {
+      return;
     }
+    globalState.showNotifier(context.appLocalizations.connected);
   }
 
   Future<bool> _confirmTool(String action, String details) async {

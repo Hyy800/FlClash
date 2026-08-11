@@ -427,9 +427,7 @@ class _RailExpandButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = isExpanded
-        ? context.appLocalizations.back
-        : context.appLocalizations.more;
+    final label = context.appLocalizations.more;
     return Tooltip(
       message: label,
       child: SizedBox(

@@ -88,6 +88,9 @@ class _EditProfileViewState extends State<EditProfileView> {
           profile.id,
           _useCustomUserAgent ? _userAgentController.text : '',
         );
+    if (!mounted) {
+      return;
+    }
     final hasUpdate = widget.profile.url != profile.url;
     if (_fileData != null) {
       if (profile.type == ProfileType.url && _autoUpdate) {
