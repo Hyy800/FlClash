@@ -11,10 +11,12 @@ class Preferences {
   static const _globalOverwriteProfileIdKey = 'globalOverwriteProfileId';
   static const _profileUserAgentsKey = 'profileUserAgents';
   static const _aiConfigKey = 'aiConfig';
+  static const _aiSessionsKey = 'aiSessions';
   Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
   int? _globalOverwriteProfileId;
   Map<int, String> _profileUserAgents = const {};
   AiConfig _aiConfig = const AiConfig();
+  AiSessionStore _aiSessionStore = AiSessionStore.initial();
 
   Future<bool> get isInit async =>
       await sharedPreferencesCompleter.future != null;
@@ -113,6 +115,28 @@ class Preferences {
     _aiConfig = value;
     final preferences = await sharedPreferencesCompleter.future;
     await preferences?.setString(_aiConfigKey, json.encode(value.toJson()));
+  }
+
+  AiSessionStore get aiSessionStore => _aiSessionStore;
+
+  Future<void> loadAiSessions() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    try {
+      final rawValue = preferences?.getString(_aiSessionsKey);
+      _aiSessionStore = rawValue == null
+          ? AiSessionStore.initial()
+          : AiSessionStore.fromJson(
+              Map<String, dynamic>.from(json.decode(rawValue) as Map),
+            );
+    } catch (_) {
+      _aiSessionStore = AiSessionStore.initial();
+    }
+  }
+
+  Future<void> setAiSessions(AiSessionStore value) async {
+    _aiSessionStore = value;
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setString(_aiSessionsKey, json.encode(value.toJson()));
   }
 
   Future<void> saveShareState(SharedState shareState) async {

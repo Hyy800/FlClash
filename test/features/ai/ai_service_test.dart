@@ -28,6 +28,15 @@ void main() {
         }),
         ['model-a', 'model-b'],
       );
+      expect(
+        AiApiService.parseModelIds({
+          'models': [
+            {'name': 'claude-b'},
+            {'id': 'claude-a'},
+          ],
+        }),
+        ['claude-a', 'claude-b'],
+      );
     });
 
     test('parses tool call arguments', () {
@@ -43,6 +52,130 @@ void main() {
       expect(call.name, 'switch_profile');
       expect(call.arguments, {'profile_id': 42});
     });
+
+    test('extracts text from compatible content shapes', () {
+      expect(
+        AiApiService.extractText([
+          {'type': 'text', 'text': 'hello'},
+          {'type': 'output_text', 'text': ' world'},
+        ]),
+        'hello world',
+      );
+      final result = AiApiService.parseChatCompletion({
+        'choices': [
+          {
+            'message': {'role': 'assistant', 'reasoning_content': 'reasoning'},
+          },
+        ],
+      });
+      expect(result.content, 'reasoning');
+    });
+
+    test('merges streamed tool call arguments', () {
+      final result = AiApiService.parseChatStream([
+        {
+          'choices': [
+            {
+              'delta': {
+                'tool_calls': [
+                  {
+                    'index': 0,
+                    'id': 'call_1',
+                    'function': {
+                      'name': 'switch_',
+                      'arguments': '{"profile_',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          'choices': [
+            {
+              'delta': {
+                'tool_calls': [
+                  {
+                    'index': 0,
+                    'function': {'name': 'profile', 'arguments': 'id":42}'},
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ]);
+      expect(result.toolCalls.single.name, 'switch_profile');
+      expect(result.toolCalls.single.arguments, {'profile_id': 42});
+    });
+
+    test('parses legacy function_call', () {
+      final result = AiApiService.parseChatCompletion({
+        'choices': [
+          {
+            'message': {
+              'function_call': {
+                'name': 'get_app_state',
+                'arguments': '{}',
+              },
+            },
+          },
+        ],
+      });
+      expect(result.toolCalls.single.name, 'get_app_state');
+    });
+
+    test('parses Responses streaming events', () {
+      final deltas = <String>[];
+      final result = AiApiService.parseResponsesStream(
+        [
+          {'type': 'response.output_text.delta', 'delta': 'hello'},
+          {
+            'type': 'response.output_item.added',
+            'item': {
+              'type': 'function_call',
+              'call_id': 'call_2',
+              'name': 'get_app_state',
+              'arguments': '',
+            },
+          },
+          {
+            'type': 'response.function_call_arguments.delta',
+            'call_id': 'call_2',
+            'delta': '{}',
+          },
+        ],
+        onDelta: deltas.add,
+      );
+      expect(result.content, 'hello');
+      expect(deltas, ['hello']);
+      expect(result.toolCalls.single.name, 'get_app_state');
+    });
+
+    test('parses Anthropic streaming events', () {
+      final result = AiApiService.parseAnthropicStream([
+        {
+          'type': 'content_block_start',
+          'index': 0,
+          'content_block': {
+            'type': 'tool_use',
+            'id': 'tool_1',
+            'name': 'switch_profile',
+          },
+        },
+        {
+          'type': 'content_block_delta',
+          'index': 0,
+          'delta': {
+            'type': 'input_json_delta',
+            'partial_json': '{"profile_id":7}',
+          },
+        },
+      ]);
+      expect(result.toolCalls.single.id, 'tool_1');
+      expect(result.toolCalls.single.arguments, {'profile_id': 7});
+    });
   });
 
   test('AiConfig round trips through json', () {
@@ -50,6 +183,8 @@ void main() {
       baseUrl: 'https://example.com/v1',
       apiKey: 'secret',
       model: 'model-a',
+      protocol: AiApiProtocol.openAiResponses,
+      cachedModels: ['model-a', 'model-b'],
     );
 
     expect(AiConfig.fromJson(config.toJson()).toJson(), config.toJson());

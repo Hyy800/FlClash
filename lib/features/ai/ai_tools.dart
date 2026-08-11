@@ -23,6 +23,7 @@ class AiToolExecutor {
 
   Future<Map<String, dynamic>> execute(AiToolCall call) async {
     return switch (call.name) {
+      'list_capabilities' => _listCapabilities(),
       'get_app_state' => _getAppState(),
       'list_profiles' => _listProfiles(),
       'switch_profile' => _switchProfile(call.arguments),
@@ -36,12 +37,48 @@ class AiToolExecutor {
       'update_profile_subscription' => _updateProfileSubscription(
         call.arguments,
       ),
+      'rename_profile' => _renameProfile(call.arguments),
+      'delete_profile' => _deleteProfile(call.arguments),
+      'restart_core' => _restartCore(),
+      'close_connections' => _closeConnections(),
+      'refresh_proxy_groups' => _refreshProxyGroups(),
+      'update_all_profiles' => _updateAllProfiles(),
+      'clear_logs_and_requests' => _clearLogsAndRequests(),
       'get_profile_yaml' => _getProfileYaml(call.arguments),
       'validate_yaml' => _validateYaml(call.arguments),
       'create_profile_yaml' => _createProfileYaml(call.arguments),
       'replace_profile_yaml' => _replaceProfileYaml(call.arguments),
       'update_settings' => _updateSettings(call.arguments),
       _ => {'ok': false, 'error': 'Unknown tool: ${call.name}'},
+    };
+  }
+
+  Map<String, dynamic> _listCapabilities() {
+    const sensitive = {
+      'set_running',
+      'create_profile_yaml',
+      'replace_profile_yaml',
+      'update_settings',
+      'delete_profile',
+      'restart_core',
+      'close_connections',
+      'clear_logs_and_requests',
+    };
+    return {
+      'ok': true,
+      'capabilities': aiToolDefinitions.map((tool) {
+        final function = Map<String, dynamic>.from(
+          tool['function'] as Map? ?? const {},
+        );
+        final name = function['name']?.toString() ?? '';
+        return {
+          'name': name,
+          'description': function['description'],
+          'requires_confirmation': sensitive.contains(name),
+        };
+      }).toList(),
+      'security_boundary':
+          'No arbitrary shell, reflection, unrestricted code, or file access.',
     };
   }
 
@@ -115,9 +152,11 @@ class AiToolExecutor {
       return {'ok': false, 'error': 'Profile $profileId was not found.'};
     }
     container.read(currentProfileIdProvider.notifier).value = profileId;
-    await container
-        .read(setupActionProvider.notifier)
-        .applyProfile(force: true);
+    if (container.read(profilesProvider).isNotEmpty) {
+      await container
+          .read(setupActionProvider.notifier)
+          .applyProfile(force: true);
+    }
     return {'ok': true, 'profile_id': profileId, 'label': profile.realLabel};
   }
 
@@ -254,6 +293,89 @@ class AiToolExecutor {
         .read(profilesActionProvider.notifier)
         .updateProfile(profile, showLoading: true);
     return {'ok': true, 'profile_id': profileId};
+  }
+
+  Future<Map<String, dynamic>> _renameProfile(
+    Map<String, dynamic> arguments,
+  ) async {
+    final profileId = _readInt(arguments, 'profile_id');
+    final label = _readString(arguments, 'label');
+    final container = globalState.container;
+    final profile = container.read(profilesProvider).getProfile(profileId);
+    if (profile == null) {
+      return {'ok': false, 'error': 'Profile $profileId was not found.'};
+    }
+    container
+        .read(profilesActionProvider.notifier)
+        .putProfile(profile.copyWith(label: label));
+    return {'ok': true, 'profile_id': profileId, 'label': label};
+  }
+
+  Future<Map<String, dynamic>> _deleteProfile(
+    Map<String, dynamic> arguments,
+  ) async {
+    final profileId = _readInt(arguments, 'profile_id');
+    final container = globalState.container;
+    final profile = container.read(profilesProvider).getProfile(profileId);
+    if (profile == null) {
+      return {'ok': false, 'error': 'Profile $profileId was not found.'};
+    }
+    final approved = await confirm('delete_profile', profile.realLabel);
+    if (!approved) return {'ok': false, 'cancelled': true};
+    await container
+        .read(profilesActionProvider.notifier)
+        .deleteProfile(profileId);
+    if (container.read(profilesProvider).isNotEmpty) {
+      await container
+          .read(setupActionProvider.notifier)
+          .applyProfile(force: true);
+    }
+    return {'ok': true, 'profile_id': profileId};
+  }
+
+  Future<Map<String, dynamic>> _restartCore() async {
+    if (!await confirm('restart_core', 'Restart the FlClash core process.')) {
+      return {'ok': false, 'cancelled': true};
+    }
+    await globalState.container
+        .read(coreActionProvider.notifier)
+        .restartCore();
+    return {'ok': true};
+  }
+
+  Future<Map<String, dynamic>> _closeConnections() async {
+    if (!await confirm('close_connections', 'Close all active connections.')) {
+      return {'ok': false, 'cancelled': true};
+    }
+    await coreController.closeConnections();
+    return {'ok': true};
+  }
+
+  Future<Map<String, dynamic>> _refreshProxyGroups() async {
+    await globalState.container
+        .read(proxiesActionProvider.notifier)
+        .updateGroups();
+    return _listProxyGroups();
+  }
+
+  Future<Map<String, dynamic>> _updateAllProfiles() async {
+    await globalState.container
+        .read(profilesActionProvider.notifier)
+        .updateProfiles();
+    return _listProfiles();
+  }
+
+  Future<Map<String, dynamic>> _clearLogsAndRequests() async {
+    if (!await confirm(
+      'clear_logs_and_requests',
+      'Clear all in-memory logs and request records.',
+    )) {
+      return {'ok': false, 'cancelled': true};
+    }
+    final container = globalState.container;
+    container.read(logsProvider.notifier).value = FixedList(500);
+    container.read(requestsProvider.notifier).value = FixedList(500);
+    return {'ok': true};
   }
 
   Future<Map<String, dynamic>> _getProfileYaml(

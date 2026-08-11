@@ -121,6 +121,104 @@ class AiSetting extends Notifier<AiConfig> {
   }
 }
 
+final aiSessionsProvider =
+    NotifierProvider<AiSessions, AiSessionStore>(AiSessions.new);
+
+class AiSessions extends Notifier<AiSessionStore> {
+  @override
+  AiSessionStore build() => preferences.aiSessionStore;
+
+  Future<void> _save(AiSessionStore value) async {
+    state = value;
+    await preferences.setAiSessions(value);
+  }
+
+  Future<String> createSession() async {
+    final session = AiSession();
+    await _save(
+      AiSessionStore(
+        activeSessionId: session.id,
+        sessions: [session, ...state.sessions],
+      ),
+    );
+    return session.id;
+  }
+
+  Future<void> selectSession(String id) async {
+    if (id == state.activeSessionId ||
+        !state.sessions.any((session) => session.id == id)) {
+      return;
+    }
+    await _save(AiSessionStore(activeSessionId: id, sessions: state.sessions));
+  }
+
+  Future<void> renameSession(String id, String title) async {
+    final value = title.trim();
+    if (value.isEmpty) return;
+    await _save(
+      AiSessionStore(
+        activeSessionId: state.activeSessionId,
+        sessions: [
+          for (final session in state.sessions)
+            session.id == id ? session.copyWith(title: value) : session,
+        ],
+      ),
+    );
+  }
+
+  Future<void> deleteSession(String id) async {
+    final sessions = state.sessions
+        .where((session) => session.id != id)
+        .toList();
+    if (sessions.isEmpty) {
+      final session = AiSession();
+      await _save(
+        AiSessionStore(activeSessionId: session.id, sessions: [session]),
+      );
+      return;
+    }
+    await _save(
+      AiSessionStore(
+        activeSessionId: state.activeSessionId == id
+            ? sessions.first.id
+            : state.activeSessionId,
+        sessions: sessions,
+      ),
+    );
+  }
+
+  Future<void> addMessage(String sessionId, AiChatMessage message) async {
+    final session = state.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    if (session == null) return;
+    final shouldName = session.messages.isEmpty && message.role == 'user';
+    final title = shouldName
+        ? message.content.replaceAll(RegExp(r'\s+'), ' ').trim()
+        : session.title;
+    await replaceSession(
+      session.copyWith(
+        title: title.length > 28 ? '${title.substring(0, 28)}…' : title,
+        messages: [...session.messages, message],
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> replaceSession(AiSession session) async {
+    await _save(
+      AiSessionStore(
+        activeSessionId: state.activeSessionId,
+        sessions: [
+          session,
+          for (final item in state.sessions)
+            if (item.id != session.id) item,
+        ],
+      ),
+    );
+  }
+}
+
 @riverpod
 class DavSetting extends _$DavSetting with AutoDisposeNotifierMixin {
   @override
