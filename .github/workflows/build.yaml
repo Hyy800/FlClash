@@ -106,6 +106,10 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
+      - name: Use CocoaPods for macOS plugins
+        if: matrix.platform == 'macos'
+        run: flutter config --no-enable-swift-package-manager
+
       - name: Setup Xcode
         if: matrix.platform == 'macos'
         run: |
