@@ -7,7 +7,6 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/about.dart';
 import 'package:fl_clash/views/access.dart';
-import 'package:fl_clash/views/ai.dart';
 import 'package:fl_clash/views/application_setting.dart';
 import 'package:fl_clash/views/backup_and_restore.dart';
 import 'package:fl_clash/views/config/config.dart';
@@ -75,7 +74,6 @@ class _ToolViewState extends ConsumerState<ToolsView> {
     return generateSection(
       title: context.appLocalizations.settings,
       items: [
-        const _AiItem(),
         const _LocaleItem(),
         const _ThemeItem(),
         const _DnsItem(),
@@ -124,20 +122,6 @@ class _ToolViewState extends ConsumerState<ToolsView> {
         itemBuilder: (_, index) => items[index],
         padding: const EdgeInsets.only(bottom: 20),
       ),
-    );
-  }
-}
-
-class _AiItem extends StatelessWidget {
-  const _AiItem();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListItem.open(
-      leading: const Icon(Icons.auto_awesome_rounded),
-      title: const Text('AI'),
-      subtitle: const Text('OpenAI API'),
-      delegate: const OpenDelegate(widget: AiView(), blur: false),
     );
   }
 }

@@ -2,6 +2,11 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/views/views.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+String navigationLabel(PageLabel label) {
+  return label == PageLabel.ai ? 'AI' : Intl.message(label.name);
+}
 
 class Navigation {
   static Navigation? _instance;
@@ -65,6 +70,12 @@ class Navigation {
         modes: openLogs
             ? [NavigationItemMode.desktop, NavigationItemMode.more]
             : [],
+      ),
+      NavigationItem(
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: PageLabel.ai,
+        builder: (_) => const AiView(key: GlobalObjectKey(PageLabel.ai)),
+        modes: [NavigationItemMode.desktop],
       ),
       NavigationItem(
         icon: const Icon(Icons.tune_rounded),

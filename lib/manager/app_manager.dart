@@ -11,7 +11,6 @@ import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 class AppStateManager extends ConsumerStatefulWidget {
   final Widget child;
@@ -191,7 +190,7 @@ class _AppSidebarContainerState
               .clamp(300.0, 620.0)
               .toDouble();
           final railWidth = _isExpanded ? 196.0 : 72.0;
-          final contentLeft = railWidth - 24;
+          final contentLeft = railWidth + 12;
           return Center(
             child: SizedBox(
               width: groupWidth,
@@ -208,14 +207,11 @@ class _AppSidebarContainerState
                     bottom: 0,
                     child: AppGlassPanel(
                       borderRadius: BorderRadius.circular(34),
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 32),
-                        child: LayoutBuilder(
-                          builder: (_, contentConstraints) {
-                            _updateSideBarWidth(contentConstraints.maxWidth);
-                            return widget.child;
-                          },
-                        ),
+                      child: LayoutBuilder(
+                        builder: (_, contentConstraints) {
+                          _updateSideBarWidth(contentConstraints.maxWidth);
+                          return widget.child;
+                        },
                       ),
                     ),
                   ),
@@ -390,7 +386,7 @@ class _AppRailItemState extends State<_AppRailItem> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          Intl.message(widget.item.label.name),
+                          navigationLabel(widget.item.label),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: context.textTheme.labelLarge?.copyWith(
@@ -412,7 +408,10 @@ class _AppRailItemState extends State<_AppRailItem> {
     if (widget.showLabel) {
       return content;
     }
-    return Tooltip(message: Intl.message(widget.item.label.name), child: content);
+    return Tooltip(
+      message: navigationLabel(widget.item.label),
+      child: content,
+    );
   }
 }
 

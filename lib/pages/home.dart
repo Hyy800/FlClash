@@ -7,7 +7,6 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 typedef OnSelected = void Function(int index);
 
@@ -283,7 +282,7 @@ class _AppBottomDockItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    Intl.message(item.label.name),
+                    navigationLabel(item.label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.textTheme.labelSmall?.copyWith(
