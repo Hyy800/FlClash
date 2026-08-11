@@ -10,35 +10,35 @@ abstract final class AppTheme {
     final surface = isDark
         ? pureBlack
               ? const Color(0xFF000000)
-              : const Color(0xFF151512)
-        : const Color(0xFFE9E3DA);
+              : const Color(0xFF1B1B18)
+        : const Color(0xFFF3EFE8);
     final scheme = baseScheme.copyWith(
       surface: surface,
       surfaceContainerLowest: isDark
           ? pureBlack
               ? const Color(0xFF000000)
-                : const Color(0xFF11110E)
-          : const Color(0xFFF8F4EE),
+                : const Color(0xFF171714)
+          : const Color(0xFFFBF8F2),
       surfaceContainerLow: isDark
           ? pureBlack
               ? const Color(0xFF070707)
-                : const Color(0xFF22221E)
-          : const Color(0xFFF4EFE7),
+                : const Color(0xFF20201D)
+          : const Color(0xFFF7F3EC),
       surfaceContainer: isDark
           ? pureBlack
               ? const Color(0xFF0B0B0B)
-                : const Color(0xFF2B2A25)
-          : const Color(0xFFEAE3D9),
+                : const Color(0xFF262622)
+          : const Color(0xFFF0EBE3),
       surfaceContainerHigh: isDark
           ? pureBlack
               ? const Color(0xFF101010)
-                : const Color(0xFF35332D)
-          : const Color(0xFFDED6CA),
+                : const Color(0xFF2D2D28)
+          : const Color(0xFFE8E1D7),
       surfaceContainerHighest: isDark
           ? pureBlack
               ? const Color(0xFF171717)
-                : const Color(0xFF45423A)
-          : const Color(0xFFD2C8BB),
+                : const Color(0xFF363630)
+          : const Color(0xFFDED5C9),
       outline: isDark ? const Color(0xFF908B80) : const Color(0xFF756F66),
       outlineVariant: isDark
           ? const Color(0xFF555148)
@@ -92,10 +92,10 @@ abstract final class AppTheme {
       bodyLarge: baseTheme.textTheme.bodyLarge?.copyWith(height: 1.45),
       bodyMedium: baseTheme.textTheme.bodyMedium?.copyWith(height: 1.4),
     ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
-    final controlShape = RoundedSuperellipseBorder(
+    final controlShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
     );
-    final panelShape = RoundedSuperellipseBorder(
+    final panelShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(22),
     );
 
@@ -133,7 +133,7 @@ abstract final class AppTheme {
           minimumSize: const Size(44, 44),
           foregroundColor: scheme.onSurfaceVariant,
           backgroundColor: scheme.surfaceContainerHigh.withAlpha(150),
-          shape: RoundedSuperellipseBorder(
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
@@ -161,7 +161,7 @@ abstract final class AppTheme {
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           textStyle: textTheme.labelLarge,
-          shape: RoundedSuperellipseBorder(
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
         ),
@@ -173,7 +173,7 @@ abstract final class AppTheme {
         highlightElevation: 0,
         backgroundColor: scheme.primaryContainer,
         foregroundColor: scheme.onPrimaryContainer,
-        shape: RoundedSuperellipseBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
       ),
@@ -201,7 +201,7 @@ abstract final class AppTheme {
         side: BorderSide(color: scheme.outlineVariant),
         backgroundColor: scheme.surfaceContainerHigh.withAlpha(170),
         selectedColor: scheme.primaryContainer,
-        shape: RoundedSuperellipseBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
         labelStyle: textTheme.labelMedium,
@@ -211,7 +211,7 @@ abstract final class AppTheme {
         textColor: scheme.onSurface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
         minTileHeight: 58,
-        shape: RoundedSuperellipseBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
       ),
@@ -219,7 +219,7 @@ abstract final class AppTheme {
         elevation: 0,
         backgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedSuperellipseBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(28),
         ),
       ),
@@ -240,7 +240,7 @@ abstract final class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: scheme.onInverseSurface,
         ),
-        shape: RoundedSuperellipseBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
       ),
@@ -250,7 +250,7 @@ abstract final class AppTheme {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         indicatorColor: scheme.primaryContainer,
-        indicatorShape: RoundedSuperellipseBorder(
+        indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelSmall),

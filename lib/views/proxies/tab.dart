@@ -69,11 +69,24 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
     return Consumer(
       builder: (_, ref, _) {
         final isMobileView = ref.watch(isMobileViewProvider);
-        return IconButton(
-          onPressed: _showMoreMenu,
-          icon: isMobileView
-              ? const Icon(Icons.expand_more)
-              : const Icon(Icons.chevron_right),
+        return Material(
+          color: context.colorScheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(
+              color: context.colorScheme.outlineVariant.withAlpha(110),
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: IconButton(
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+            ),
+            onPressed: _showMoreMenu,
+            icon: isMobileView
+                ? const Icon(Icons.expand_more_rounded)
+                : const Icon(Icons.chevron_right_rounded),
+          ),
         );
       },
     );
@@ -224,19 +237,12 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
                 ],
               );
             },
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    context.colorScheme.surface.opacity10,
-                    context.colorScheme.surface,
-                  ],
-                  stops: const [0.0, 0.1],
-                ),
+            child: ColoredBox(
+              color: context.colorScheme.surfaceContainerLow,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: _buildMoreButton(),
               ),
-              child: _buildMoreButton(),
             ),
           ),
         ),

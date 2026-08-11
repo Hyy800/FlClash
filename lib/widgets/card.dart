@@ -228,7 +228,7 @@ class CommonCard extends StatelessWidget {
 
     final colorScheme = context.colorScheme;
     final cardShape = (shape ??
-            RoundedSuperellipseBorder(
+            RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radius ?? 20),
             ))
         .copyWith(side: _buildBorderSide(context, const <WidgetState>{}));
@@ -240,15 +240,16 @@ class CommonCard extends StatelessWidget {
       decoration: ShapeDecoration(
         color: backgroundColor,
         shape: cardShape,
-        shadows: [
-          BoxShadow(
-            color: colorScheme.shadow.withAlpha(
-              colorScheme.brightness == Brightness.dark ? 50 : 18,
-            ),
-            blurRadius: isSelected ? 20 : 12,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        shadows: isSelected
+            ? [
+                BoxShadow(
+                  color: colorScheme.primary.withAlpha(30),
+                  blurRadius: 12,
+                  spreadRadius: -3,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : const [],
       ),
       child: Material(
         color: Colors.transparent,

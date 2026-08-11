@@ -34,6 +34,11 @@ class WindowExtPlugin : public flutter::Plugin {
   int window_proc_id = -1;
   UINT WM_TASKBARCREATED = 0;
   flutter::PluginRegistrarWindows *registrar;
+
+ private:
+  void UpdateWindowRegion(HWND hwnd);
+  bool use_region_rounding_ = false;
+  bool round_requested_ = true;
 };
 
 }  // namespace window_ext

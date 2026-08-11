@@ -38,7 +38,7 @@ class ApplicationState extends ConsumerState<Application> {
 
   ColorScheme _getAppColorScheme({required Brightness brightness}) {
     return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF4D7DFF),
+      seedColor: const Color(0xFF5B6FA8),
       brightness: brightness,
     );
   }

@@ -21,14 +21,14 @@ class AppBackdrop extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: isDark
                     ? const [
-                        Color(0xFF171713),
-                        Color(0xFF24211B),
-                        Color(0xFF111419),
+                        Color(0xFF171714),
+                        Color(0xFF1C1C19),
+                        Color(0xFF151613),
                       ]
                     : const [
-                        Color(0xFFE8DFD1),
-                        Color(0xFFD9D0C2),
-                        Color(0xFFE7E9E7),
+                        Color(0xFFF3EEE6),
+                        Color(0xFFE8E1D7),
+                        Color(0xFFEEF0ED),
                       ],
               ),
             ),
@@ -89,24 +89,16 @@ class AppGlassPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(
-          color: isDark
-              ? Colors.white.withAlpha(24)
-              : Colors.white.withAlpha(150),
+          color: colorScheme.outlineVariant.withAlpha(isDark ? 105 : 125),
         ),
         borderRadius: borderRadius,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.surfaceContainerHigh.withAlpha(isDark ? 224 : 214),
-            colorScheme.surfaceContainerLow.withAlpha(isDark ? 210 : 198),
-          ],
-        ),
+        color: colorScheme.surfaceContainerLow.withAlpha(isDark ? 238 : 232),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withAlpha(isDark ? 96 : 42),
-            blurRadius: 38,
-            offset: const Offset(0, 18),
+            color: colorScheme.shadow.withAlpha(isDark ? 42 : 24),
+            blurRadius: 24,
+            spreadRadius: -4,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

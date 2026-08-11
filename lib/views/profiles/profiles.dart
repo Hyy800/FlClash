@@ -146,9 +146,11 @@ class _ProfilesViewState extends State<ProfilesView> {
                       mainAxisSpacing: spacing,
                       crossAxisSpacing: spacing,
                       crossAxisCount: state.columns,
+                      mainAxisExtent: 124,
                       children: [
                         for (int i = 0; i < state.profiles.length; i++)
                           GridItem(
+                            mainAxisCellCount: 1,
                             child: ProfileItem(
                               profile: state.profiles[i],
                               groupValue: state.currentProfileId,
@@ -480,9 +482,12 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
       key: Key(profile.id.toString()),
       position: position,
       child: DecorationListItem(
-        trailing: ReorderableDelayedDragStartListener(
+        trailing: ReorderableDragStartListener(
           index: index,
-          child: const Icon(Icons.drag_handle),
+          child: const MouseRegion(
+            cursor: SystemMouseCursors.grab,
+            child: Icon(Icons.drag_handle),
+          ),
         ),
         title: Text(profile.realLabel),
       ),
@@ -508,7 +513,7 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
             horizontal: 16,
           ).copyWith(top: context.sheetTopPadding),
           proxyDecorator: (child, index, animation) {
-            return commonProxyDecorator(_buildItem(index), index, animation);
+            return commonProxyDecorator(child, index, animation);
           },
           onReorderItem: (oldIndex, newIndex) {
             setState(() {

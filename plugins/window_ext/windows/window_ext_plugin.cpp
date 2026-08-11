@@ -74,9 +74,35 @@ std::optional<LRESULT> WindowExtPlugin::HandleWindowProc(HWND hWnd,
   if(message == WM_TASKBARCREATED){
     channel -> InvokeMethod("taskbarCreated", std::make_unique<flutter::EncodableValue>());
   }
+  if (message == WM_SIZE && use_region_rounding_ && round_requested_ &&
+      wParam != SIZE_MINIMIZED) {
+    UpdateWindowRegion(hWnd);
+  }
   return result;
 }
 
+void WindowExtPlugin::UpdateWindowRegion(HWND hwnd) {
+  if (!use_region_rounding_) {
+    return;
+  }
+  if (!round_requested_) {
+    SetWindowRgn(hwnd, nullptr, TRUE);
+    return;
+  }
+  RECT rect{};
+  if (!GetWindowRect(hwnd, &rect)) {
+    return;
+  }
+  const int width = rect.right - rect.left;
+  const int height = rect.bottom - rect.top;
+  const UINT dpi = GetDpiForWindow(hwnd);
+  const int diameter = MulDiv(24, dpi == 0 ? 96 : dpi, 96);
+  HRGN region = CreateRoundRectRgn(0, 0, width + 1, height + 1,
+                                   diameter, diameter);
+  if (region != nullptr && SetWindowRgn(hwnd, region, TRUE) == 0) {
+    DeleteObject(region);
+  }
+}
 
 
 void WindowExtPlugin::HandleMethodCall(
@@ -102,8 +128,20 @@ void WindowExtPlugin::HandleMethodCall(
         if (round_it != args->end()) {
           bool round = std::get<bool>(round_it->second);
           DWORD preference = round ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
-          DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE,
-                                &preference, sizeof(preference));
+          const HRESULT status = DwmSetWindowAttribute(
+              hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, &preference,
+              sizeof(preference));
+          round_requested_ = round;
+          if (FAILED(status)) {
+            // Windows 10 does not expose DWMWA_WINDOW_CORNER_PREFERENCE.
+            // Fall back to a DPI-aware native window region and keep it in
+            // sync while the window is resized.
+            use_region_rounding_ = true;
+            UpdateWindowRegion(hWnd);
+          } else if (use_region_rounding_) {
+            SetWindowRgn(hWnd, nullptr, TRUE);
+            use_region_rounding_ = false;
+          }
         }
       }
     }

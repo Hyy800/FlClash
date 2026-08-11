@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -81,6 +83,98 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     }, duration: commonDuration);
   }
 
+  ({RuleAction action, String content})? _getRuleSource(
+    TrackerInfo trackerInfo,
+  ) {
+    var host = trackerInfo.metadata.host.trim();
+    if (host.isEmpty) {
+      host = Uri.tryParse(trackerInfo.desc)?.host.trim() ?? '';
+    }
+    final parsedHost = InternetAddress.tryParse(host);
+    if (host.isNotEmpty && parsedHost == null) {
+      return (action: RuleAction.DOMAIN, content: host);
+    }
+    final address = parsedHost?.address.isNotEmpty == true
+        ? parsedHost!.address
+        : trackerInfo.metadata.destinationIP.trim();
+    final parsedAddress = InternetAddress.tryParse(address);
+    if (parsedAddress == null) return null;
+    return (
+      action: parsedAddress.type == InternetAddressType.IPv6
+          ? RuleAction.IP_CIDR6
+          : RuleAction.IP_CIDR,
+      content: '${parsedAddress.address}/${
+          parsedAddress.type == InternetAddressType.IPv6 ? 128 : 32}',
+    );
+  }
+
+  Future<void> _showRequestMenu(
+    Offset globalPosition,
+    TrackerInfo trackerInfo,
+  ) async {
+    final source = _getRuleSource(trackerInfo);
+    if (source == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = overlay.globalToLocal(globalPosition);
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'add_rule',
+          child: Row(
+            children: [
+              const Icon(Icons.add_road_rounded),
+              const SizedBox(width: 10),
+              Text(context.appLocalizations.addRule),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (action != 'add_rule' || !mounted) return;
+    await _showAddRoutingRule(source);
+  }
+
+  Future<void> _showAddRoutingRule(
+    ({RuleAction action, String content}) source,
+  ) async {
+    final profileId = ref.read(currentProfileIdProvider);
+    final targets = <String>{
+      ...RuleTarget.baseTargets,
+      ...ref.read(currentGroupsStateProvider).value.map((group) => group.name),
+    }.toList();
+    final draft = await showDialog<_RoutingRuleDraft>(
+      context: context,
+      builder: (context) => _AddRoutingRuleDialog(
+        content: source.content,
+        targets: targets,
+        allowProfile: profileId != null,
+      ),
+    );
+    if (draft == null || !mounted) return;
+    final rule = Rule(
+      id: snowflake.id,
+      ruleAction: source.action,
+      content: source.content,
+      ruleTarget: draft.target,
+    );
+    if (draft.profile && profileId != null) {
+      ref.read(profileAddedRulesProvider(profileId).notifier).put(rule);
+    } else {
+      ref.read(globalRulesProvider.notifier).put(rule);
+    }
+    ref
+        .read(setupActionProvider.notifier)
+        .applyProfileDebounce(silence: true, force: true);
+    context.showNotifier(context.appLocalizations.addRule);
+  }
+
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
@@ -120,14 +214,20 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
           }
           final items = requests
               .map<Widget>(
-                (trackerInfo) => TrackerInfoItem(
+                (trackerInfo) => GestureDetector(
                   key: Key(trackerInfo.id),
-                  trackerInfo: trackerInfo,
-                  onClickKeyword: (value) {
-                    context.commonScaffoldState?.addKeyword(value);
+                  behavior: HitTestBehavior.opaque,
+                  onSecondaryTapDown: (details) {
+                    _showRequestMenu(details.globalPosition, trackerInfo);
                   },
-                  detailTitle: appLocalizations.details(
-                    appLocalizations.request,
+                  child: TrackerInfoItem(
+                    trackerInfo: trackerInfo,
+                    onClickKeyword: (value) {
+                      context.commonScaffoldState?.addKeyword(value);
+                    },
+                    detailTitle: appLocalizations.details(
+                      appLocalizations.request,
+                    ),
                   ),
                 ),
               )
@@ -161,6 +261,113 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
           );
         },
       ),
+    );
+  }
+}
+
+class _RoutingRuleDraft {
+  final String target;
+  final bool profile;
+
+  const _RoutingRuleDraft({required this.target, required this.profile});
+}
+
+class _AddRoutingRuleDialog extends StatefulWidget {
+  final String content;
+  final List<String> targets;
+  final bool allowProfile;
+
+  const _AddRoutingRuleDialog({
+    required this.content,
+    required this.targets,
+    required this.allowProfile,
+  });
+
+  @override
+  State<_AddRoutingRuleDialog> createState() =>
+      _AddRoutingRuleDialogState();
+}
+
+class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {
+  late String _target;
+  late bool _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _target = widget.targets.firstOrNull ?? RuleTarget.DIRECT.name;
+    _profile = widget.allowProfile;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.appLocalizations;
+    return AlertDialog(
+      title: Text(l10n.addRule),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SelectableText(
+              widget.content,
+              style: context.textTheme.bodyMedium?.toJetBrainsMono,
+            ),
+            const SizedBox(height: 18),
+            if (widget.allowProfile) ...[
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.layers_outlined),
+                    label: Text(l10n.profile),
+                  ),
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.public_rounded),
+                    label: Text(l10n.global),
+                  ),
+                ],
+                selected: {_profile},
+                onSelectionChanged: (value) {
+                  setState(() => _profile = value.first);
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
+            DropdownButtonFormField<String>(
+              initialValue: _target,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: l10n.ruleTarget),
+              items: widget.targets
+                  .map(
+                    (target) => DropdownMenuItem(
+                      value: target,
+                      child: Text(target, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _target = value);
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _RoutingRuleDraft(target: _target, profile: _profile),
+          ),
+          child: Text(l10n.confirm),
+        ),
+      ],
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AiView extends ConsumerStatefulWidget {
@@ -30,6 +31,13 @@ class _AiViewState extends ConsumerState<AiView> {
   bool _frameScheduled = false;
   bool _busy = false;
   bool _hideKey = true;
+  StateSetter? _apiSettingsState;
+
+  void _setPageState(VoidCallback update) {
+    if (!mounted) return;
+    setState(update);
+    _apiSettingsState?.call(() {});
+  }
 
   @override
   void initState() {
@@ -77,7 +85,7 @@ class _AiViewState extends ConsumerState<AiView> {
 
   Future<T?> _run<T>(Future<T> Function() action) async {
     if (_busy) return null;
-    setState(() => _busy = true);
+    _setPageState(() => _busy = true);
     try {
       return await action();
     } catch (error, stackTrace) {
@@ -88,7 +96,7 @@ class _AiViewState extends ConsumerState<AiView> {
       globalState.showNotifier(error.toString());
       return null;
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) _setPageState(() => _busy = false);
     }
   }
 
@@ -99,7 +107,7 @@ class _AiViewState extends ConsumerState<AiView> {
       globalState.showNotifier('The API returned no models.');
       return;
     }
-    setState(() {
+    _setPageState(() {
       _models = models;
       if (!models.contains(_modelController.text.trim())) {
         _modelController.text = models.first;
@@ -184,7 +192,7 @@ class _AiViewState extends ConsumerState<AiView> {
     );
     searchController.dispose();
     if (selected != null && mounted) {
-      setState(() => _modelController.text = selected);
+      _setPageState(() => _modelController.text = selected);
     }
   }
 
@@ -196,6 +204,47 @@ class _AiViewState extends ConsumerState<AiView> {
     } catch (error) {
       globalState.showNotifier(error.toString());
     }
+  }
+
+  Future<void> _showApiSettings() async {
+    if (_busy) return;
+    final config = ref.read(aiSettingProvider);
+    _setPageState(() {
+      _baseUrlController.text = config.baseUrl;
+      _apiKeyController.text = config.apiKey;
+      _modelController.text = config.model;
+      _models = config.cachedModels;
+      _protocol = config.protocol;
+    });
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          _apiSettingsState = setDialogState;
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.api_rounded),
+                const SizedBox(width: 10),
+                const Expanded(child: Text('API')),
+                IconButton(
+                  tooltip: context.appLocalizations.cancel,
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+            content: SizedBox(
+              width: 400,
+              height: 500,
+              child: _buildSettings(panel: false),
+            ),
+          );
+        },
+      ),
+    );
+    _apiSettingsState = null;
   }
 
   Future<void> _testModel() async {
@@ -337,12 +386,10 @@ class _AiViewState extends ConsumerState<AiView> {
     });
   }
 
-  Widget _buildSettings() {
+  Widget _buildSettings({bool panel = true}) {
     final l10n = context.appLocalizations;
-    return AppGlassPanel(
-      borderRadius: BorderRadius.circular(28),
-      padding: const EdgeInsets.all(18),
-      child: SingleChildScrollView(
+    final content = SingleChildScrollView(
+        padding: EdgeInsets.all(panel ? 18 : 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -373,7 +420,8 @@ class _AiViewState extends ConsumerState<AiView> {
                 prefixIcon: const Icon(Icons.key_rounded),
                 suffixIcon: IconButton(
                   tooltip: 'API Key',
-                  onPressed: () => setState(() => _hideKey = !_hideKey),
+                  onPressed: () =>
+                      _setPageState(() => _hideKey = !_hideKey),
                   icon: Icon(
                     _hideKey
                         ? Icons.visibility_outlined
@@ -394,7 +442,8 @@ class _AiViewState extends ConsumerState<AiView> {
                   .toList(),
               onChanged: _busy
                   ? null
-                  : (value) => setState(() => _protocol = value ?? _protocol),
+                   : (value) =>
+                       _setPageState(() => _protocol = value ?? _protocol),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -444,7 +493,11 @@ class _AiViewState extends ConsumerState<AiView> {
             ),
           ],
         ),
-      ),
+    );
+    if (!panel) return content;
+    return AppGlassPanel(
+      borderRadius: BorderRadius.circular(28),
+      child: content,
     );
   }
 
@@ -571,15 +624,31 @@ class _AiViewState extends ConsumerState<AiView> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    enabled: !_busy,
-                    minLines: 1,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      hintText: context.appLocalizations.messageTest,
-                      border: InputBorder.none,
-                      filled: false,
+                  child: Focus(
+                    onKeyEvent: (_, event) {
+                      final isEnter = event.logicalKey ==
+                              LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                      if (event is KeyDownEvent &&
+                          isEnter &&
+                          !HardwareKeyboard.instance.isShiftPressed) {
+                        _sendMessage();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: TextField(
+                      controller: _messageController,
+                      enabled: !_busy,
+                      minLines: 1,
+                      maxLines: 5,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        hintText: context.appLocalizations.messageTest,
+                        border: InputBorder.none,
+                        filled: false,
+                      ),
                     ),
                   ),
                 ),
@@ -602,29 +671,16 @@ class _AiViewState extends ConsumerState<AiView> {
     final sessions = ref.watch(aiSessionsProvider);
     return CommonScaffold(
       title: 'AI',
+      actions: [
+        FilledButton.tonalIcon(
+          onPressed: _busy ? null : _showApiSettings,
+          icon: const Icon(Icons.api_rounded),
+          label: const Text('API'),
+        ),
+      ],
       body: Padding(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-        child: LayoutBuilder(
-          builder: (_, constraints) {
-            if (constraints.maxWidth >= 820) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(width: 330, child: _buildSettings()),
-                  const SizedBox(width: 14),
-                  Expanded(child: _buildConversation(sessions)),
-                ],
-              );
-            }
-            return Column(
-              children: [
-                SizedBox(height: 360, child: _buildSettings()),
-                const SizedBox(height: 12),
-                Expanded(child: _buildConversation(sessions)),
-              ],
-            );
-          },
-        ),
+        child: _buildConversation(sessions),
       ),
     );
   }
@@ -655,10 +711,104 @@ class _MessageBubble extends StatelessWidget {
             bottomRight: Radius.circular(isUser ? 6 : 20),
           ),
         ),
-        child: SelectableText(
-          message.content,
-          style: context.textTheme.bodyMedium?.copyWith(height: 1.5),
+        child: isUser
+            ? SelectableText(
+                message.content,
+                style: context.textTheme.bodyMedium?.copyWith(height: 1.5),
+              )
+            : _MarkdownMessage(content: message.content),
+      ),
+    );
+  }
+}
+
+class _MarkdownMessage extends StatelessWidget {
+  final String content;
+
+  const _MarkdownMessage({required this.content});
+
+  List<InlineSpan> _parseInline(BuildContext context, String value) {
+    final baseStyle = context.textTheme.bodyMedium?.copyWith(height: 1.5);
+    final codeStyle = baseStyle?.copyWith(
+      fontFamily: 'JetBrainsMono',
+      backgroundColor: context.colorScheme.surfaceContainerHighest,
+      color: context.colorScheme.onSurface,
+    );
+    final pattern = RegExp(r'(\*\*.+?\*\*|`[^`]+`|(?<!\*)\*[^*\n]+\*)');
+    final spans = <InlineSpan>[];
+    var offset = 0;
+    for (final match in pattern.allMatches(value)) {
+      if (match.start > offset) {
+        spans.add(TextSpan(text: value.substring(offset, match.start)));
+      }
+      final token = match.group(0)!;
+      if (token.startsWith('**')) {
+        spans.add(
+          TextSpan(
+            text: token.substring(2, token.length - 2),
+            style: baseStyle?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      } else if (token.startsWith('`')) {
+        spans.add(
+          TextSpan(text: token.substring(1, token.length - 1), style: codeStyle),
+        );
+      } else {
+        spans.add(
+          TextSpan(
+            text: token.substring(1, token.length - 1),
+            style: baseStyle?.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      }
+      offset = match.end;
+    }
+    if (offset < value.length) {
+      spans.add(TextSpan(text: value.substring(offset)));
+    }
+    return spans;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = content.replaceAll('\r\n', '\n').split('\n');
+    final spans = <InlineSpan>[];
+    var codeBlock = false;
+    for (var index = 0; index < lines.length; index++) {
+      var line = lines[index];
+      if (line.trimLeft().startsWith('```')) {
+        codeBlock = !codeBlock;
+        continue;
+      }
+      TextStyle? lineStyle = context.textTheme.bodyMedium?.copyWith(height: 1.5);
+      if (codeBlock) {
+        lineStyle = lineStyle?.copyWith(
+          fontFamily: 'JetBrainsMono',
+          backgroundColor: context.colorScheme.surfaceContainerHighest,
+        );
+      } else {
+        final heading = RegExp(r'^(#{1,4})\s+').firstMatch(line);
+        if (heading != null) {
+          line = line.substring(heading.end);
+          lineStyle = context.textTheme.titleMedium?.copyWith(height: 1.55);
+        } else if (line.startsWith('- ')) {
+          line = '• ${line.substring(2)}';
+        }
+      }
+      spans.add(
+        TextSpan(
+          style: lineStyle,
+          children: codeBlock
+              ? [TextSpan(text: line)]
+              : _parseInline(context, line),
         ),
+      );
+      if (index != lines.length - 1) spans.add(const TextSpan(text: '\n'));
+    }
+    return SelectableText.rich(
+      TextSpan(
+        style: context.textTheme.bodyMedium?.copyWith(height: 1.5),
+        children: spans,
       ),
     );
   }
