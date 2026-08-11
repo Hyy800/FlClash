@@ -191,6 +191,7 @@ class _AiViewState extends ConsumerState<AiView> {
   Future<void> _saveConfig() async {
     try {
       await ref.read(aiSettingProvider.notifier).save(_draftConfig());
+      if (!mounted) return;
       globalState.showNotifier(context.appLocalizations.save);
     } catch (error) {
       globalState.showNotifier(error.toString());

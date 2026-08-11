@@ -295,6 +295,7 @@ class AiApiService {
     }
     final result = <Map<String, dynamic>>[];
     await for (final line in data.stream
+        .cast<List<int>>()
         .transform(utf8.decoder)
         .transform(const LineSplitter())) {
       final value = line.startsWith('data:')
