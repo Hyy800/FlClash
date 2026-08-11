@@ -222,7 +222,14 @@ abstract class ThemeProps with _$ThemeProps {
       return defaultThemeProps;
     }
     try {
-      return ThemeProps.fromJson(json);
+      final themeProps = ThemeProps.fromJson(json);
+      if (themeProps.primaryColor != legacyPrimaryColor) {
+        return themeProps;
+      }
+      return themeProps.copyWith(
+        primaryColor: defaultPrimaryColor,
+        primaryColors: defaultPrimaryColors,
+      );
     } catch (_) {
       return defaultThemeProps;
     }

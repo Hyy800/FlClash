@@ -232,6 +232,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(dashboardStateProvider);
+    final isMobile = ref.watch(isMobileViewProvider);
     final columns = max(4 * ((dashboardState.contentWidth / 280).ceil()), 8);
     final spacing = 16.mAp;
     final children = [
@@ -254,8 +255,11 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     return _buildIsEdit(
       (isEdit) => CommonScaffold(
         title: context.appLocalizations.dashboard,
-        actions: _buildActions(isEdit),
-        floatingActionButton: const StartButton(),
+        actions: [
+          ..._buildActions(isEdit),
+          if (!isMobile) const StartButton(),
+        ],
+        floatingActionButton: isMobile ? const StartButton() : null,
         body: Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
@@ -263,7 +267,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
               18.mAp,
               18.mAp,
               18.mAp,
-              104.mAp,
+              isMobile ? 92.mAp : 24.mAp,
             ),
             child: isEdit
                 ? SystemBackBlock(

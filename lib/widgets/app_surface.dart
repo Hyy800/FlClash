@@ -22,7 +22,7 @@ class AppBackdrop extends StatelessWidget {
                   center: const Alignment(-0.92, -1.05),
                   radius: 1.05,
                   colors: [
-                    colorScheme.primary.withAlpha(isDark ? 46 : 34),
+                    colorScheme.primary.withAlpha(isDark ? 18 : 22),
                     Colors.transparent,
                   ],
                   stops: const [0, 1],
@@ -37,7 +37,7 @@ class AppBackdrop extends StatelessWidget {
                   center: const Alignment(1.08, 0.92),
                   radius: 0.9,
                   colors: [
-                    colorScheme.tertiary.withAlpha(isDark ? 34 : 26),
+                    colorScheme.tertiary.withAlpha(isDark ? 10 : 14),
                     Colors.transparent,
                   ],
                   stops: const [0, 1],
@@ -61,7 +61,7 @@ class AppGlassPanel extends StatelessWidget {
     super.key,
     required this.child,
     this.padding,
-    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
 
   @override
@@ -76,15 +76,15 @@ class AppGlassPanel extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            colorScheme.surfaceContainerHigh.withAlpha(isDark ? 218 : 235),
-            colorScheme.surfaceContainerLow.withAlpha(isDark ? 205 : 225),
+            colorScheme.surfaceContainerHigh.withAlpha(isDark ? 235 : 245),
+            colorScheme.surfaceContainerLow.withAlpha(isDark ? 230 : 240),
           ],
         ),
         boxShadow: [
           BoxShadow(
             color: colorScheme.shadow.withAlpha(isDark ? 80 : 24),
-            blurRadius: 32,
-            offset: const Offset(0, 14),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

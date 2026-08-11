@@ -102,7 +102,8 @@ const proxiesListStoreKey = PageStorageKey<String>('proxies_list');
 const toolsStoreKey = PageStorageKey<String>('tools');
 const profilesStoreKey = PageStorageKey<String>('profiles');
 
-const defaultPrimaryColor = 0XFFD8C0C3;
+const defaultPrimaryColor = 0xFF4C5BFF;
+const legacyPrimaryColor = 0xFFD8C0C3;
 
 double getWidgetHeight(num lines) {
   final space = 14.mAp;
@@ -116,13 +117,13 @@ const mainIsolate = 'FlClashMainIsolate';
 const serviceIsolate = 'FlClashServiceIsolate';
 
 const defaultPrimaryColors = [
-  0xFF795548,
-  0xFF03A9F4,
-  0xFFFFFF00,
-  0XFFBBC9CC,
-  0XFFABD397,
+  0xFF00A6FB,
+  0xFF00BFA6,
+  0xFF8B5CF6,
+  0xFFFFB020,
+  0xFFFF5D8F,
   defaultPrimaryColor,
-  0XFF665390,
+  0xFF94A3B8,
 ];
 
 const scriptTemplate = '''

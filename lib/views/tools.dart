@@ -10,6 +10,8 @@ import 'package:fl_clash/views/access.dart';
 import 'package:fl_clash/views/application_setting.dart';
 import 'package:fl_clash/views/backup_and_restore.dart';
 import 'package:fl_clash/views/config/config.dart';
+import 'package:fl_clash/views/config/dns.dart';
+import 'package:fl_clash/views/config/rules.dart';
 import 'package:fl_clash/views/hotkey.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -74,6 +76,8 @@ class _ToolViewState extends ConsumerState<ToolsView> {
       items: [
         const _LocaleItem(),
         const _ThemeItem(),
+        const _DnsItem(),
+        const _GlobalRulesItem(),
         const _BackupItem(),
         if (system.isDesktop) const _HotkeyItem(),
         if (system.isWindows) const _LoopbackItem(),
@@ -162,10 +166,40 @@ class _ThemeItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListItem.open(
-      leading: const Icon(Icons.style),
-      title: Text(context.appLocalizations.theme),
+      leading: const Icon(Icons.dashboard_customize_outlined),
+      title: Text(
+        '${context.appLocalizations.custom} UI',
+      ),
       subtitle: Text(context.appLocalizations.themeDesc),
       delegate: const OpenDelegate(widget: ThemeView()),
+    );
+  }
+}
+
+class _DnsItem extends StatelessWidget {
+  const _DnsItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListItem.open(
+      leading: const Icon(Icons.dns_outlined),
+      title: const Text('DNS'),
+      subtitle: Text(context.appLocalizations.dnsDesc),
+      delegate: const OpenDelegate(widget: DnsSettingsView(), blur: false),
+    );
+  }
+}
+
+class _GlobalRulesItem extends StatelessWidget {
+  const _GlobalRulesItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListItem.open(
+      leading: const Icon(Icons.rule_folder_outlined),
+      title: Text(context.appLocalizations.addedRules),
+      subtitle: Text(context.appLocalizations.controlGlobalAddedRules),
+      delegate: const OpenDelegate(widget: AddedRulesView(), blur: false),
     );
   }
 }

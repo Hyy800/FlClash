@@ -181,79 +181,37 @@ class AppSidebarContainer extends ConsumerWidget {
       return child;
     }
     final currentIndex = navigationState.currentIndex;
-    final showLabel = ref.watch(appSettingProvider).showLabel;
     return Row(
       children: [
-        AnimatedContainer(
-          duration: midDuration,
-          curve: Curves.easeOutCubic,
-          width: showLabel ? 236 : 88,
-          margin: const EdgeInsets.fromLTRB(12, 12, 6, 12),
-          padding: const EdgeInsets.all(10),
+        Container(
+          width: 72,
+          margin: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           decoration: BoxDecoration(
+            color: context.colorScheme.surfaceContainerLow,
             border: Border.all(
-              color: context.colorScheme.outlineVariant.withAlpha(120),
+              color: context.colorScheme.outlineVariant.withAlpha(90),
             ),
-            borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                context.colorScheme.surfaceContainerHigh.withAlpha(225),
-                context.colorScheme.surfaceContainerLow.withAlpha(210),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: context.colorScheme.shadow.withAlpha(60),
-                blurRadius: 36,
-                offset: const Offset(0, 16),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(16),
           ),
           child: SafeArea(
             child: Column(
               children: [
                 if (system.isMacOS) const SizedBox(height: 18),
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: showLabel ? 4 : 2,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: showLabel
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.center,
-                    children: [
-                      if (!system.isMacOS) const AppIcon(),
-                      if (showLabel && !system.isMacOS) ...[
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            appName,
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            style: context.textTheme.titleLarge,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+                if (!system.isMacOS) const AppIcon(),
+                const SizedBox(height: 18),
                 Expanded(
                   child: ScrollConfiguration(
                     behavior: HiddenBarScrollBehavior(),
                     child: ListView.separated(
                       padding: EdgeInsets.zero,
                       itemCount: navigationItems.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      separatorBuilder: (_, _) => const SizedBox(height: 7),
                       itemBuilder: (context, index) {
                         final item = navigationItems[index];
-                        return _AppSidebarItem(
+                        return _AppRailItem(
                           item: item,
                           isSelected: currentIndex == index,
-                          showLabel: showLabel,
                           onPressed: () {
                             _handleToPage(item.label);
                           },
@@ -262,36 +220,11 @@ class AppSidebarContainer extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Divider(color: context.colorScheme.outlineVariant),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: showLabel
-                      ? Alignment.centerRight
-                      : Alignment.center,
-                  child: IconButton(
-                    tooltip: showLabel ? null : appName,
-                    onPressed: () {
-                      ref
-                          .read(appSettingProvider.notifier)
-                          .update(
-                            (state) =>
-                                state.copyWith(showLabel: !state.showLabel),
-                          );
-                    },
-                    icon: Icon(
-                      showLabel
-                          ? Icons.keyboard_double_arrow_left_rounded
-                          : Icons.keyboard_double_arrow_right_rounded,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
         ),
         Expanded(
-          flex: 1,
           child: ClipRect(
             child: LayoutBuilder(
               builder: (_, constraints) {
@@ -306,16 +239,14 @@ class AppSidebarContainer extends ConsumerWidget {
   }
 }
 
-class _AppSidebarItem extends StatelessWidget {
+class _AppRailItem extends StatelessWidget {
   final NavigationItem item;
   final bool isSelected;
-  final bool showLabel;
   final VoidCallback onPressed;
 
-  const _AppSidebarItem({
+  const _AppRailItem({
     required this.item,
     required this.isSelected,
-    required this.showLabel,
     required this.onPressed,
   });
 
@@ -323,64 +254,49 @@ class _AppSidebarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
     final foregroundColor = isSelected
-        ? colorScheme.onPrimaryContainer
+        ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
-    final content = Material(
+    final content = SizedBox(
+      height: 50,
+      child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
           onTap: onPressed,
           child: AnimatedContainer(
             duration: midDuration,
             curve: Curves.easeOutCubic,
-            height: 54,
-            padding: EdgeInsets.symmetric(horizontal: showLabel ? 14 : 10),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: isSelected
-                    ? colorScheme.primary.withAlpha(70)
-                    : Colors.transparent,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              gradient: isSelected
-                  ? LinearGradient(
-                      colors: [
-                        colorScheme.primaryContainer,
-                        colorScheme.secondaryContainer.withAlpha(210),
-                      ],
-                    )
-                  : null,
+              color: isSelected
+                  ? colorScheme.primary.withAlpha(24)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: showLabel
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
+                if (isSelected)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 3,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
                 IconTheme(
                   data: IconThemeData(color: foregroundColor, size: 22),
                   child: item.icon,
                 ),
-                if (showLabel) ...[
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      Intl.message(item.label.name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelLarge?.copyWith(
-                        color: foregroundColor,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
+      ),
     );
-    if (showLabel) {
-      return content;
-    }
     return Tooltip(message: Intl.message(item.label.name), child: content);
   }
 }

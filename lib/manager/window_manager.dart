@@ -282,7 +282,7 @@ class AppIcon extends StatelessWidget {
         border: Border.all(
           color: context.colorScheme.primary.withAlpha(70),
         ),
-        borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -294,15 +294,15 @@ class AppIcon extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: context.colorScheme.primary.withAlpha(35),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(9),
+        padding: const EdgeInsets.all(7),
       child: Transform.translate(
         offset: const Offset(0, -1),
-        child: Image.asset('assets/images/icon.png', width: 32, height: 32),
+          child: Image.asset('assets/images/icon.png', width: 28, height: 28),
       ),
     );
   }

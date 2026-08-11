@@ -262,8 +262,13 @@ class _AppBottomDockItem extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(19),
                 color: isSelected
-                    ? colorScheme.primaryContainer
+                    ? colorScheme.primary.withAlpha(24)
                     : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? colorScheme.primary.withAlpha(90)
+                      : Colors.transparent,
+                ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -272,7 +277,7 @@ class _AppBottomDockItem extends StatelessWidget {
                     data: IconThemeData(
                       size: 22,
                       color: isSelected
-                          ? colorScheme.onPrimaryContainer
+                          ? colorScheme.primary
                           : colorScheme.onSurfaceVariant,
                     ),
                     child: item.icon,
@@ -284,7 +289,7 @@ class _AppBottomDockItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: context.textTheme.labelSmall?.copyWith(
                       color: isSelected
-                          ? colorScheme.onPrimaryContainer
+                          ? colorScheme.primary
                           : colorScheme.onSurfaceVariant,
                       fontWeight: isSelected
                           ? FontWeight.w700

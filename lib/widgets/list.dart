@@ -276,23 +276,40 @@ class ListItem<T> extends StatelessWidget {
     Widget? trailing,
     Widget? leading,
   }) {
-    return ListTile(
-      key: key,
-      dense: dense,
-      visualDensity: visualDensity,
-      tileColor: color,
-      titleTextStyle: titleTextStyle,
-      subtitleTextStyle: subtitleTextStyle,
-      leading: leading ?? this.leading,
-      horizontalTitleGap: horizontalTitleGap,
-      title: title,
-      minTileHeight: minTileHeight,
-      minVerticalPadding: minVerticalPadding,
-      subtitle: subtitle,
-      titleAlignment: tileTitleAlignment,
-      onTap: onTap,
-      trailing: trailing ?? this.trailing,
-      contentPadding: padding,
+    return Builder(
+      builder: (context) {
+        final colorScheme = context.colorScheme;
+        return Container(
+          key: key,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          decoration: BoxDecoration(
+            color: color ?? colorScheme.surfaceContainerLow.withAlpha(225),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withAlpha(85),
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            dense: dense,
+            visualDensity: visualDensity,
+            titleTextStyle: titleTextStyle,
+            subtitleTextStyle: subtitleTextStyle,
+            leading: leading ?? this.leading,
+            horizontalTitleGap: horizontalTitleGap,
+            title: title,
+            minTileHeight: minTileHeight,
+            minVerticalPadding: minVerticalPadding,
+            subtitle: subtitle,
+            titleAlignment: tileTitleAlignment,
+            onTap: onTap,
+            trailing: trailing ?? this.trailing,
+            contentPadding: padding,
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -512,7 +529,7 @@ List<Widget> generateSection({
   bool separated = true,
 }) {
   final genItems = separated
-      ? items.separated(const Divider(height: 0))
+      ? items.separated(const SizedBox(height: 2))
       : items;
   return [
     if (items.isNotEmpty && title != null)

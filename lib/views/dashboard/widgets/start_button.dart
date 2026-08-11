@@ -105,11 +105,12 @@ class _StartButtonState extends ConsumerState<StartButton>
           return Semantics(
             button: true,
             toggled: isStart,
-            child: AnimatedContainer(
-              duration: midDuration,
-              curve: Curves.easeOutCubic,
-              constraints: const BoxConstraints(minHeight: 60),
-              decoration: ShapeDecoration(
+            child: SizedBox(
+              height: 52,
+              child: AnimatedContainer(
+                duration: midDuration,
+                curve: Curves.easeOutCubic,
+                decoration: ShapeDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -133,11 +134,11 @@ class _StartButtonState extends ConsumerState<StartButton>
                   ),
                 ],
               ),
-              child: Material(
-                color: Colors.transparent,
-                clipBehavior: Clip.antiAlias,
-                shape: shape,
-                child: InkWell(
+                child: Material(
+                  color: Colors.transparent,
+                  clipBehavior: Clip.antiAlias,
+                  shape: shape,
+                  child: InkWell(
                   customBorder: shape,
                   onTap: handleSwitchStart,
                   child: Padding(
@@ -149,12 +150,12 @@ class _StartButtonState extends ConsumerState<StartButton>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 44,
-                          height: 44,
+                          width: 36,
+                          height: 36,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: Colors.white.withAlpha(35),
-                            borderRadius: BorderRadius.circular(15),
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: Colors.white.withAlpha(40),
                             ),
@@ -193,6 +194,7 @@ class _StartButtonState extends ConsumerState<StartButton>
                         ),
                       ],
                     ),
+                  ),
                   ),
                 ),
               ),

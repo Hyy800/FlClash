@@ -133,7 +133,11 @@ class CommonCard extends StatelessWidget {
       );
     }
     if (type == CommonCardType.filled) {
-      return BorderSide.none;
+      return BorderSide(
+        color: isSelected
+            ? colorScheme.primary
+            : colorScheme.outlineVariant.withAlpha(80),
+      );
     }
     final hoverColor = isSelected
         ? colorScheme.primary.opacity80
@@ -146,7 +150,7 @@ class CommonCard extends StatelessWidget {
     return BorderSide(
       color: isSelected
           ? colorScheme.primary
-          : colorScheme.surfaceContainerHighest,
+          : colorScheme.outlineVariant.withAlpha(90),
     );
   }
 
@@ -157,14 +161,20 @@ class CommonCard extends StatelessWidget {
     }
     if (type == CommonCardType.filled) {
       if (isSelected) {
-        return colorScheme.primaryContainer;
+        return Color.alphaBlend(
+          colorScheme.primary.withAlpha(25),
+          colorScheme.surfaceContainerHigh,
+        );
       }
-      return colorScheme.surfaceContainerHigh.withAlpha(230);
+      return colorScheme.surfaceContainerLow;
     }
     if (isSelected) {
-      return colorScheme.primaryContainer.withAlpha(225);
+      return Color.alphaBlend(
+        colorScheme.primary.withAlpha(22),
+        colorScheme.surfaceContainerLow,
+      );
     }
-    return colorScheme.surfaceContainerLow.withAlpha(218);
+    return colorScheme.surfaceContainerLow;
   }
 
   Color? _buildForegroundColor(BuildContext context) {
@@ -174,12 +184,12 @@ class CommonCard extends StatelessWidget {
     }
     if (type == CommonCardType.filled) {
       if (isSelected) {
-        return colorScheme.onPrimaryContainer;
+        return colorScheme.onSurface;
       }
       return colorScheme.onSurfaceVariant;
     }
     if (isSelected) {
-      return colorScheme.onPrimaryContainer;
+      return colorScheme.onSurface;
     }
     return colorScheme.onSurfaceVariant;
   }
@@ -219,31 +229,24 @@ class CommonCard extends StatelessWidget {
     final colorScheme = context.colorScheme;
     final cardShape = (shape ??
             RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(radius ?? 22),
+              borderRadius: BorderRadius.circular(radius ?? 14),
             ))
         .copyWith(side: _buildBorderSide(context, const <WidgetState>{}));
     final backgroundColor = _buildBackgroundColor(context)!;
-    final secondaryColor = isSelected
-        ? colorScheme.secondaryContainer.withAlpha(205)
-        : colorScheme.surfaceContainer.withAlpha(205);
     final foregroundColor = _buildForegroundColor(context)!;
     final card = AnimatedContainer(
       duration: midDuration,
       curve: Curves.easeOutCubic,
       decoration: ShapeDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [backgroundColor, secondaryColor],
-        ),
+        color: backgroundColor,
         shape: cardShape,
         shadows: [
           BoxShadow(
             color: colorScheme.shadow.withAlpha(
               colorScheme.brightness == Brightness.dark ? 50 : 18,
             ),
-            blurRadius: isSelected ? 24 : 16,
-            offset: const Offset(0, 8),
+            blurRadius: isSelected ? 14 : 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),

@@ -310,6 +310,20 @@ void main() {
       expect(result.themeMode, ThemeMode.dark);
     });
 
+    test('safeFromJson migrates the legacy pink interface color', () {
+      final result = ThemeProps.safeFromJson({
+        'primaryColor': legacyPrimaryColor,
+        'primaryColors': [legacyPrimaryColor],
+        'themeMode': 'dark',
+        'schemeVariant': 'content',
+        'pureBlack': false,
+        'textScale': {'enable': false, 'scale': 1.0},
+      });
+
+      expect(result.primaryColor, defaultPrimaryColor);
+      expect(result.primaryColors, defaultPrimaryColors);
+    });
+
     test('round-trip with custom values', () {
       const props = ThemeProps(
         primaryColor: 0xFF123456,

@@ -10,38 +10,38 @@ abstract final class AppTheme {
     final surface = isDark
         ? pureBlack
               ? const Color(0xFF000000)
-              : const Color(0xFF080B12)
-        : const Color(0xFFF4F6FA);
+              : const Color(0xFF080808)
+        : const Color(0xFFF3F4F7);
     final scheme = baseScheme.copyWith(
       surface: surface,
       surfaceContainerLowest: isDark
           ? pureBlack
                 ? const Color(0xFF000000)
-                : const Color(0xFF060910)
+                : const Color(0xFF050505)
           : const Color(0xFFFFFFFF),
       surfaceContainerLow: isDark
           ? pureBlack
                 ? const Color(0xFF070707)
-                : const Color(0xFF0D121D)
+                : const Color(0xFF101012)
           : const Color(0xFFFAFBFD),
       surfaceContainer: isDark
           ? pureBlack
                 ? const Color(0xFF0B0B0B)
-                : const Color(0xFF111827)
-          : const Color(0xFFF0F3F8),
+                : const Color(0xFF151517)
+          : const Color(0xFFEEF0F4),
       surfaceContainerHigh: isDark
           ? pureBlack
                 ? const Color(0xFF101010)
-                : const Color(0xFF172033)
-          : const Color(0xFFE8EDF4),
+                : const Color(0xFF1B1B1E)
+          : const Color(0xFFE5E8EE),
       surfaceContainerHighest: isDark
           ? pureBlack
                 ? const Color(0xFF171717)
-                : const Color(0xFF202A40)
+                : const Color(0xFF242429)
           : const Color(0xFFDDE4EE),
       outline: isDark ? const Color(0xFF65718A) : const Color(0xFF67728A),
       outlineVariant: isDark
-          ? const Color(0xFF2B3549)
+          ? const Color(0xFF303036)
           : const Color(0xFFC8D0DD),
       shadow: const Color(0xFF000000),
       scrim: const Color(0xFF000000),
@@ -93,10 +93,10 @@ abstract final class AppTheme {
       bodyMedium: baseTheme.textTheme.bodyMedium?.copyWith(height: 1.4),
     ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
     final controlShape = RoundedSuperellipseBorder(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
     );
     final panelShape = RoundedSuperellipseBorder(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(14),
     );
 
     return baseTheme.copyWith(
@@ -108,7 +108,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        toolbarHeight: 76,
+        toolbarHeight: 68,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
@@ -134,7 +134,7 @@ abstract final class AppTheme {
           foregroundColor: scheme.onSurfaceVariant,
           backgroundColor: scheme.surfaceContainerHigh.withAlpha(150),
           shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(11),
           ),
         ),
       ),
@@ -174,7 +174,7 @@ abstract final class AppTheme {
         backgroundColor: scheme.primaryContainer,
         foregroundColor: scheme.onPrimaryContainer,
         shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -186,15 +186,15 @@ abstract final class AppTheme {
         ),
         border: OutlineInputBorder(
           borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
         ),
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: scheme.outlineVariant.withAlpha(130)),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
         ),
         focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
       chipTheme: baseTheme.chipTheme.copyWith(
@@ -212,7 +212,7 @@ abstract final class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
         minTileHeight: 58,
         shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
       dialogTheme: DialogThemeData(
@@ -220,7 +220,7 @@ abstract final class AppTheme {
         backgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(

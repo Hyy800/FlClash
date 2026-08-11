@@ -42,6 +42,8 @@ class ThemeView extends StatelessWidget {
       title: appLocalizations.theme,
       body: const CustomScrollView(
         slivers: [
+          _InterfacePresetItem(),
+          SliverToBoxAdapter(child: SizedBox(height: 20)),
           _ThemeModeItem(),
           SliverToBoxAdapter(child: SizedBox(height: 16)),
           _PrimaryColorItem(),
@@ -51,6 +53,122 @@ class ThemeView extends StatelessWidget {
           _TextScaleFactorItem(),
           SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
+      ),
+    );
+  }
+}
+
+class _InterfacePreset {
+  final int color;
+  final DynamicSchemeVariant schemeVariant;
+  final bool pureBlack;
+  final IconData icon;
+
+  const _InterfacePreset({
+    required this.color,
+    required this.schemeVariant,
+    required this.pureBlack,
+    required this.icon,
+  });
+}
+
+class _InterfacePresetItem extends ConsumerWidget {
+  const _InterfacePresetItem();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    const presets = [
+      _InterfacePreset(
+        color: 0xFF4C5BFF,
+        schemeVariant: DynamicSchemeVariant.vibrant,
+        pureBlack: false,
+        icon: Icons.auto_awesome_rounded,
+      ),
+      _InterfacePreset(
+        color: 0xFF00A6A6,
+        schemeVariant: DynamicSchemeVariant.expressive,
+        pureBlack: false,
+        icon: Icons.blur_on_rounded,
+      ),
+      _InterfacePreset(
+        color: 0xFF94A3B8,
+        schemeVariant: DynamicSchemeVariant.monochrome,
+        pureBlack: true,
+        icon: Icons.contrast_rounded,
+      ),
+    ];
+    final themeState = ref.watch(
+      themeSettingProvider.select(
+        (state) => VM3(
+          state.primaryColor,
+          state.schemeVariant,
+          state.pureBlack,
+        ),
+      ),
+    );
+    final appLocalizations = context.appLocalizations;
+    return SliverToBoxAdapter(
+      child: ItemCard(
+        info: Info(
+          label: '${appLocalizations.custom} UI',
+          iconData: Icons.dashboard_customize_outlined,
+        ),
+        child: SizedBox(
+          height: 92,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: presets.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final preset = presets[index];
+              final isSelected =
+                  themeState.a == preset.color &&
+                  themeState.b == preset.schemeVariant &&
+                  themeState.c == preset.pureBlack;
+              return SizedBox(
+                width: 176,
+                child: CommonCard(
+                  isSelected: isSelected,
+                  onPressed: () {
+                    ref
+                        .read(themeSettingProvider.notifier)
+                        .update(
+                          (state) => state.copyWith(
+                            primaryColor: preset.color,
+                            schemeVariant: preset.schemeVariant,
+                            pureBlack: preset.pureBlack,
+                          ),
+                        );
+                  },
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Color(preset.color).withAlpha(34),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(preset.icon, color: Color(preset.color)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          Intl.message('${preset.schemeVariant.name}Scheme'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.textTheme.labelLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
