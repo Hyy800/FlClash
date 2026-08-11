@@ -46,30 +46,11 @@ jobs:
         run: flutter test --reporter expanded
 
   build:
-    name: Build ${{ matrix.platform }} ${{ matrix.arch || '' }}
+    name: Build windows amd64
     needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows
-            os: windows-2022
-            arch: amd64
-          - platform: windows
-            os: windows-11-arm
-            arch: arm64
+    runs-on: windows-2022
 
     steps:
-      - name: Setup Rust
-        if: startsWith(matrix.os, 'windows-11-arm')
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://win.rustup.rs/aarch64" -OutFile rustup-init.exe
-          .\rustup-init.exe -y --default-toolchain stable
-          $cargoPath = "$env:USERPROFILE\.cargo\bin"
-          Add-Content $env:GITHUB_PATH $cargoPath
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -82,7 +63,6 @@ jobs:
           cache-dependency-path: core/go.sum
 
       - name: Enable Git long paths
-        if: startsWith(matrix.os, 'windows')
         run: git config --global core.longpaths true
 
       - name: Setup Flutter
@@ -92,47 +72,18 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Setup Xcode
-        if: matrix.platform == 'macos'
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.3.app || sudo xcode-select -s /Applications/Xcode_26.2.app
-          xcodebuild -version
-
-      - name: Setup Android NDK
-        if: matrix.platform == 'android'
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r28c
-          add-to-path: true
-          link-to-sdk: true
-
       - name: Install Flutter dependencies
         run: |
           flutter --version
           flutter pub get
 
       - name: Build package
-        if: matrix.platform != 'macos'
-        run: dart setup.dart ${{ matrix.platform }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v
-
-      - name: Build macOS package
-        if: matrix.platform == 'macos'
-        shell: bash
-        run: |
-          for attempt in 1 2; do
-            if dart setup.dart macos ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 2 ]; then
-              exit 1
-            fi
-            echo '::warning::macOS build failed; retrying once.'
-          done
+        run: dart setup.dart windows ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} -v
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: FlClash-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
+          name: FlClash-windows-amd64
           path: dist/
           if-no-files-found: error
           retention-days: 14
