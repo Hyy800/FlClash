@@ -1,5 +1,7 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:collection/collection.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'generated/config.g.dart';
@@ -52,6 +54,70 @@ class CurrentProfileId extends _$CurrentProfileId
   @override
   int? build() {
     return null;
+  }
+}
+
+final globalOverwriteProfileIdProvider =
+    NotifierProvider<GlobalOverwriteProfileId, int?>(
+      GlobalOverwriteProfileId.new,
+    );
+
+class GlobalOverwriteProfileId extends Notifier<int?> {
+  @override
+  int? build() => preferences.globalOverwriteProfileId;
+
+  Future<void> setValue(int? value) async {
+    if (state == value) {
+      return;
+    }
+    state = value;
+    await preferences.setGlobalOverwriteProfileId(value);
+  }
+}
+
+final profileUserAgentsProvider =
+    NotifierProvider<ProfileUserAgents, Map<int, String>>(
+      ProfileUserAgents.new,
+    );
+
+class ProfileUserAgents extends Notifier<Map<int, String>> {
+  @override
+  Map<int, String> build() => preferences.profileUserAgents;
+
+  Future<void> setUserAgent(int profileId, String userAgent) async {
+    final next = Map<int, String>.from(state);
+    final value = userAgent.trim();
+    if (value.isEmpty) {
+      next.remove(profileId);
+    } else {
+      next[profileId] = value;
+    }
+    if (const MapEquality<int, String>().equals(next, state)) {
+      return;
+    }
+    state = Map.unmodifiable(next);
+    await preferences.setProfileUserAgents(state);
+  }
+
+  Future<void> remove(int profileId) async {
+    if (!state.containsKey(profileId)) {
+      return;
+    }
+    final next = Map<int, String>.from(state)..remove(profileId);
+    state = Map.unmodifiable(next);
+    await preferences.setProfileUserAgents(state);
+  }
+}
+
+final aiSettingProvider = NotifierProvider<AiSetting, AiConfig>(AiSetting.new);
+
+class AiSetting extends Notifier<AiConfig> {
+  @override
+  AiConfig build() => preferences.aiConfig;
+
+  Future<void> save(AiConfig value) async {
+    state = value;
+    await preferences.setAiConfig(value);
   }
 }
 

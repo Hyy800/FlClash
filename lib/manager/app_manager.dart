@@ -40,6 +40,13 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
             .savePreferencesDebounce();
       }
     });
+    ref.listenManual(globalOverwriteProfileIdProvider, (prev, next) {
+      if (prev != next) {
+        ref
+            .read(setupActionProvider.notifier)
+            .applyProfileDebounce(silence: true, force: true);
+      }
+    });
     ref.listenManual(needUpdateGroupsProvider, (prev, next) {
       if (prev != next) {
         globalState.container
@@ -132,12 +139,21 @@ class AppEnvManager extends StatelessWidget {
   }
 }
 
-class AppSidebarContainer extends ConsumerWidget {
+class AppSidebarContainer extends ConsumerStatefulWidget {
   final Widget child;
 
   const AppSidebarContainer({super.key, required this.child});
 
-  void _updateSideBarWidth(WidgetRef ref, double contentWidth) {
+  @override
+  ConsumerState<AppSidebarContainer> createState() =>
+      _AppSidebarContainerState();
+}
+
+class _AppSidebarContainerState
+    extends ConsumerState<AppSidebarContainer> {
+  bool _isExpanded = false;
+
+  void _updateSideBarWidth(double contentWidth) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(sideWidthProvider.notifier).value =
           ref.read(viewSizeProvider.select((state) => state.width)) -
@@ -152,12 +168,12 @@ class AppSidebarContainer extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final navigationState = ref.watch(navigationStateProvider);
     final navigationItems = navigationState.navigationItems;
     final isMobileView = navigationState.viewMode == ViewMode.mobile;
     if (isMobileView) {
-      return child;
+      return widget.child;
     }
     final currentIndex = navigationState.currentIndex;
     return SafeArea(
@@ -174,7 +190,8 @@ class AppSidebarContainer extends ConsumerWidget {
           final railHeight = availableRailHeight
               .clamp(300.0, 620.0)
               .toDouble();
-          const contentLeft = 48.0;
+          final railWidth = _isExpanded ? 196.0 : 72.0;
+          final contentLeft = railWidth - 24;
           return Center(
             child: SizedBox(
               width: groupWidth,
@@ -182,23 +199,33 @@ class AppSidebarContainer extends ConsumerWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Positioned.fill(
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
                     left: contentLeft,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
                     child: AppGlassPanel(
                       borderRadius: BorderRadius.circular(34),
-                      child: LayoutBuilder(
-                        builder: (_, contentConstraints) {
-                          _updateSideBarWidth(ref, contentConstraints.maxWidth);
-                          return child;
-                        },
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 32),
+                        child: LayoutBuilder(
+                          builder: (_, contentConstraints) {
+                            _updateSideBarWidth(contentConstraints.maxWidth);
+                            return widget.child;
+                          },
+                        ),
                       ),
                     ),
                   ),
                   Positioned(
                     left: 0,
                     top: (panelHeight - railHeight) / 2,
-                    child: SizedBox(
-                      width: 72,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      width: railWidth,
                       height: railHeight,
                       child: AppGlassPanel(
                         borderRadius: BorderRadius.circular(36),
@@ -236,6 +263,7 @@ class AppSidebarContainer extends ConsumerWidget {
                                     return _AppRailItem(
                                       item: item,
                                       isSelected: currentIndex == index,
+                                      showLabel: _isExpanded,
                                       onPressed: () {
                                         _handleToPage(item.label);
                                       },
@@ -243,6 +271,20 @@ class AppSidebarContainer extends ConsumerWidget {
                                   },
                                 ),
                               ),
+                            ),
+                            const SizedBox(height: 8),
+                            Divider(
+                              color: context.colorScheme.outlineVariant
+                                  .withAlpha(100),
+                            ),
+                            const SizedBox(height: 6),
+                            _RailExpandButton(
+                              isExpanded: _isExpanded,
+                              onPressed: () {
+                                setState(() {
+                                  _isExpanded = !_isExpanded;
+                                });
+                              },
                             ),
                           ],
                         ),
@@ -262,11 +304,13 @@ class AppSidebarContainer extends ConsumerWidget {
 class _AppRailItem extends StatefulWidget {
   final NavigationItem item;
   final bool isSelected;
+  final bool showLabel;
   final VoidCallback onPressed;
 
   const _AppRailItem({
     required this.item,
     required this.isSelected,
+    required this.showLabel,
     required this.onPressed,
   });
 
@@ -321,23 +365,112 @@ class _AppRailItemState extends State<_AppRailItem> {
                       ]
                     : const [],
               ),
-              child: IconTheme(
-                data: IconThemeData(
-                  color: widget.isSelected
-                      ? colorScheme.onPrimary
-                      : foregroundColor,
-                  size: 22,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.showLabel ? 12 : 0,
                 ),
-                child: widget.item.icon,
+                child: Row(
+                  mainAxisAlignment: widget.showLabel
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 32,
+                      child: IconTheme(
+                        data: IconThemeData(
+                          color: widget.isSelected
+                              ? colorScheme.onPrimary
+                              : foregroundColor,
+                          size: 22,
+                        ),
+                        child: widget.item.icon,
+                      ),
+                    ),
+                    if (widget.showLabel) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          Intl.message(widget.item.label.name),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.textTheme.labelLarge?.copyWith(
+                            color: widget.isSelected
+                                ? colorScheme.onPrimary
+                                : foregroundColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+    if (widget.showLabel) {
+      return content;
+    }
+    return Tooltip(message: Intl.message(widget.item.label.name), child: content);
+  }
+}
+
+class _RailExpandButton extends StatelessWidget {
+  final bool isExpanded;
+  final VoidCallback onPressed;
+
+  const _RailExpandButton({
+    required this.isExpanded,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isExpanded
+        ? context.appLocalizations.back
+        : context.appLocalizations.more;
     return Tooltip(
-      message: Intl.message(widget.item.label.name),
-      child: content,
+      message: label,
+      child: SizedBox(
+        height: 48,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onPressed,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: isExpanded ? 12 : 0),
+              child: Row(
+                mainAxisAlignment: isExpanded
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Icon(
+                      isExpanded
+                          ? Icons.keyboard_double_arrow_left_rounded
+                          : Icons.keyboard_double_arrow_right_rounded,
+                    ),
+                  ),
+                  if (isExpanded) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.labelLarge,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/config.dart';
 import 'package:flutter/material.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:window_ext/window_ext.dart';
 import 'package:window_manager/window_manager.dart';
 
 class Window {
@@ -39,6 +40,9 @@ class Window {
     await _windowPosition(props);
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.setPreventClose(true);
+      if (system.isWindows) {
+        await windowExtManager.setWindowCornerPreference(round: true);
+      }
     });
   }
 

@@ -82,6 +82,11 @@ class GlobalState {
     );
     final appStateOverrides = buildAppStateOverrides(appState);
     packageInfo = await PackageInfo.fromPlatform();
+    await Future.wait([
+      preferences.loadGlobalOverwriteProfileId(),
+      preferences.loadProfileUserAgents(),
+      preferences.loadAiConfig(),
+    ]);
     final configMap = await preferences.getConfigMap();
     final config = await migration.migrationIfNeeded(
       configMap,

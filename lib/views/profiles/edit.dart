@@ -8,6 +8,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/editor.dart';
 import 'package:fl_clash/providers/action.dart';
+import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,9 @@ class _EditProfileViewState extends State<EditProfileView> {
   late final TextEditingController _labelController;
   late final TextEditingController _urlController;
   late final TextEditingController _autoUpdateDurationController;
+  late final TextEditingController _userAgentController;
   late bool _autoUpdate;
+  late bool _useCustomUserAgent;
   String? _rawText;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final _fileInfoNotifier = ValueNotifier<FileInfo?>(null);
@@ -45,6 +48,11 @@ class _EditProfileViewState extends State<EditProfileView> {
     _autoUpdateDurationController = TextEditingController(
       text: widget.profile.autoUpdateDuration.inMinutes.toString(),
     );
+    final userAgent = globalState.container
+            .read(profileUserAgentsProvider)[widget.profile.id] ??
+        '';
+    _userAgentController = TextEditingController(text: userAgent);
+    _useCustomUserAgent = userAgent.isNotEmpty;
     _updateFileInfo();
   }
 
@@ -74,6 +82,12 @@ class _EditProfileViewState extends State<EditProfileView> {
     final profilesAction = globalState.container.read(
       profilesActionProvider.notifier,
     );
+    await globalState.container
+        .read(profileUserAgentsProvider.notifier)
+        .setUserAgent(
+          profile.id,
+          _useCustomUserAgent ? _userAgentController.text : '',
+        );
     final hasUpdate = widget.profile.url != profile.url;
     if (_fileData != null) {
       if (profile.type == ProfileType.url && _autoUpdate) {
@@ -208,6 +222,7 @@ class _EditProfileViewState extends State<EditProfileView> {
     _urlController.dispose();
     _fileInfoNotifier.dispose();
     _autoUpdateDurationController.dispose();
+    _userAgentController.dispose();
     super.dispose();
     globalState.container.read(setupActionProvider.notifier).autoApplyProfile();
   }
@@ -292,6 +307,40 @@ class _EditProfileViewState extends State<EditProfileView> {
             ),
           ),
       ],
+      ListItem.switchItem(
+        leading: const Icon(Icons.badge_outlined),
+        title: Text(appLocalizations.userAgent),
+        subtitle: Text(appLocalizations.custom),
+        delegate: SwitchDelegate<bool>(
+          value: _useCustomUserAgent,
+          onChanged: (value) {
+            setState(() {
+              _useCustomUserAgent = value;
+            });
+          },
+        ),
+      ),
+      if (_useCustomUserAgent)
+        ListItem(
+          title: TextFormField(
+            autofocus: true,
+            controller: _userAgentController,
+            maxLength: TextInputLimits.userAgent,
+            inputFormatters: TextInputLimits.limit(TextInputLimits.userAgent),
+            decoration: InputDecoration(
+              counterText: '',
+              labelText: appLocalizations.userAgent,
+            ),
+            keyboardType: TextInputType.url,
+            validator: (value) {
+              if (_useCustomUserAgent &&
+                  (value == null || value.trim().isEmpty)) {
+                return appLocalizations.emptyTip(appLocalizations.userAgent);
+              }
+              return null;
+            },
+          ),
+        ),
       ValueListenableBuilder<FileInfo?>(
         valueListenable: _fileInfoNotifier,
         builder: (_, fileInfo, _) {

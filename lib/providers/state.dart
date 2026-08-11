@@ -789,25 +789,45 @@ bool customOverwriteGroupIsValid(
 @riverpod
 Future<SetupState> setupState(Ref ref, int? profileId) async {
   final profile = ref.watch(profileProvider(profileId));
-  final scriptId = profile?.scriptId;
-  final profileLastUpdateDate = profile?.lastUpdateDate?.millisecondsSinceEpoch;
-  final overwriteType = profile?.overwriteType ?? OverwriteType.standard;
+  final globalOverwriteProfileId = ref.watch(
+    globalOverwriteProfileIdProvider,
+  );
+  final globalOverwriteProfile = ref.watch(
+    profileProvider(globalOverwriteProfileId),
+  );
+  final overwriteProfile = globalOverwriteProfile ?? profile;
+  final overwriteProfileId = overwriteProfile?.id;
+  final scriptId = overwriteProfile?.scriptId;
+  final profileLastUpdateDate = profile == null
+      ? null
+      : Object.hash(
+          profile.lastUpdateDate?.millisecondsSinceEpoch,
+          overwriteProfile?.lastUpdateDate?.millisecondsSinceEpoch,
+        );
+  final overwriteType =
+      overwriteProfile?.overwriteType ?? OverwriteType.standard;
   final dns = ref.watch(patchClashConfigProvider.select((state) => state.dns));
   final overrideDns = ref.watch(overrideDnsProvider);
   List<ProxyGroup> proxyGroups = [];
   List<Rule> rules = [];
   List<Rule> addedRules = [];
   Script? script;
-  if (profileId != null) {
+  if (overwriteProfileId != null) {
     if (overwriteType == OverwriteType.standard) {
-      addedRules = await database.rulesDao.queryAddedRules(profileId).get();
+      addedRules = await database.rulesDao
+          .queryAddedRules(overwriteProfileId)
+          .get();
     } else if (overwriteType == OverwriteType.script) {
       script = scriptId == null
           ? null
           : await database.scriptsDao.get(scriptId).getSingleOrNull();
     } else {
-      rules = await database.rulesDao.queryProfileCustomRules(profileId).get();
-      proxyGroups = await database.proxyGroupsDao.query(profileId).get();
+      rules = await database.rulesDao
+          .queryProfileCustomRules(overwriteProfileId)
+          .get();
+      proxyGroups = await database.proxyGroupsDao
+          .query(overwriteProfileId)
+          .get();
     }
   }
   return SetupState(

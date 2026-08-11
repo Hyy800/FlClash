@@ -307,8 +307,12 @@ class SetupAction extends _$SetupAction {
       proxyGroups.addAll(setupState.proxyGroups);
       rules.addAll(setupState.rules);
     }
+    final profileUserAgent = ref.read(profileUserAgentsProvider)[profileId];
     final realPatchConfig = patchConfig.copyWith(
       tun: patchConfig.tun.getRealTun(routeMode),
+      globalUa: profileUserAgent?.isNotEmpty == true
+          ? profileUserAgent
+          : patchConfig.globalUa,
     );
     Map<String, dynamic> rawConfig = configMap;
     if (scriptContent?.isNotEmpty == true) {
@@ -373,7 +377,12 @@ class SetupAction extends _$SetupAction {
     FutureOr Function()? onUpdated,
   }) async {
     var profile = ref.read(currentProfileProvider);
-    final nextProfile = await profile?.checkAndUpdateAndCopy();
+    final profileUserAgent = profile == null
+        ? null
+        : ref.read(profileUserAgentsProvider)[profile.id];
+    final nextProfile = await profile?.checkAndUpdateAndCopy(
+      userAgent: profileUserAgent,
+    );
     if (nextProfile != null) {
       profile = nextProfile;
       ref.read(profilesProvider.notifier).put(nextProfile);
@@ -846,6 +855,12 @@ class ProfilesAction extends _$ProfilesAction {
   Future<void> deleteProfile(int id) async {
     ref.read(profilesProvider.notifier).del(id);
     clearEffect(id);
+    if (ref.read(globalOverwriteProfileIdProvider) == id) {
+      await ref
+          .read(globalOverwriteProfileIdProvider.notifier)
+          .setValue(null);
+    }
+    await ref.read(profileUserAgentsProvider.notifier).remove(id);
     final currentProfileId = ref.read(currentProfileIdProvider);
     if (currentProfileId == id) {
       final profiles = ref.read(profilesProvider);
@@ -898,9 +913,11 @@ class ProfilesAction extends _$ProfilesAction {
         ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = true;
       }
       ref.read(profilesProvider.notifier).put(profile);
-      final newProfile = await profile.update();
+      final userAgent = ref.read(profileUserAgentsProvider)[profile.id];
+      final newProfile = await profile.update(userAgent: userAgent);
       ref.read(profilesProvider.notifier).put(newProfile);
-      if (profile.id == ref.read(currentProfileIdProvider)) {
+      if (profile.id == ref.read(currentProfileIdProvider) ||
+          profile.id == ref.read(globalOverwriteProfileIdProvider)) {
         ref
             .read(setupActionProvider.notifier)
             .applyProfileDebounce(silence: true);
@@ -928,7 +945,7 @@ class ProfilesAction extends _$ProfilesAction {
     }
   }
 
-  Future<void> addProfileFormURL(String url) async {
+  Future<void> addProfileFormURL(String url, {String? userAgent}) async {
     if (globalState.navigatorKey.currentState?.canPop() ?? false) {
       globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
@@ -936,18 +953,22 @@ class ProfilesAction extends _$ProfilesAction {
     final profile = await globalState.loadingRun(
       tag: LoadingTag.profiles,
       () async {
-        return Profile.normal(url: url).update();
+        return Profile.normal(url: url).update(userAgent: userAgent);
       },
       title: currentAppLocalizations.addProfile,
     );
     if (profile != null) {
+      await ref
+          .read(profileUserAgentsProvider.notifier)
+          .setUserAgent(profile.id, userAgent ?? '');
       putProfile(profile);
     }
   }
 
   void setProfileAndAutoApply(Profile profile) {
     ref.read(profilesProvider.notifier).put(profile);
-    if (profile.id == ref.read(currentProfileIdProvider)) {
+    if (profile.id == ref.read(currentProfileIdProvider) ||
+        profile.id == ref.read(globalOverwriteProfileIdProvider)) {
       ref.read(setupActionProvider.notifier).applyProfileDebounce();
     }
   }

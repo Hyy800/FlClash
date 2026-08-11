@@ -161,13 +161,13 @@ extension ProfileExtension on Profile {
 
   String get updatingKey => 'profile_$id';
 
-  Future<Profile?> checkAndUpdateAndCopy() async {
+  Future<Profile?> checkAndUpdateAndCopy({String? userAgent}) async {
     final mFile = await _getFile(false);
     final isExists = await mFile.exists();
     if (isExists || url.isEmpty) {
       return null;
     }
-    return update();
+    return update(userAgent: userAgent);
   }
 
   Future<File> _getFile([bool autoCreate = true]) async {
@@ -197,8 +197,11 @@ extension ProfileExtension on Profile {
     return _getFile();
   }
 
-  Future<Profile> update() async {
-    final response = await request.getFileResponseForUrl(url);
+  Future<Profile> update({String? userAgent}) async {
+    final response = await request.getFileResponseForUrl(
+      url,
+      userAgent: userAgent,
+    );
     final disposition = response.headers.value('content-disposition');
     final userinfo = response.headers.value('subscription-userinfo');
     return copyWith(

@@ -8,7 +8,13 @@ import 'constant.dart';
 
 class Preferences {
   static Preferences? _instance;
+  static const _globalOverwriteProfileIdKey = 'globalOverwriteProfileId';
+  static const _profileUserAgentsKey = 'profileUserAgents';
+  static const _aiConfigKey = 'aiConfig';
   Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
+  int? _globalOverwriteProfileId;
+  Map<int, String> _profileUserAgents = const {};
+  AiConfig _aiConfig = const AiConfig();
 
   Future<bool> get isInit async =>
       await sharedPreferencesCompleter.future != null;
@@ -32,6 +38,81 @@ class Preferences {
   Future<void> setVersion(int version) async {
     final preferences = await sharedPreferencesCompleter.future;
     await preferences?.setInt('version', version);
+  }
+
+  int? get globalOverwriteProfileId => _globalOverwriteProfileId;
+
+  Future<void> loadGlobalOverwriteProfileId() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    _globalOverwriteProfileId = int.tryParse(
+      preferences?.getString(_globalOverwriteProfileIdKey) ?? '',
+    );
+  }
+
+  Future<void> setGlobalOverwriteProfileId(int? profileId) async {
+    _globalOverwriteProfileId = profileId;
+    final preferences = await sharedPreferencesCompleter.future;
+    if (profileId == null) {
+      await preferences?.remove(_globalOverwriteProfileIdKey);
+      return;
+    }
+    await preferences?.setString(
+      _globalOverwriteProfileIdKey,
+      profileId.toString(),
+    );
+  }
+
+  Map<int, String> get profileUserAgents => _profileUserAgents;
+
+  Future<void> loadProfileUserAgents() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    try {
+      final rawValue = preferences?.getString(_profileUserAgentsKey);
+      final data = rawValue == null
+          ? const <String, dynamic>{}
+          : json.decode(rawValue) as Map<String, dynamic>;
+      _profileUserAgents = {
+        for (final entry in data.entries)
+          if (int.tryParse(entry.key) != null && entry.value is String)
+            int.parse(entry.key): entry.value as String,
+      };
+    } catch (_) {
+      _profileUserAgents = const {};
+    }
+  }
+
+  Future<void> setProfileUserAgents(Map<int, String> values) async {
+    _profileUserAgents = Map.unmodifiable(values);
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setString(
+      _profileUserAgentsKey,
+      json.encode({
+        for (final entry in values.entries)
+          entry.key.toString(): entry.value,
+      }),
+    );
+  }
+
+  AiConfig get aiConfig => _aiConfig;
+
+  Future<void> loadAiConfig() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    try {
+      final rawValue = preferences?.getString(_aiConfigKey);
+      _aiConfig = rawValue == null
+          ? const AiConfig()
+          : AiConfig.fromJson(
+              Map<String, dynamic>.from(json.decode(rawValue) as Map),
+            );
+    } catch (_) {
+      _aiConfig = const AiConfig();
+    }
+  }
+
+  Future<void> setAiConfig(AiConfig value) async {
+    _aiConfig = value;
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setString(_aiConfigKey, json.encode(value.toJson()));
   }
 
   Future<void> saveShareState(SharedState shareState) async {

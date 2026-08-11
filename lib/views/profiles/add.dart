@@ -16,10 +16,13 @@ class AddProfileView extends StatelessWidget {
         .addProfileFormFile();
   }
 
-  Future<void> _handleAddProfileFormURL(String url) async {
+  Future<void> _handleAddProfileFormURL(
+    String url, {
+    String? userAgent,
+  }) async {
     globalState.container
         .read(profilesActionProvider.notifier)
-        .addProfileFormURL(url);
+        .addProfileFormURL(url, userAgent: userAgent);
   }
 
   Future<void> _toScan() async {
@@ -38,27 +41,14 @@ class AddProfileView extends StatelessWidget {
   }
 
   Future<void> _toAdd() async {
-    final appLocalizations = context.appLocalizations;
-    final url = await globalState.showCommonDialog<String>(
-      child: InputDialog(
-        autovalidateMode: AutovalidateMode.onUnfocus,
-        title: appLocalizations.importFromURL,
-        labelText: appLocalizations.url,
-        value: '',
-        inputFormatters: TextInputLimits.limit(TextInputLimits.url),
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return appLocalizations.emptyTip('').trim();
-          }
-          if (!value.isUrl) {
-            return appLocalizations.urlTip('').trim();
-          }
-          return null;
-        },
-      ),
+    final data = await globalState.showCommonDialog<AddProfileFormData>(
+      child: const URLFormDialog(),
     );
-    if (url != null) {
-      _handleAddProfileFormURL(url);
+    if (data != null) {
+      _handleAddProfileFormURL(
+        data.url,
+        userAgent: data.userAgent,
+      );
     }
   }
 
@@ -90,6 +80,13 @@ class AddProfileView extends StatelessWidget {
   }
 }
 
+class AddProfileFormData {
+  final String url;
+  final String? userAgent;
+
+  const AddProfileFormData({required this.url, this.userAgent});
+}
+
 class URLFormDialog extends StatefulWidget {
   const URLFormDialog({super.key});
 
@@ -98,17 +95,29 @@ class URLFormDialog extends StatefulWidget {
 }
 
 class _URLFormDialogState extends State<URLFormDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
+  final _userAgentController = TextEditingController();
+  bool _useCustomUserAgent = false;
 
   Future<void> _handleAddProfileFormURL() async {
-    final url = _urlController.value.text;
-    if (url.isEmpty) return;
-    Navigator.of(context).pop<String>(url);
+    if (_formKey.currentState?.validate() != true) {
+      return;
+    }
+    Navigator.of(context).pop(
+      AddProfileFormData(
+        url: _urlController.text,
+        userAgent: _useCustomUserAgent
+            ? _userAgentController.text.trim()
+            : null,
+      ),
+    );
   }
 
   @override
   void dispose() {
     _urlController.dispose();
+    _userAgentController.dispose();
     super.dispose();
   }
 
@@ -123,12 +132,14 @@ class _URLFormDialogState extends State<URLFormDialog> {
           child: Text(appLocalizations.submit),
         ),
       ],
-      child: SizedBox(
-        width: 300,
-        child: Wrap(
-          runSpacing: 16,
-          children: [
-            TextField(
+      child: Form(
+        key: _formKey,
+        child: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
               keyboardType: TextInputType.url,
               minLines: 1,
               maxLines: 5,
@@ -136,14 +147,62 @@ class _URLFormDialogState extends State<URLFormDialog> {
               onSubmitted: (_) {
                 _handleAddProfileFormURL();
               },
-              onEditingComplete: _handleAddProfileFormURL,
               controller: _urlController,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return appLocalizations.emptyTip('').trim();
+                }
+                if (!value.isUrl) {
+                  return appLocalizations.urlTip('').trim();
+                }
+                return null;
+              },
               decoration: InputDecoration(
-                border: const OutlineInputBorder(),
                 labelText: appLocalizations.url,
               ),
             ),
-          ],
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(appLocalizations.userAgent),
+                subtitle: Text(appLocalizations.custom),
+                value: _useCustomUserAgent,
+                onChanged: (value) {
+                  setState(() {
+                    _useCustomUserAgent = value ?? false;
+                  });
+                },
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: !_useCustomUserAgent
+                    ? const SizedBox.shrink(key: ValueKey(false))
+                    : TextFormField(
+                        key: const ValueKey(true),
+                        autofocus: true,
+                        controller: _userAgentController,
+                        maxLength: TextInputLimits.userAgent,
+                        inputFormatters: TextInputLimits.limit(
+                          TextInputLimits.userAgent,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          labelText: appLocalizations.userAgent,
+                        ),
+                        keyboardType: TextInputType.url,
+                        validator: (value) {
+                          if (_useCustomUserAgent &&
+                              (value == null || value.trim().isEmpty)) {
+                            return appLocalizations.emptyTip(
+                              appLocalizations.userAgent,
+                            );
+                          }
+                          return null;
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -84,6 +84,47 @@ class UaItem extends ConsumerWidget {
   }
 }
 
+class GlobalOverwriteItem extends ConsumerWidget {
+  const GlobalOverwriteItem({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
+    final profiles = ref.watch(profilesProvider);
+    final selectedId = ref.watch(globalOverwriteProfileIdProvider);
+    final selectedProfile = profiles.getProfile(selectedId);
+    final value = selectedProfile?.id ?? 0;
+    final title = '${appLocalizations.global} ${appLocalizations.override}';
+    return ListItem<int>.options(
+      leading: const Icon(Icons.layers_outlined),
+      title: Text(title),
+      subtitle: Text(
+        selectedProfile?.realLabel ?? appLocalizations.defaultText,
+      ),
+      delegate: OptionsDelegate<int>(
+        title: title,
+        options: [0, ...profiles.map((profile) => profile.id)],
+        value: value,
+        textBuilder: (profileId) {
+          if (profileId == 0) {
+            return appLocalizations.defaultText;
+          }
+          return profiles.getProfile(profileId)?.realLabel ??
+              appLocalizations.defaultText;
+        },
+        onChanged: (profileId) {
+          if (profileId == null) {
+            return;
+          }
+          ref
+              .read(globalOverwriteProfileIdProvider.notifier)
+              .setValue(profileId == 0 ? null : profileId);
+        },
+      ),
+    );
+  }
+}
+
 class _UaDialogResult {
   final String value;
   final bool isCustom;
@@ -215,47 +256,41 @@ class _UaDialogState extends State<_UaDialog> {
                     });
                   },
                 ),
-                title: Builder(
-                  builder: (context) {
-                    final titleStyle = DefaultTextStyle.of(context).style;
-                    return TextFormField(
-                      enabled: _groupValue == _customUaValue,
-                      style: titleStyle,
-                      maxLength: TextInputLimits.userAgent,
-                      inputFormatters: TextInputLimits.limit(
-                        TextInputLimits.userAgent,
+                title: Text(appLocalizations.custom),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: _groupValue != _customUaValue
+                    ? const SizedBox.shrink(key: ValueKey(false))
+                    : Padding(
+                        key: const ValueKey(true),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: TextFormField(
+                          autofocus: true,
+                          controller: _customController,
+                          maxLength: TextInputLimits.userAgent,
+                          inputFormatters: TextInputLimits.limit(
+                            TextInputLimits.userAgent,
+                          ),
+                          decoration: InputDecoration(
+                            counterText: '',
+                            labelText: appLocalizations.userAgent,
+                          ),
+                          keyboardType: TextInputType.url,
+                          maxLines: 1,
+                          onFieldSubmitted: (_) {
+                            _handleSubmit();
+                          },
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return appLocalizations.emptyTip(
+                                appLocalizations.userAgent,
+                              );
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                      decoration: InputDecoration(
-                        isCollapsed: true,
-                        contentPadding: EdgeInsets.zero,
-                        border: InputBorder.none,
-                        counterText: '',
-                        hintStyle: titleStyle,
-                        hintText: appLocalizations.custom,
-                      ),
-                      keyboardType: TextInputType.url,
-                      maxLines: 1,
-                      controller: _customController,
-                      onChanged: (value) {
-                        setState(() {
-                          _groupValue = _customUaValue;
-                        });
-                      },
-                      onFieldSubmitted: (_) {
-                        _handleSubmit();
-                      },
-                      validator: (value) {
-                        if (_groupValue == _customUaValue &&
-                            (value == null || value.trim().isEmpty)) {
-                          return appLocalizations.emptyTip(
-                            appLocalizations.userAgent,
-                          );
-                        }
-                        return null;
-                      },
-                    );
-                  },
-                ),
               ),
             ],
           ),
@@ -664,6 +699,7 @@ class ExternalControllerItem extends ConsumerWidget {
 final generalItems = <Widget>[
   const LogLevelItem(),
   const UaItem(),
+  const GlobalOverwriteItem(),
   if (system.isDesktop) const KeepAliveIntervalItem(),
   const TestUrlItem(),
   const PortItem(),
