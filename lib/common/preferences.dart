@@ -12,11 +12,13 @@ class Preferences {
   static const _profileUserAgentsKey = 'profileUserAgents';
   static const _aiConfigKey = 'aiConfig';
   static const _aiSessionsKey = 'aiSessions';
+  static const _aiSkillsKey = 'aiSkills';
   Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
   int? _globalOverwriteProfileId;
   Map<int, String> _profileUserAgents = const {};
   AiConfig _aiConfig = const AiConfig();
   AiSessionStore _aiSessionStore = AiSessionStore.initial();
+  List<AiSkill> _aiSkills = const [];
 
   Future<bool> get isInit async =>
       await sharedPreferencesCompleter.future != null;
@@ -137,6 +139,31 @@ class Preferences {
     _aiSessionStore = value;
     final preferences = await sharedPreferencesCompleter.future;
     await preferences?.setString(_aiSessionsKey, json.encode(value.toJson()));
+  }
+
+  List<AiSkill> get aiSkills => _aiSkills;
+
+  Future<void> loadAiSkills() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    try {
+      final rawValue = preferences?.getString(_aiSkillsKey);
+      final data = rawValue == null ? const [] : json.decode(rawValue) as List;
+      _aiSkills = data
+          .whereType<Map>()
+          .map((item) => AiSkill.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    } catch (_) {
+      _aiSkills = const [];
+    }
+  }
+
+  Future<void> setAiSkills(List<AiSkill> value) async {
+    _aiSkills = List.unmodifiable(value);
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setString(
+      _aiSkillsKey,
+      json.encode(value.map((skill) => skill.toJson()).toList()),
+    );
   }
 
   Future<void> saveShareState(SharedState shareState) async {

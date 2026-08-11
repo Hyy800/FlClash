@@ -19,6 +19,78 @@ enum AiApiProtocol {
   }
 }
 
+class AiSkill {
+  static const maxContentLength = 32768;
+
+  final String id;
+  final String name;
+  final String content;
+  final bool enabled;
+  final DateTime importedAt;
+
+  AiSkill({
+    String? id,
+    required this.name,
+    required this.content,
+    this.enabled = true,
+    DateTime? importedAt,
+  }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+       importedAt = importedAt ?? DateTime.now() {
+    if (name.trim().isEmpty) {
+      throw const FormatException('Skill name cannot be empty.');
+    }
+    if (content.trim().isEmpty) {
+      throw const FormatException('Skill content cannot be empty.');
+    }
+    if (content.length > maxContentLength) {
+      throw const FormatException('Skill content is too large.');
+    }
+  }
+
+  static String inferName(String content, {String fallback = 'Skill'}) {
+    final frontMatterName = RegExp(
+      r'''^---\s*[\r\n]+[\s\S]*?^name:\s*["']?([^\r\n"']+)''',
+      multiLine: true,
+    ).firstMatch(content)?.group(1)?.trim();
+    if (frontMatterName?.isNotEmpty == true) return frontMatterName!;
+    final heading = RegExp(
+      r'^#{1,3}\s+(.+)$',
+      multiLine: true,
+    ).firstMatch(content)?.group(1)?.trim();
+    return heading?.isNotEmpty == true ? heading! : fallback.trim();
+  }
+
+  AiSkill copyWith({String? name, String? content, bool? enabled}) {
+    return AiSkill(
+      id: id,
+      name: name ?? this.name,
+      content: content ?? this.content,
+      enabled: enabled ?? this.enabled,
+      importedAt: importedAt,
+    );
+  }
+
+  factory AiSkill.fromJson(Map<String, dynamic> json) {
+    return AiSkill(
+      id: json['id'] as String?,
+      name: json['name'] as String? ?? 'Skill',
+      content: json['content'] as String? ?? '',
+      enabled: json['enabled'] as bool? ?? true,
+      importedAt: DateTime.fromMillisecondsSinceEpoch(
+        json['importedAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'content': content,
+    'enabled': enabled,
+    'importedAt': importedAt.millisecondsSinceEpoch,
+  };
+}
+
 class AiConfig {
   final String baseUrl;
   final String apiKey;
@@ -207,6 +279,9 @@ class AiSessionStore {
       orElse: () => sessions.first,
     );
   }
+
+  bool get canReuseActiveSession =>
+      activeSession.messages.isEmpty && activeSession.summary.trim().isEmpty;
 
   factory AiSessionStore.fromJson(Map<String, dynamic> json) {
     final sessions = (json['sessions'] as List? ?? const [])

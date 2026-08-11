@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/ai/ai_service.dart';
@@ -318,6 +320,7 @@ class _AiViewState extends ConsumerState<AiView> {
         config: config,
         history: session.messages,
         summary: session.summary,
+        skills: ref.read(aiSkillsProvider),
         toolHandler: executor.execute,
         onDelta: _appendDelta,
       );
@@ -335,8 +338,206 @@ class _AiViewState extends ConsumerState<AiView> {
 
   Future<void> _createSession() async {
     if (_busy) return;
+    final canReuse = ref.read(aiSessionsProvider).canReuseActiveSession;
     await ref.read(aiSessionsProvider.notifier).createSession();
+    if (canReuse || !mounted) return;
+    _clearConversationUi();
     _scrollToBottom();
+  }
+
+  Future<void> _selectSession(String id) async {
+    final store = ref.read(aiSessionsProvider);
+    if (id == store.activeSessionId) return;
+    await ref.read(aiSessionsProvider.notifier).selectSession(id);
+    if (!mounted) return;
+    _clearConversationUi();
+    _scrollToBottom();
+  }
+
+  void _clearConversationUi() {
+    _messageController.clear();
+    setState(() {
+      _streamedText = '';
+      _pendingDelta = '';
+      _frameScheduled = false;
+    });
+  }
+
+  Future<AiSkill?> _importSkillContent({
+    required String name,
+    required String content,
+  }) async {
+    try {
+      final skill = await ref
+          .read(aiSkillsProvider.notifier)
+          .importSkill(name: name, content: content);
+      if (mounted) {
+        globalState.showNotifier(
+          '${context.appLocalizations.import}: ${skill.name}',
+        );
+      }
+      return skill;
+    } catch (error) {
+      globalState.showNotifier(error.toString());
+      return null;
+    }
+  }
+
+  Future<AiSkill?> _importSkillFile({bool addToConversation = false}) async {
+    final platformFile = await globalState.safeRun(picker.pickerFile);
+    if (platformFile == null) return null;
+    try {
+      final content = utf8.decode(await platformFile.readBytes());
+      final fallbackName = platformFile.name.replaceFirst(
+        RegExp(r'\.[^.]+$'),
+        '',
+      );
+      final name = AiSkill.inferName(content, fallback: fallbackName);
+      final skill = await _importSkillContent(name: name, content: content);
+      if (skill != null && addToConversation) {
+        final sessionId = ref.read(aiSessionsProvider).activeSessionId;
+        await ref.read(aiSessionsProvider.notifier).addMessage(
+              sessionId,
+              AiChatMessage(
+                role: 'user',
+                content:
+                    '${context.appLocalizations.importFile}: ${skill.name}',
+              ),
+            );
+        _scrollToBottom();
+      }
+      return skill;
+    } catch (error) {
+      globalState.showNotifier(error.toString());
+      return null;
+    }
+  }
+
+  Future<void> _showSkillEditor() async {
+    final nameController = TextEditingController();
+    final contentController = TextEditingController();
+    final draft = await showDialog<({String name, String content})>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${context.appLocalizations.import} Skill'),
+        content: SizedBox(
+          width: 620,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: context.appLocalizations.name,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contentController,
+                minLines: 10,
+                maxLines: 16,
+                decoration: InputDecoration(
+                  labelText: context.appLocalizations.content,
+                  alignLabelWithHint: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.appLocalizations.cancel),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final content = contentController.text.trim();
+              final name = nameController.text.trim().isEmpty
+                  ? AiSkill.inferName(content)
+                  : nameController.text.trim();
+              Navigator.pop(dialogContext, (name: name, content: content));
+            },
+            icon: const Icon(Icons.download_done_rounded),
+            label: Text(context.appLocalizations.import),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    contentController.dispose();
+    if (draft != null) {
+      await _importSkillContent(name: draft.name, content: draft.content);
+    }
+  }
+
+  Future<void> _showSkills() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Consumer(
+        builder: (context, dialogRef, _) {
+          final skills = dialogRef.watch(aiSkillsProvider);
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.extension_rounded),
+                SizedBox(width: 10),
+                Expanded(child: Text('Skills')),
+              ],
+            ),
+            content: SizedBox(
+              width: 620,
+              height: 430,
+              child: skills.isEmpty
+                  ? const Center(child: Icon(Icons.extension_off_rounded, size: 48))
+                  : ListView.separated(
+                      itemCount: skills.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        final skill = skills[index];
+                        return ListTile(
+                          leading: Switch(
+                            value: skill.enabled,
+                            onChanged: (value) => dialogRef
+                                .read(aiSkillsProvider.notifier)
+                                .setEnabled(skill.id, value),
+                          ),
+                          title: Text(skill.name),
+                          subtitle: Text(
+                            '${skill.content.length} ${context.appLocalizations.content}',
+                          ),
+                          trailing: IconButton(
+                            tooltip: context.appLocalizations.delete,
+                            onPressed: () => dialogRef
+                                .read(aiSkillsProvider.notifier)
+                                .deleteSkill(skill.id),
+                            icon: const Icon(Icons.delete_outline_rounded),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton.icon(
+                onPressed: _showSkillEditor,
+                icon: const Icon(Icons.edit_note_rounded),
+                label: Text(context.appLocalizations.content),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => _importSkillFile(),
+                icon: const Icon(Icons.file_open_rounded),
+                label: Text(context.appLocalizations.importFile),
+              ),
+              IconButton(
+                tooltip: context.appLocalizations.cancel,
+                onPressed: () => Navigator.pop(dialogContext),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _renameSession(AiSession session) async {
@@ -511,7 +712,7 @@ class _AiViewState extends ConsumerState<AiView> {
             child: PopupMenuButton<String>(
               enabled: !_busy,
               tooltip: context.appLocalizations.more,
-              onSelected: (id) => ref.read(aiSessionsProvider.notifier).selectSession(id),
+              onSelected: _selectSession,
               itemBuilder: (_) => store.sessions
                   .map(
                     (item) => PopupMenuItem(
@@ -590,26 +791,23 @@ class _AiViewState extends ConsumerState<AiView> {
           _buildSessionHeader(store),
           Divider(height: 1, color: context.colorScheme.outlineVariant),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: visibleMessages.isEmpty
-                  ? Center(
-                      key: const ValueKey('empty'),
-                      child: Icon(
-                        Icons.auto_awesome_rounded,
-                        size: 52,
-                        color: context.colorScheme.primary.withAlpha(150),
-                      ),
-                    )
-                  : ListView.builder(
-                      key: ValueKey(store.activeSessionId),
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(18),
-                      itemCount: visibleMessages.length,
-                      itemBuilder: (_, index) =>
-                          _MessageBubble(message: visibleMessages[index]),
+            child: visibleMessages.isEmpty
+                ? Center(
+                    key: ValueKey('empty-${store.activeSessionId}'),
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 52,
+                      color: context.colorScheme.primary.withAlpha(150),
                     ),
-            ),
+                  )
+                : ListView.builder(
+                    key: ValueKey(store.activeSessionId),
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(18),
+                    itemCount: visibleMessages.length,
+                    itemBuilder: (_, index) =>
+                        _MessageBubble(message: visibleMessages[index]),
+                  ),
           ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 160),
@@ -623,6 +821,13 @@ class _AiViewState extends ConsumerState<AiView> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                IconButton(
+                  tooltip: '${context.appLocalizations.importFile} Skill',
+                  onPressed: _busy
+                      ? null
+                      : () => _importSkillFile(addToConversation: true),
+                  icon: const Icon(Icons.attach_file_rounded),
+                ),
                 Expanded(
                   child: Focus(
                     onKeyEvent: (_, event) {
@@ -672,6 +877,11 @@ class _AiViewState extends ConsumerState<AiView> {
     return CommonScaffold(
       title: 'AI',
       actions: [
+        FilledButton.tonalIcon(
+          onPressed: _busy ? null : _showSkills,
+          icon: const Icon(Icons.extension_rounded),
+          label: const Text('Skills'),
+        ),
         FilledButton.tonalIcon(
           onPressed: _busy ? null : _showApiSettings,
           icon: const Icon(Icons.api_rounded),

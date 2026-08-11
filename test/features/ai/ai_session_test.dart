@@ -29,6 +29,42 @@ void main() {
     expect(restored.activeSessionId, session.id);
   });
 
+  test('only an untouched active session can be reused', () {
+    final empty = AiSession();
+    expect(
+      AiSessionStore(activeSessionId: empty.id, sessions: [empty])
+          .canReuseActiveSession,
+      isTrue,
+    );
+    final started = AiSession(
+      messages: [AiChatMessage(role: 'user', content: 'hello')],
+    );
+    expect(
+      AiSessionStore(activeSessionId: started.id, sessions: [started])
+          .canReuseActiveSession,
+      isFalse,
+    );
+  });
+
+  test('AI Skill infers names, persists, and enters the system prompt', () {
+    const content = '''---
+name: Routing helper
+---
+Always inspect routing state first.''';
+    final skill = AiSkill(
+      name: AiSkill.inferName(content),
+      content: content,
+    );
+    final restored = AiSkill.fromJson(skill.toJson());
+    expect(restored.name, 'Routing helper');
+    expect(restored.content, content);
+    expect(buildAiSkillPrompt([restored]), contains(content));
+    expect(
+      buildAiSkillPrompt([restored.copyWith(enabled: false)]),
+      isEmpty,
+    );
+  });
+
   test('context compressor threshold covers count and character limits', () {
     const compressor = AiContextCompressor();
     final many = AiSession(

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/ai/ai_service.dart';
+import 'package:fl_clash/features/ai/ai_tools.dart';
 import 'package:fl_clash/models/ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -196,6 +198,52 @@ void main() {
         .map((function) => function['name'])
         .toSet();
     expect(toolNames, contains('test_proxy_delays'));
+    expect(toolNames, contains('add_routing_rule'));
+    expect(toolNames, contains('list_ai_skills'));
+    expect(toolNames, contains('import_ai_skill'));
     expect(aiSystemPrompt, contains('Persist until'));
+  });
+
+  group('AI routing rule detection', () {
+    test('detects domains and wildcard suffixes', () {
+      expect(
+        parseAiRoutingRuleSource('Example.COM'),
+        (action: RuleAction.DOMAIN, content: 'example.com'),
+      );
+      expect(
+        parseAiRoutingRuleSource('*.Example.COM'),
+        (action: RuleAction.DOMAIN_SUFFIX, content: 'example.com'),
+      );
+      expect(
+        parseAiRoutingRuleSource('https://example.com/path'),
+        (action: RuleAction.DOMAIN, content: 'example.com'),
+      );
+    });
+
+    test('detects IPv4, IPv6, and CIDR values', () {
+      expect(
+        parseAiRoutingRuleSource('192.0.2.8'),
+        (action: RuleAction.IP_CIDR, content: '192.0.2.8/32'),
+      );
+      expect(
+        parseAiRoutingRuleSource('2001:db8::8'),
+        (action: RuleAction.IP_CIDR6, content: '2001:db8::8/128'),
+      );
+      expect(
+        parseAiRoutingRuleSource('192.0.2.0/24'),
+        (action: RuleAction.IP_CIDR, content: '192.0.2.0/24'),
+      );
+    });
+
+    test('rejects invalid values', () {
+      expect(
+        () => parseAiRoutingRuleSource('not a domain'),
+        throwsFormatException,
+      );
+      expect(
+        () => parseAiRoutingRuleSource('192.0.2.0/99'),
+        throwsFormatException,
+      );
+    });
   });
 }

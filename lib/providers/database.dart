@@ -229,15 +229,17 @@ class GlobalRules extends _$GlobalRules with AsyncNotifierMixin {
   }
 
   void put(Rule rule) {
+    unawaited(putAndWait(rule));
+  }
+
+  Future<void> putAndWait(Rule rule) async {
     final previous = List<Rule>.from(value);
     final newRule = rule.autoOrder(rule, null, previous.firstOrNull?.order);
     value = previous.copyAndPut(newRule, (rule) => rule.id == newRule.id);
-    unawaited(
-      withRollback(
-        snapshot: previous,
-        action: () => database.rulesDao.putGlobalRule(newRule),
-        rollback: (v) => value = v,
-      ),
+    await withRollback(
+      snapshot: previous,
+      action: () => database.rulesDao.putGlobalRule(newRule),
+      rollback: (v) => value = v,
     );
   }
 
@@ -279,15 +281,17 @@ class ProfileAddedRules extends _$ProfileAddedRules with AsyncNotifierMixin {
   }
 
   void put(Rule rule) {
+    unawaited(putAndWait(rule));
+  }
+
+  Future<void> putAndWait(Rule rule) async {
     final previous = List<Rule>.from(value);
     final newRule = rule.autoOrder(rule, null, previous.firstOrNull?.order);
     value = previous.copyAndPut(newRule, (rule) => rule.id == newRule.id);
-    unawaited(
-      withRollback(
-        snapshot: previous,
-        action: () => database.rulesDao.putProfileAddedRule(profileId, newRule),
-        rollback: (v) => value = v,
-      ),
+    await withRollback(
+      snapshot: previous,
+      action: () => database.rulesDao.putProfileAddedRule(profileId, newRule),
+      rollback: (v) => value = v,
     );
   }
 

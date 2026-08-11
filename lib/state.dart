@@ -87,6 +87,7 @@ class GlobalState {
       preferences.loadProfileUserAgents(),
       preferences.loadAiConfig(),
       preferences.loadAiSessions(),
+      preferences.loadAiSkills(),
     ]);
     final configMap = await preferences.getConfigMap();
     final config = await migration.migrationIfNeeded(

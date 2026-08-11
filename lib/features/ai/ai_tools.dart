@@ -16,6 +16,100 @@ typedef AiToolConfirmation = Future<bool> Function(
   String details,
 );
 
+typedef AiRoutingRuleSource = ({RuleAction action, String content});
+
+AiRoutingRuleSource parseAiRoutingRuleSource(String input) {
+  var value = input.trim();
+  if (value.isEmpty) {
+    throw const FormatException('rule_value cannot be empty.');
+  }
+
+  var matchSubdomains = false;
+  if (value.startsWith('*.')) {
+    matchSubdomains = true;
+    value = value.substring(2);
+  } else if (value.startsWith('.')) {
+    matchSubdomains = true;
+    value = value.substring(1);
+  }
+
+  final originalCidrParts = value.split('/');
+  if (!value.contains('://') && originalCidrParts.length == 2) {
+    final address = InternetAddress.tryParse(originalCidrParts.first);
+    if (address != null) {
+      final prefix = int.tryParse(originalCidrParts.last);
+      final maxPrefix = address.type == InternetAddressType.IPv6 ? 128 : 32;
+      if (prefix == null || prefix < 0 || prefix > maxPrefix) {
+        throw const FormatException('Invalid IP CIDR rule value.');
+      }
+      return (
+        action: address.type == InternetAddressType.IPv6
+            ? RuleAction.IP_CIDR6
+            : RuleAction.IP_CIDR,
+        content: '${address.address}/$prefix',
+      );
+    }
+  }
+
+  final uri = Uri.tryParse(
+    value.contains('://') ? value : 'http://$value',
+  );
+  if (uri != null && uri.host.isNotEmpty) {
+    final hasUrlParts = value.contains('://') ||
+        value.contains('/') ||
+        (uri.hasPort && InternetAddress.tryParse(value) == null);
+    if (hasUrlParts) value = uri.host;
+  }
+  if (value.startsWith('[') && value.endsWith(']')) {
+    value = value.substring(1, value.length - 1);
+  }
+
+  final cidrParts = value.split('/');
+  if (cidrParts.length == 2) {
+    final address = InternetAddress.tryParse(cidrParts.first);
+    final prefix = int.tryParse(cidrParts.last);
+    final maxPrefix = address?.type == InternetAddressType.IPv6 ? 128 : 32;
+    if (address == null ||
+        prefix == null ||
+        prefix < 0 ||
+        prefix > maxPrefix) {
+      throw const FormatException('Invalid IP CIDR rule value.');
+    }
+    return (
+      action: address.type == InternetAddressType.IPv6
+          ? RuleAction.IP_CIDR6
+          : RuleAction.IP_CIDR,
+      content: '${address.address}/$prefix',
+    );
+  }
+
+  final address = InternetAddress.tryParse(value);
+  if (address != null) {
+    return (
+      action: address.type == InternetAddressType.IPv6
+          ? RuleAction.IP_CIDR6
+          : RuleAction.IP_CIDR,
+      content: '${address.address}/${
+          address.type == InternetAddressType.IPv6 ? 128 : 32}',
+    );
+  }
+
+  value = value.toLowerCase();
+  if (value.endsWith('.')) value = value.substring(0, value.length - 1);
+  final domainPattern = RegExp(
+    r'^(?=.{1,253}$)(?:[a-z0-9\u0080-\uFFFF](?:[a-z0-9\u0080-\uFFFF-]{0,61}[a-z0-9\u0080-\uFFFF])?\.)*[a-z0-9\u0080-\uFFFF](?:[a-z0-9\u0080-\uFFFF-]{0,61}[a-z0-9\u0080-\uFFFF])?$',
+  );
+  if (!domainPattern.hasMatch(value)) {
+    throw const FormatException(
+      'rule_value must be a valid domain, URL, IP address, or CIDR.',
+    );
+  }
+  return (
+    action: matchSubdomains ? RuleAction.DOMAIN_SUFFIX : RuleAction.DOMAIN,
+    content: value,
+  );
+}
+
 class AiToolExecutor {
   final AiToolConfirmation confirm;
 
@@ -30,6 +124,9 @@ class AiToolExecutor {
       'list_proxy_groups' => _listProxyGroups(),
       'switch_proxy' => _switchProxy(call.arguments),
       'test_proxy_delays' => _testProxyDelays(call.arguments),
+      'add_routing_rule' => _addRoutingRule(call.arguments),
+      'list_ai_skills' => _listAiSkills(),
+      'import_ai_skill' => _importAiSkill(call.arguments),
       'set_running' => _setRunning(call.arguments),
       'set_global_overwrite_profile' => _setGlobalOverwriteProfile(
         call.arguments,
@@ -64,6 +161,8 @@ class AiToolExecutor {
       'restart_core',
       'close_connections',
       'clear_logs_and_requests',
+      'add_routing_rule',
+      'import_ai_skill',
     };
     return {
       'ok': true,
@@ -313,6 +412,151 @@ class AiToolExecutor {
       'ok': true,
       'running': globalState.container.read(isStartProvider),
       'changed': true,
+    };
+  }
+
+  Future<Map<String, dynamic>> _addRoutingRule(
+    Map<String, dynamic> arguments,
+  ) async {
+    final source = parseAiRoutingRuleSource(
+      _readString(arguments, 'rule_value'),
+    );
+    final requestedTarget = _readString(arguments, 'target');
+    final container = globalState.container;
+    final groups = container.read(currentGroupsStateProvider).value;
+    final availableTargets = <String>{
+      ...RuleTarget.baseTargets,
+      ...groups.map((group) => group.name),
+      ...groups.expand((group) => group.all.map((proxy) => proxy.name)),
+    };
+    final target = availableTargets
+        .where(
+          (item) => item.toLowerCase() == requestedTarget.toLowerCase(),
+        )
+        .firstOrNull;
+    if (target == null) {
+      return {
+        'ok': false,
+        'error': 'Routing target $requestedTarget was not found.',
+        'available_targets': availableTargets.take(200).toList(),
+        'truncated': availableTargets.length > 200,
+      };
+    }
+
+    final scope = arguments['scope']?.toString().trim().toLowerCase() ??
+        'current_profile';
+    if (!{'global', 'current_profile', 'profile'}.contains(scope)) {
+      return {
+        'ok': false,
+        'error': 'scope must be global, current_profile, or profile.',
+      };
+    }
+    int? profileId;
+    if (scope != 'global') {
+      profileId = scope == 'profile'
+          ? _readInt(arguments, 'profile_id')
+          : container.read(currentProfileIdProvider);
+      if (profileId == null ||
+          container.read(profilesProvider).getProfile(profileId) == null) {
+        return {'ok': false, 'error': 'The target profile was not found.'};
+      }
+    }
+
+    final rule = Rule(
+      id: snowflake.id,
+      ruleAction: source.action,
+      content: source.content,
+      ruleTarget: target,
+      noResolve: arguments['no_resolve'] as bool? ?? false,
+    );
+    final existingRules = profileId == null
+        ? container.read(globalRulesProvider.notifier).value
+        : container.read(profileAddedRulesProvider(profileId).notifier).value;
+    final duplicate = existingRules.any(
+      (item) =>
+          item.ruleAction == rule.ruleAction &&
+          item.content == rule.content &&
+          item.ruleTarget == rule.ruleTarget &&
+          item.noResolve == rule.noResolve,
+    );
+    if (duplicate) {
+      return {
+        'ok': true,
+        'changed': false,
+        'rule': rule.rawValue,
+        'scope': scope,
+        if (profileId != null) 'profile_id': profileId,
+      };
+    }
+
+    final approved = await confirm(
+      'add_routing_rule',
+      '${rule.rawValue}\nscope: $scope${
+          profileId == null ? '' : '\nprofile_id: $profileId'}',
+    );
+    if (!approved) return {'ok': false, 'cancelled': true};
+    if (profileId == null) {
+      await container.read(globalRulesProvider.notifier).putAndWait(rule);
+    } else {
+      await container
+          .read(profileAddedRulesProvider(profileId).notifier)
+          .putAndWait(rule);
+    }
+    await container
+        .read(setupActionProvider.notifier)
+        .applyProfile(force: true);
+    return {
+      'ok': true,
+      'changed': true,
+      'rule': rule.rawValue,
+      'rule_type': source.action.value,
+      'content': source.content,
+      'target': target,
+      'scope': scope,
+      if (profileId != null) 'profile_id': profileId,
+      'applied': true,
+    };
+  }
+
+  Map<String, dynamic> _listAiSkills() {
+    final skills = globalState.container.read(aiSkillsProvider);
+    return {
+      'ok': true,
+      'skills': skills
+          .map(
+            (skill) => {
+              'id': skill.id,
+              'name': skill.name,
+              'enabled': skill.enabled,
+              'characters': skill.content.length,
+            },
+          )
+          .toList(),
+    };
+  }
+
+  Future<Map<String, dynamic>> _importAiSkill(
+    Map<String, dynamic> arguments,
+  ) async {
+    final name = _readString(arguments, 'name');
+    final content = _readString(arguments, 'content');
+    if (content.length > AiSkill.maxContentLength) {
+      return {'ok': false, 'error': 'Skill content is too large.'};
+    }
+    final approved = await confirm(
+      'import_ai_skill',
+      '$name\n${content.length} characters',
+    );
+    if (!approved) return {'ok': false, 'cancelled': true};
+    final skill = await globalState.container
+        .read(aiSkillsProvider.notifier)
+        .importSkill(name: name, content: content);
+    return {
+      'ok': true,
+      'skill_id': skill.id,
+      'name': skill.name,
+      'enabled': skill.enabled,
+      'characters': skill.content.length,
     };
   }
 

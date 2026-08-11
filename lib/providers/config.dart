@@ -121,6 +121,55 @@ class AiSetting extends Notifier<AiConfig> {
   }
 }
 
+final aiSkillsProvider = NotifierProvider<AiSkills, List<AiSkill>>(
+  AiSkills.new,
+);
+
+class AiSkills extends Notifier<List<AiSkill>> {
+  @override
+  List<AiSkill> build() => preferences.aiSkills;
+
+  Future<AiSkill> importSkill({
+    required String name,
+    required String content,
+  }) async {
+    final normalizedName = name.trim();
+    final existing = state
+        .where(
+          (skill) => skill.name.toLowerCase() == normalizedName.toLowerCase(),
+        )
+        .firstOrNull;
+    final skill = existing == null
+        ? AiSkill(name: normalizedName, content: content.trim())
+        : existing.copyWith(
+            name: normalizedName,
+            content: content.trim(),
+            enabled: true,
+          );
+    final next = [
+      skill,
+      for (final item in state)
+        if (item.id != skill.id) item,
+    ];
+    state = List.unmodifiable(next);
+    await preferences.setAiSkills(state);
+    return skill;
+  }
+
+  Future<void> setEnabled(String id, bool enabled) async {
+    state = [
+      for (final skill in state)
+        skill.id == id ? skill.copyWith(enabled: enabled) : skill,
+    ];
+    await preferences.setAiSkills(state);
+  }
+
+  Future<void> deleteSkill(String id) async {
+    state = state.where((skill) => skill.id != id).toList();
+    await preferences.setAiSkills(state);
+  }
+}
+
 final aiSessionsProvider =
     NotifierProvider<AiSessions, AiSessionStore>(AiSessions.new);
 
@@ -134,6 +183,7 @@ class AiSessions extends Notifier<AiSessionStore> {
   }
 
   Future<String> createSession() async {
+    if (state.canReuseActiveSession) return state.activeSessionId;
     final session = AiSession();
     await _save(
       AiSessionStore(

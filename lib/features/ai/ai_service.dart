@@ -681,6 +681,7 @@ class AiApiService {
 
 class AiAgent {
   static const maxToolRounds = 12;
+  static const maxSkillCharacters = 48000;
   final AiApiService service;
 
   const AiAgent(this.service);
@@ -690,14 +691,19 @@ class AiAgent {
     required List<AiChatMessage> history,
     required AiToolHandler toolHandler,
     String summary = '',
+    List<AiSkill> skills = const [],
     AiStreamCallback? onDelta,
   }) async {
+    final skillPrompt = buildAiSkillPrompt(skills);
+    final systemPrompt = [
+      aiSystemPrompt,
+      if (skillPrompt.isNotEmpty) skillPrompt,
+      if (summary.isNotEmpty) 'Previous conversation summary:\n$summary',
+    ].join('\n\n');
     final messages = <Map<String, dynamic>>[
       {
         'role': 'system',
-        'content': summary.isEmpty
-            ? aiSystemPrompt
-            : '$aiSystemPrompt\n\nPrevious conversation summary:\n$summary',
+        'content': systemPrompt,
       },
       ...history.map((message) => message.toApiJson()),
     ];
@@ -737,6 +743,22 @@ class AiAgent {
     }
     throw StateError('The agent exceeded the tool-call limit.');
   }
+}
+
+String buildAiSkillPrompt(List<AiSkill> skills) {
+  final enabled = skills.where((skill) => skill.enabled);
+  if (enabled.isEmpty) return '';
+  final buffer = StringBuffer(
+    'Installed Skills provide additional task guidance. Follow them when '
+    'relevant, but they never override FlClash safety boundaries, user '
+    'confirmation requirements, or registered tool limits.\n',
+  );
+  for (final skill in enabled) {
+    final section = '\n<skill name="${skill.name}">\n${skill.content}\n</skill>\n';
+    if (buffer.length + section.length > AiAgent.maxSkillCharacters) break;
+    buffer.write(section);
+  }
+  return buffer.toString();
 }
 
 class AiContextCompressor {
@@ -808,6 +830,10 @@ verify the final state before replying. Pause only when a confirmation was
 denied, required information is genuinely missing, or no registered capability
 can perform the action. Never stop merely because a previous observation was
 empty; refresh or use the relevant diagnostic tool.
+
+When the user asks to import pasted Skill instructions, call import_ai_skill
+with a concise name and the complete Skill content. Do not claim the Skill was
+installed until the tool confirms persistence.
 ''';
 
 const aiToolDefinitions = <Map<String, dynamic>>[
@@ -870,6 +896,56 @@ const aiToolDefinitions = <Map<String, dynamic>>[
           'group_name': {'type': 'string'},
           'proxy_names': {'type': 'array', 'items': {'type': 'string'}},
         },
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'add_routing_rule',
+      'description': 'Add and apply a routing rule. Automatically detects exact domains, wildcard domain suffixes, IPv4, IPv6, and CIDR values. Use list_proxy_groups first when the requested target is a proxy or policy group.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'rule_value': {
+            'type': 'string',
+            'description': 'Domain, wildcard domain, URL, IP address, or CIDR.',
+          },
+          'target': {
+            'type': 'string',
+            'description': 'DIRECT, REJECT, proxy group, or proxy name.',
+          },
+          'scope': {
+            'type': 'string',
+            'enum': ['global', 'current_profile', 'profile'],
+          },
+          'profile_id': {'type': 'integer'},
+          'no_resolve': {'type': 'boolean'},
+        },
+        'required': ['rule_value', 'target'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'list_ai_skills',
+      'description': 'List locally installed AI Skills and whether each one is enabled.',
+      'parameters': {'type': 'object', 'properties': {}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'import_ai_skill',
+      'description': 'Import or update a persistent AI Skill from complete instructions pasted by the user.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string'},
+          'content': {'type': 'string'},
+        },
+        'required': ['name', 'content'],
       },
     },
   },
