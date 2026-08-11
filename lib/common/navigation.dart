@@ -50,7 +50,7 @@ class Navigation {
         modes: [NavigationItemMode.desktop, NavigationItemMode.more],
       ),
       NavigationItem(
-        icon: const Icon(Icons.database_outlined),
+        icon: const Icon(Icons.storage_rounded),
         label: PageLabel.resources,
         description: 'resourcesDesc',
         builder: (_) =>
