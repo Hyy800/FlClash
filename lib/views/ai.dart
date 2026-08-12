@@ -1318,19 +1318,25 @@ class _MessageBubble extends StatelessWidget {
     required this.onEdit,
   });
 
-  Future<void> _showContextMenu(
-    BuildContext context,
-    TapDownDetails details,
-  ) async {
+  Future<void> _showContextMenu(BuildContext bubbleContext) async {
     if (busy || onEdit == null) return;
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(bubbleContext).context.findRenderObject();
+    final bubble = bubbleContext.findRenderObject();
+    if (overlay is! RenderBox || bubble is! RenderBox) return;
+    final bubbleTopLeft = bubble.localToGlobal(Offset.zero, ancestor: overlay);
+    final bubbleRect = bubbleTopLeft & bubble.size;
+    final anchorRect = Rect.fromLTRB(
+      bubbleRect.left - 8,
+      bubbleRect.top,
+      bubbleRect.left,
+      bubbleRect.bottom,
+    );
     final action = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        details.globalPosition & const Size(1, 1),
-        Offset.zero & overlay.size,
-      ),
-      color: context.colorScheme.surfaceContainerLow,
+      context: bubbleContext,
+      position: RelativeRect.fromRect(anchorRect, Offset.zero & overlay.size),
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 140),
+      menuPadding: const EdgeInsets.symmetric(vertical: 6),
+      color: bubbleContext.colorScheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       clipBehavior: Clip.antiAlias,
@@ -1341,7 +1347,7 @@ class _MessageBubble extends StatelessWidget {
             children: [
               const Icon(Icons.edit_outlined, size: 19),
               const SizedBox(width: 10),
-              Text(context.appLocalizations.edit),
+              Text(bubbleContext.appLocalizations.edit),
             ],
           ),
         ),
@@ -1354,78 +1360,80 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
     final isStatus = message.role == 'status';
-    final bubble = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onSecondaryTapDown: onEdit == null
-          ? null
-          : (details) => _showContextMenu(context, details),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 680),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isUser
-              ? context.colorScheme.primaryContainer
-              : context.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(isUser ? 20 : 6),
-            bottomRight: Radius.circular(isUser ? 6 : 20),
+    final bubble = Builder(
+      builder: (bubbleContext) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapDown: onEdit == null
+            ? null
+            : (_) => _showContextMenu(bubbleContext),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 680),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isUser
+                ? context.colorScheme.primaryContainer
+                : context.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(20),
+              topRight: const Radius.circular(20),
+              bottomLeft: Radius.circular(isUser ? 20 : 6),
+              bottomRight: Radius.circular(isUser ? 6 : 20),
+            ),
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: isStatus
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    message.content,
-                    style: context.textTheme.bodyMedium?.copyWith(
-                      color: context.colorScheme.onSurfaceVariant,
+          clipBehavior: Clip.antiAlias,
+          child: isStatus
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  ),
-                ],
-              )
-            : isUser
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (message.content.isNotEmpty)
-                    SelectableText(
+                    const SizedBox(width: 10),
+                    Text(
                       message.content,
                       style: context.textTheme.bodyMedium?.copyWith(
-                        height: 1.5,
+                        color: context.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  if (message.attachments.isNotEmpty) ...[
-                    if (message.content.isNotEmpty) const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: message.attachments
-                          .map(
-                            (item) => Chip(
-                              avatar: Icon(
-                                item.isImage
-                                    ? Icons.image_outlined
-                                    : Icons.description_outlined,
-                                size: 16,
-                              ),
-                              label: Text(item.name),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          )
-                          .toList(),
-                    ),
                   ],
-                ],
-              )
-            : _MarkdownMessage(content: message.content),
+                )
+              : isUser
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (message.content.isNotEmpty)
+                      SelectableText(
+                        message.content,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                        ),
+                      ),
+                    if (message.attachments.isNotEmpty) ...[
+                      if (message.content.isNotEmpty) const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: message.attachments
+                            .map(
+                              (item) => Chip(
+                                avatar: Icon(
+                                  item.isImage
+                                      ? Icons.image_outlined
+                                      : Icons.description_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(item.name),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                )
+              : _MarkdownMessage(content: message.content),
+        ),
       ),
     );
     return Align(

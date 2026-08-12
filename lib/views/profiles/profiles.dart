@@ -398,8 +398,8 @@ class ProfileItem extends StatelessWidget {
             },
           ),
         ),
-        title: Container(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+        title: Transform.translate(
+          offset: const Offset(0, -7),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
