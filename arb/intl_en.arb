@@ -3,6 +3,7 @@
   "global": "Global",
   "direct": "Direct",
   "dashboard": "Dashboard",
+  "currentNode": "Current node",
   "proxies": "Proxies",
   "profile": "Profile",
   "profiles": "Profiles",

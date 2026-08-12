@@ -3,6 +3,7 @@
   "global": "Глобальный",
   "direct": "Прямой",
   "dashboard": "Панель управления",
+  "currentNode": "Текущий узел",
   "proxies": "Прокси",
   "profile": "Профиль",
   "profiles": "Профили",

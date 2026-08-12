@@ -3,6 +3,7 @@
   "global": "グローバル",
   "direct": "ダイレクト",
   "dashboard": "ダッシュボード",
+  "currentNode": "現在のノード",
   "proxies": "プロキシ",
   "profile": "プロファイル",
   "profiles": "プロファイル一覧",
