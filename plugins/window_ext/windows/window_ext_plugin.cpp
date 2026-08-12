@@ -2,6 +2,7 @@
 
 // This must be included before many other Windows headers.
 #include <windows.h>
+#include <windowsx.h>
 
 // For getPlatformVersion; remove unless needed for your plugin implementation.
 #include <VersionHelpers.h>
@@ -86,18 +87,94 @@ std::optional<LRESULT> WindowExtPlugin::HandleWindowProc(HWND hWnd,
   if(message == WM_TASKBARCREATED){
     channel -> InvokeMethod("taskbarCreated", std::make_unique<flutter::EncodableValue>());
   }
-  if (message == WM_SIZE && use_region_rounding_ && round_requested_ &&
+  if (message == WM_NCCALCSIZE && frameless_) {
+    // Treat the complete HWND as client content. Returning zero here is what
+    // actually removes the left, right, and bottom resize frame painted by
+    // Windows; making that frame transparent still leaves a visible seam on
+    // some Windows 10/11 configurations.
+    return 0;
+  }
+  if (message == WM_NCHITTEST && frameless_) {
+    result = HitTestResizeBorder(hWnd, lParam);
+    if (result.has_value()) {
+      return result;
+    }
+  }
+  if (message == WM_SIZE && use_region_rounding_ &&
       wParam != SIZE_MINIMIZED) {
     UpdateWindowRegion(hWnd);
   }
   return result;
 }
 
+std::optional<LRESULT> WindowExtPlugin::HitTestResizeBorder(HWND hwnd,
+                                                            LPARAM lparam) {
+  if (IsZoomed(hwnd) || IsIconic(hwnd)) {
+    return std::nullopt;
+  }
+
+  RECT rect{};
+  if (!GetWindowRect(hwnd, &rect)) {
+    return std::nullopt;
+  }
+
+  const UINT window_dpi = GetDpiForWindow(hwnd);
+  const int resize_border =
+      MulDiv(8, window_dpi == 0 ? 96 : window_dpi, 96);
+  const POINT cursor = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+  const bool left = cursor.x >= rect.left &&
+                    cursor.x < rect.left + resize_border;
+  const bool right = cursor.x < rect.right &&
+                     cursor.x >= rect.right - resize_border;
+  const bool top = cursor.y >= rect.top &&
+                   cursor.y < rect.top + resize_border;
+  const bool bottom = cursor.y < rect.bottom &&
+                      cursor.y >= rect.bottom - resize_border;
+
+  if (top && left) {
+    return HTTOPLEFT;
+  }
+  if (top && right) {
+    return HTTOPRIGHT;
+  }
+  if (bottom && left) {
+    return HTBOTTOMLEFT;
+  }
+  if (bottom && right) {
+    return HTBOTTOMRIGHT;
+  }
+  if (left) {
+    return HTLEFT;
+  }
+  if (right) {
+    return HTRIGHT;
+  }
+  if (top) {
+    return HTTOP;
+  }
+  if (bottom) {
+    return HTBOTTOM;
+  }
+  return std::nullopt;
+}
+
+void WindowExtPlugin::EnableFramelessWindow(HWND hwnd) {
+  LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+  style &= ~(WS_CAPTION | WS_THICKFRAME);
+  style |= WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+  SetWindowLongPtr(hwnd, GWL_STYLE, style);
+  frameless_ = true;
+
+  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+               SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                   SWP_NOACTIVATE);
+}
+
 void WindowExtPlugin::UpdateWindowRegion(HWND hwnd) {
   if (!use_region_rounding_) {
     return;
   }
-  if (!round_requested_) {
+  if (!round_requested_ || IsZoomed(hwnd)) {
     SetWindowRgn(hwnd, nullptr, TRUE);
     return;
   }
@@ -131,6 +208,12 @@ void WindowExtPlugin::HandleMethodCall(
       version_stream << "7";
     }
     result->Success(flutter::EncodableValue(version_stream.str()));
+  } else if (method_call.method_name().compare("setFramelessWindow") == 0) {
+    HWND hWnd = ::GetAncestor(registrar->GetView()->GetNativeWindow(), GA_ROOT);
+    if (hWnd) {
+      EnableFramelessWindow(hWnd);
+    }
+    result->Success();
   } else if (method_call.method_name().compare("setWindowCornerPreference") == 0) {
     HWND hWnd = ::GetAncestor(registrar->GetView()->GetNativeWindow(), GA_ROOT);
     if (hWnd) {

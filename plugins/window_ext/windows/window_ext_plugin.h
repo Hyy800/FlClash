@@ -36,7 +36,10 @@ class WindowExtPlugin : public flutter::Plugin {
   flutter::PluginRegistrarWindows *registrar;
 
  private:
+  std::optional<LRESULT> HitTestResizeBorder(HWND hwnd, LPARAM lparam);
+  void EnableFramelessWindow(HWND hwnd);
   void UpdateWindowRegion(HWND hwnd);
+  bool frameless_ = false;
   bool use_region_rounding_ = false;
   bool round_requested_ = true;
 };

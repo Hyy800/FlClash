@@ -40,6 +40,10 @@ class WindowExtManager {
     _listeners.remove(listener);
   }
 
+  Future<void> setFramelessWindow() async {
+    await _channel.invokeMethod('setFramelessWindow');
+  }
+
   Future<void> setWindowCornerPreference({required bool round}) async {
     await _channel.invokeMethod('setWindowCornerPreference', {
       'round': round,

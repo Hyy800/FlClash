@@ -42,6 +42,7 @@ class Window {
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.setPreventClose(true);
       if (system.isWindows) {
+        await windowExtManager.setFramelessWindow();
         await windowExtManager.setWindowCornerPreference(round: true);
         await windowExtManager.setWindowBrightness(
           dark: WidgetsBinding
