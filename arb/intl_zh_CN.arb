@@ -317,6 +317,7 @@
   "developerModeEnableTip": "开发者模式已启用。",
   "messageTest": "消息测试",
   "messageTestTip": "这是一条消息。",
+  "aiInputHint": "请输入您的需求",
   "crashTest": "崩溃测试",
   "clearData": "清除数据",
   "textScale": "文本缩放",

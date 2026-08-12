@@ -2424,6 +2424,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Please enter your request`
+  String get aiInputHint {
+    return Intl.message(
+      'Please enter your request',
+      name: 'aiInputHint',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Crash test`
   String get crashTest {
     return Intl.message('Crash test', name: 'crashTest', desc: '', args: []);

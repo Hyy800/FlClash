@@ -317,6 +317,7 @@
   "developerModeEnableTip": "Режим разработчика активирован.",
   "messageTest": "Тестирование сообщения",
   "messageTestTip": "Это сообщение.",
+  "aiInputHint": "Введите ваш запрос",
   "crashTest": "Тест на сбои",
   "clearData": "Очистить данные",
   "textScale": "Масштабирование текста",

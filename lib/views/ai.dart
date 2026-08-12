@@ -853,7 +853,7 @@ class _AiViewState extends ConsumerState<AiView> {
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
-                        hintText: context.appLocalizations.messageTest,
+                        hintText: context.appLocalizations.aiInputHint,
                         border: InputBorder.none,
                         filled: false,
                       ),

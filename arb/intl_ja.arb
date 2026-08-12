@@ -317,6 +317,7 @@
   "developerModeEnableTip": "デベロッパーモードが有効になりました。",
   "messageTest": "メッセージテスト",
   "messageTestTip": "これはメッセージです。",
+  "aiInputHint": "ご要望を入力してください",
   "crashTest": "クラッシュテスト",
   "clearData": "データを消去",
   "textScale": "テキストスケーリング",
