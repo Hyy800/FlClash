@@ -121,9 +121,10 @@ class _ProfilesViewState extends State<ProfilesView> {
         final appLocalizations = context.appLocalizations;
         final isLoading = ref.watch(loadingProvider(LoadingTag.profiles));
         final state = ref.watch(profilesStateProvider);
-        final spacing = 14.mAp;
+        final spacing = 10.mAp;
         return CommonScaffold(
           isLoading: isLoading,
+          appBarHeight: 68,
           title: appLocalizations.profiles,
           floatingActionButton: _buildFAB(),
           actions: _buildActions(state.profiles),
@@ -139,14 +140,14 @@ class _ProfilesViewState extends State<ProfilesView> {
                     padding: const EdgeInsets.only(
                       left: 16,
                       right: 16,
-                      top: 16,
+                      top: 8,
                       bottom: 88,
                     ),
                     child: Grid(
                       mainAxisSpacing: spacing,
                       crossAxisSpacing: spacing,
                       crossAxisCount: state.columns,
-                      mainAxisExtent: 148,
+                      mainAxisExtent: 132,
                       children: [
                         for (int i = 0; i < state.profiles.length; i++)
                           GridItem(
@@ -228,7 +229,7 @@ class ProfileItem extends StatelessWidget {
   List<Widget> _buildUrlProfileInfo(BuildContext context) {
     final subscriptionInfo = profile.subscriptionInfo;
     return [
-      const SizedBox(height: 8),
+      const SizedBox(height: 5),
       if (subscriptionInfo != null)
         SubscriptionInfoView(subscriptionInfo: subscriptionInfo),
       LastUpdateTimeText(
@@ -240,7 +241,7 @@ class ProfileItem extends StatelessWidget {
 
   List<Widget> _buildFileProfileInfo(BuildContext context) {
     return [
-      const SizedBox(height: 8),
+      const SizedBox(height: 5),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
         style: context.textTheme.labelMedium?.toLight,
@@ -398,7 +399,7 @@ class ProfileItem extends StatelessWidget {
           ),
         ),
         title: Container(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,

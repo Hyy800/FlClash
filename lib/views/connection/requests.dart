@@ -103,8 +103,8 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
       action: parsedAddress.type == InternetAddressType.IPv6
           ? RuleAction.IP_CIDR6
           : RuleAction.IP_CIDR,
-      content: '${parsedAddress.address}/${
-          parsedAddress.type == InternetAddressType.IPv6 ? 128 : 32}',
+      content:
+          '${parsedAddress.address}/${parsedAddress.type == InternetAddressType.IPv6 ? 128 : 32}',
     );
   }
 
@@ -118,6 +118,9 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     final position = overlay.globalToLocal(globalPosition);
     final action = await showMenu<String>(
       context: context,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      menuPadding: const EdgeInsets.symmetric(vertical: 6),
       position: RelativeRect.fromLTRB(
         position.dx,
         position.dy,
@@ -284,8 +287,7 @@ class _AddRoutingRuleDialog extends StatefulWidget {
   });
 
   @override
-  State<_AddRoutingRuleDialog> createState() =>
-      _AddRoutingRuleDialogState();
+  State<_AddRoutingRuleDialog> createState() => _AddRoutingRuleDialogState();
 }
 
 class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {

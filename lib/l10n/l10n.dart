@@ -2434,6 +2434,71 @@ class AppLocalizations {
     );
   }
 
+  /// `Add image or file`
+  String get addAttachment {
+    return Intl.message(
+      'Add image or file',
+      name: 'addAttachment',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The attachment is too large`
+  String get attachmentTooLarge {
+    return Intl.message(
+      'The attachment is too large',
+      name: 'attachmentTooLarge',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `This file cannot be read as an image or text`
+  String get unsupportedAttachment {
+    return Intl.message(
+      'This file cannot be read as an image or text',
+      name: 'unsupportedAttachment',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Message failed to send`
+  String get messageSendFailed {
+    return Intl.message(
+      'Message failed to send',
+      name: 'messageSendFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Retry`
+  String get retry {
+    return Intl.message('Retry', name: 'retry', desc: '', args: []);
+  }
+
+  /// `Edit and retry`
+  String get editAndRetry {
+    return Intl.message(
+      'Edit and retry',
+      name: 'editAndRetry',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The model returned an empty response`
+  String get aiEmptyResponse {
+    return Intl.message(
+      'The model returned an empty response',
+      name: 'aiEmptyResponse',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Crash test`
   String get crashTest {
     return Intl.message('Crash test', name: 'crashTest', desc: '', args: []);

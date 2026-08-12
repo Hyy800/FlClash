@@ -104,6 +104,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "action_view": MessageLookupByLibrary.simpleMessage("Показать/Скрыть"),
     "add": MessageLookupByLibrary.simpleMessage("Добавить"),
+    "addAttachment": MessageLookupByLibrary.simpleMessage(
+      "Добавить изображение или файл",
+    ),
     "addProfile": MessageLookupByLibrary.simpleMessage("Добавить профиль"),
     "addProxies": MessageLookupByLibrary.simpleMessage("Добавить прокси"),
     "addProxyGroup": MessageLookupByLibrary.simpleMessage(
@@ -130,6 +133,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Предоставляет разнообразные варианты конфигурации",
     ),
     "agree": MessageLookupByLibrary.simpleMessage("Согласен"),
+    "aiEmptyResponse": MessageLookupByLibrary.simpleMessage(
+      "Модель вернула пустой ответ",
+    ),
     "aiInputHint": MessageLookupByLibrary.simpleMessage("Введите ваш запрос"),
     "allowBypass": MessageLookupByLibrary.simpleMessage(
       "Разрешить приложениям обходить VPN",
@@ -154,6 +160,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "application": MessageLookupByLibrary.simpleMessage("Приложение"),
     "applicationDesc": MessageLookupByLibrary.simpleMessage(
       "Изменение настроек, связанных с приложением",
+    ),
+    "attachmentTooLarge": MessageLookupByLibrary.simpleMessage(
+      "Вложение слишком большое",
     ),
     "authorized": MessageLookupByLibrary.simpleMessage("Разрешено"),
     "auto": MessageLookupByLibrary.simpleMessage("Авто"),
@@ -353,6 +362,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("Домен"),
     "download": MessageLookupByLibrary.simpleMessage("Скачивание"),
     "edit": MessageLookupByLibrary.simpleMessage("Редактировать"),
+    "editAndRetry": MessageLookupByLibrary.simpleMessage(
+      "Изменить и повторить",
+    ),
     "editGlobalRules": MessageLookupByLibrary.simpleMessage(
       "Редактировать глобальные правила",
     ),
@@ -575,6 +587,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Макс. количество неудач",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Информация о памяти"),
+    "messageSendFailed": MessageLookupByLibrary.simpleMessage(
+      "Не удалось отправить сообщение",
+    ),
     "messageTest": MessageLookupByLibrary.simpleMessage(
       "Тестирование сообщения",
     ),
@@ -838,6 +853,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "restoreSuccess": MessageLookupByLibrary.simpleMessage(
       "Восстановление успешно",
     ),
+    "retry": MessageLookupByLibrary.simpleMessage("Повторить"),
     "routeAddress": MessageLookupByLibrary.simpleMessage("Адрес маршрутизации"),
     "routeAddressDesc": MessageLookupByLibrary.simpleMessage(
       "Настройка адреса прослушивания маршрутизации",
@@ -1087,6 +1103,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Неизвестная сетевая ошибка",
     ),
     "unnamed": MessageLookupByLibrary.simpleMessage("Без имени"),
+    "unsupportedAttachment": MessageLookupByLibrary.simpleMessage(
+      "Файл невозможно прочитать как изображение или текст",
+    ),
     "update": MessageLookupByLibrary.simpleMessage("Обновить"),
     "upload": MessageLookupByLibrary.simpleMessage("Загрузка"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

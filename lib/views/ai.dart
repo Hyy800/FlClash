@@ -29,6 +29,10 @@ class _AiViewState extends ConsumerState<AiView> {
   List<String> _models = const [];
   AiApiProtocol _protocol = AiApiProtocol.auto;
   String _streamedText = '';
+  String _agentStatus = '';
+  String _requestError = '';
+  String? _failedSessionId;
+  List<AiAttachment> _pendingAttachments = const [];
   String _pendingDelta = '';
   bool _frameScheduled = false;
   bool _busy = false;
@@ -103,7 +107,9 @@ class _AiViewState extends ConsumerState<AiView> {
   }
 
   Future<void> _fetchModels() async {
-    final models = await _run(() => _service.fetchModels(_draftConfig(requireModel: false)));
+    final models = await _run(
+      () => _service.fetchModels(_draftConfig(requireModel: false)),
+    );
     if (!mounted || models == null) return;
     if (models.isEmpty) {
       globalState.showNotifier('The API returned no models.');
@@ -161,7 +167,8 @@ class _AiViewState extends ConsumerState<AiView> {
                         itemCount: filtered.length,
                         itemBuilder: (_, index) {
                           final model = filtered[index];
-                          final selected = model == _modelController.text.trim();
+                          final selected =
+                              model == _modelController.text.trim();
                           return ListTile(
                             selected: selected,
                             shape: RoundedRectangleBorder(
@@ -284,9 +291,45 @@ class _AiViewState extends ConsumerState<AiView> {
     });
   }
 
+  void _updateToolStatus(List<AiToolCall> calls) {
+    if (!mounted) return;
+    final l10n = context.appLocalizations;
+    final names = calls.map((call) => call.name).toSet();
+    final target = switch (names) {
+      final values
+          when values.any(
+            (name) => name.contains('profile') || name == 'validate_yaml',
+          ) =>
+        l10n.profiles,
+      final values
+          when values.any(
+            (name) => name.contains('proxy') || name.contains('delay'),
+          ) =>
+        l10n.proxies,
+      final values when values.any((name) => name.contains('rule')) =>
+        l10n.rule,
+      final values
+          when values.any(
+            (name) => name.contains('setting') || name == 'get_app_state',
+          ) =>
+        l10n.settings,
+      final values when values.any((name) => name.contains('skill')) =>
+        l10n.import,
+      _ => '',
+    };
+    setState(() {
+      _agentStatus = calls.isEmpty
+          ? ''
+          : target.isEmpty
+          ? l10n.loading
+          : '${l10n.loading} $target';
+    });
+    _scrollToBottom();
+  }
+
   Future<void> _sendMessage() async {
     final content = _messageController.text.trim();
-    if (content.isEmpty || _busy) return;
+    if ((content.isEmpty && _pendingAttachments.isEmpty) || _busy) return;
     AiConfig config;
     try {
       config = _draftConfig();
@@ -295,16 +338,45 @@ class _AiViewState extends ConsumerState<AiView> {
       return;
     }
     final sessionId = ref.read(aiSessionsProvider).activeSessionId;
+    final attachments = _pendingAttachments;
     _messageController.clear();
+    setState(() => _pendingAttachments = const []);
     await ref
         .read(aiSessionsProvider.notifier)
-        .addMessage(sessionId, AiChatMessage(role: 'user', content: content));
+        .addMessage(
+          sessionId,
+          AiChatMessage(
+            role: 'user',
+            content: content,
+            attachments: attachments,
+          ),
+        );
     setState(() {
       _streamedText = '';
       _pendingDelta = '';
     });
     _scrollToBottom();
-    final reply = await _run(() async {
+    await _generateReply(sessionId, config);
+  }
+
+  Future<void> _generateReply(String sessionId, [AiConfig? draft]) async {
+    if (_busy) return;
+    AiConfig config;
+    try {
+      config = draft ?? _draftConfig();
+    } catch (error) {
+      globalState.showNotifier(error.toString());
+      return;
+    }
+    _setPageState(() {
+      _busy = true;
+      _streamedText = '';
+      _pendingDelta = '';
+      _agentStatus = '';
+      _requestError = '';
+      _failedSessionId = null;
+    });
+    try {
       var session = ref
           .read(aiSessionsProvider)
           .sessions
@@ -316,27 +388,170 @@ class _AiViewState extends ConsumerState<AiView> {
       );
       await ref.read(aiSessionsProvider.notifier).replaceSession(session);
       final executor = AiToolExecutor(confirm: _confirmTool);
-      return AiAgent(_service).run(
+      final reply = await AiAgent(_service).run(
         config: config,
         history: session.messages,
         summary: session.summary,
         skills: ref.read(aiSkillsProvider),
         toolHandler: executor.execute,
         onDelta: _appendDelta,
+        onToolStatus: _updateToolStatus,
       );
-    });
-    if (!mounted || reply == null || reply.trim().isEmpty) {
-      if (mounted) setState(() => _streamedText = '');
+      if (!mounted || reply.trim().isEmpty) {
+        throw StateError(
+          mounted
+              ? context.appLocalizations.aiEmptyResponse
+              : 'The model returned an empty response.',
+        );
+      }
+      setState(() {
+        _streamedText = '';
+        _pendingDelta = '';
+        _agentStatus = '';
+      });
+      await ref
+          .read(aiSessionsProvider.notifier)
+          .addMessage(
+            sessionId,
+            AiChatMessage(role: 'assistant', content: reply),
+          );
+      _scrollToBottom();
+    } catch (error, stackTrace) {
+      commonPrint.log(
+        'AI message failed: $error, $stackTrace',
+        logLevel: LogLevel.warning,
+      );
+      if (mounted) {
+        setState(() {
+          _streamedText = '';
+          _pendingDelta = '';
+          _agentStatus = '';
+          _requestError = error.toString();
+          _failedSessionId = sessionId;
+        });
+      }
+    } finally {
+      if (mounted) _setPageState(() => _busy = false);
+    }
+  }
+
+  Future<void> _retryFailedMessage() async {
+    final sessionId = _failedSessionId;
+    if (sessionId == null ||
+        sessionId != ref.read(aiSessionsProvider).activeSessionId) {
       return;
     }
-    setState(() {
-      _streamedText = '';
-      _pendingDelta = '';
-    });
+    await _generateReply(sessionId);
+  }
+
+  Future<void> _retryMessage(AiChatMessage message) async {
+    if (_busy || message.role == 'status') return;
+    final store = ref.read(aiSessionsProvider);
+    final session = store.activeSession;
+    final index = session.messages.indexWhere((item) => item.id == message.id);
+    if (index < 0) return;
+    final keepCount = message.role == 'assistant' ? index : index + 1;
     await ref
         .read(aiSessionsProvider.notifier)
-        .addMessage(sessionId, AiChatMessage(role: 'assistant', content: reply));
-    _scrollToBottom();
+        .replaceMessages(session.id, session.messages.sublist(0, keepCount));
+    await _generateReply(session.id);
+  }
+
+  Future<void> _editMessage(AiChatMessage message) async {
+    if (_busy || message.role != 'user') return;
+    final controller = TextEditingController(text: message.content);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.appLocalizations.editAndRetry),
+        content: SizedBox(
+          width: 560,
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 4,
+            maxLines: 12,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.appLocalizations.cancel),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(context.appLocalizations.retry),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.trim().isEmpty || !mounted) return;
+    final session = ref.read(aiSessionsProvider).activeSession;
+    final index = session.messages.indexWhere((item) => item.id == message.id);
+    if (index < 0) return;
+    final edited = AiChatMessage(
+      id: message.id,
+      role: 'user',
+      content: value.trim(),
+      attachments: message.attachments,
+      createdAt: message.createdAt,
+    );
+    await ref.read(aiSessionsProvider.notifier).replaceMessages(session.id, [
+      ...session.messages.sublist(0, index),
+      edited,
+    ]);
+    await _generateReply(session.id);
+  }
+
+  Future<void> _pickConversationAttachment() async {
+    if (_busy || _pendingAttachments.length >= 4) return;
+    final platformFile = await globalState.safeRun(picker.pickerFile);
+    if (platformFile == null) return;
+    try {
+      final bytes = await platformFile.readBytes();
+      final extension = platformFile.name.split('.').last.toLowerCase();
+      final imageMime = switch (extension) {
+        'png' => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        _ => null,
+      };
+      AiAttachment attachment;
+      if (imageMime != null) {
+        if (bytes.length > 8 * 1024 * 1024) {
+          throw FormatException(context.appLocalizations.attachmentTooLarge);
+        }
+        attachment = AiAttachment(
+          name: platformFile.name,
+          mimeType: imageMime,
+          data: base64Encode(bytes),
+        );
+      } else {
+        if (bytes.length > 2 * 1024 * 1024) {
+          throw FormatException(context.appLocalizations.attachmentTooLarge);
+        }
+        final text = utf8.decode(bytes);
+        attachment = AiAttachment(
+          name: platformFile.name,
+          mimeType: 'text/plain',
+          text: text,
+        );
+      }
+      if (mounted) {
+        setState(
+          () => _pendingAttachments = [..._pendingAttachments, attachment],
+        );
+      }
+    } catch (error) {
+      globalState.showNotifier(
+        error is FormatException
+            ? error.message
+            : context.appLocalizations.unsupportedAttachment,
+      );
+    }
   }
 
   Future<void> _createSession() async {
@@ -363,6 +578,10 @@ class _AiViewState extends ConsumerState<AiView> {
       _streamedText = '';
       _pendingDelta = '';
       _frameScheduled = false;
+      _agentStatus = '';
+      _requestError = '';
+      _failedSessionId = null;
+      _pendingAttachments = const [];
     });
   }
 
@@ -386,7 +605,7 @@ class _AiViewState extends ConsumerState<AiView> {
     }
   }
 
-  Future<AiSkill?> _importSkillFile({bool addToConversation = false}) async {
+  Future<AiSkill?> _importSkillFile() async {
     final platformFile = await globalState.safeRun(picker.pickerFile);
     if (platformFile == null) return null;
     try {
@@ -397,18 +616,6 @@ class _AiViewState extends ConsumerState<AiView> {
       );
       final name = AiSkill.inferName(content, fallback: fallbackName);
       final skill = await _importSkillContent(name: name, content: content);
-      if (skill != null && addToConversation) {
-        final sessionId = ref.read(aiSessionsProvider).activeSessionId;
-        await ref.read(aiSessionsProvider.notifier).addMessage(
-              sessionId,
-              AiChatMessage(
-                role: 'user',
-                content:
-                    '${context.appLocalizations.importFile}: ${skill.name}',
-              ),
-            );
-        _scrollToBottom();
-      }
       return skill;
     } catch (error) {
       globalState.showNotifier(error.toString());
@@ -492,7 +699,9 @@ class _AiViewState extends ConsumerState<AiView> {
               width: 620,
               height: 430,
               child: skills.isEmpty
-                  ? const Center(child: Icon(Icons.extension_off_rounded, size: 48))
+                  ? const Center(
+                      child: Icon(Icons.extension_off_rounded, size: 48),
+                    )
                   : ListView.separated(
                       itemCount: skills.length,
                       separatorBuilder: (_, _) => const Divider(height: 1),
@@ -564,7 +773,9 @@ class _AiViewState extends ConsumerState<AiView> {
     );
     controller.dispose();
     if (value != null) {
-      await ref.read(aiSessionsProvider.notifier).renameSession(session.id, value);
+      await ref
+          .read(aiSessionsProvider.notifier)
+          .renameSession(session.id, value);
     }
   }
 
@@ -593,110 +804,115 @@ class _AiViewState extends ConsumerState<AiView> {
   Widget _buildSettings({bool panel = true}) {
     final l10n = context.appLocalizations;
     final content = SingleChildScrollView(
-        padding: EdgeInsets.all(panel ? 18 : 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.auto_awesome_rounded, color: context.colorScheme.primary),
-                const SizedBox(width: 10),
-                Text('AI', style: context.textTheme.titleLarge),
-              ],
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: _baseUrlController,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: 'API ${l10n.url}',
-                prefixIcon: const Icon(Icons.link_rounded),
+      padding: EdgeInsets.all(panel ? 18 : 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                color: context.colorScheme.primary,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _apiKeyController,
-              obscureText: _hideKey,
-              enableSuggestions: false,
-              autocorrect: false,
-              decoration: InputDecoration(
-                labelText: 'API ${l10n.key}',
-                prefixIcon: const Icon(Icons.key_rounded),
-                suffixIcon: IconButton(
-                  tooltip: 'API Key',
-                  onPressed: () =>
-                      _setPageState(() => _hideKey = !_hideKey),
-                  icon: Icon(
-                    _hideKey
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<AiApiProtocol>(
-              initialValue: _protocol,
-              decoration: const InputDecoration(
-                labelText: 'Protocol',
-                prefixIcon: Icon(Icons.hub_outlined),
-              ),
-              items: AiApiProtocol.values
-                  .map((item) => DropdownMenuItem(value: item, child: Text(item.label)))
-                  .toList(),
-              onChanged: _busy
-                  ? null
-                   : (value) =>
-                       _setPageState(() => _protocol = value ?? _protocol),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _modelController,
-              decoration: InputDecoration(
-                labelText: 'Model',
-                prefixIcon: const Icon(Icons.memory_rounded),
-                suffixIcon: _models.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: l10n.search,
-                        onPressed: _busy ? null : _showModelPicker,
-                        icon: const Icon(Icons.unfold_more_rounded),
-                      ),
-              ),
-              onTap: _models.isEmpty || _busy ? null : _showModelPicker,
-            ),
-            if (_models.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                '${_models.length} Models',
-                style: context.textTheme.labelSmall,
-                textAlign: TextAlign.end,
-              ),
+              const SizedBox(width: 10),
+              Text('AI', style: context.textTheme.titleLarge),
             ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: _busy ? null : _fetchModels,
-                  icon: const Icon(Icons.cloud_download_outlined),
-                  label: const Text('Models'),
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _baseUrlController,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              labelText: 'API ${l10n.url}',
+              prefixIcon: const Icon(Icons.link_rounded),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _apiKeyController,
+            obscureText: _hideKey,
+            enableSuggestions: false,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: 'API ${l10n.key}',
+              prefixIcon: const Icon(Icons.key_rounded),
+              suffixIcon: IconButton(
+                tooltip: 'API Key',
+                onPressed: () => _setPageState(() => _hideKey = !_hideKey),
+                icon: Icon(
+                  _hideKey
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                 ),
-                FilledButton.tonalIcon(
-                  onPressed: _busy ? null : _testModel,
-                  icon: const Icon(Icons.network_check_rounded),
-                  label: Text(l10n.connected),
-                ),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _saveConfig,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(l10n.save),
-                ),
-              ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<AiApiProtocol>(
+            initialValue: _protocol,
+            decoration: const InputDecoration(
+              labelText: 'Protocol',
+              prefixIcon: Icon(Icons.hub_outlined),
+            ),
+            items: AiApiProtocol.values
+                .map(
+                  (item) =>
+                      DropdownMenuItem(value: item, child: Text(item.label)),
+                )
+                .toList(),
+            onChanged: _busy
+                ? null
+                : (value) =>
+                      _setPageState(() => _protocol = value ?? _protocol),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _modelController,
+            decoration: InputDecoration(
+              labelText: 'Model',
+              prefixIcon: const Icon(Icons.memory_rounded),
+              suffixIcon: _models.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: l10n.search,
+                      onPressed: _busy ? null : _showModelPicker,
+                      icon: const Icon(Icons.unfold_more_rounded),
+                    ),
+            ),
+            onTap: _models.isEmpty || _busy ? null : _showModelPicker,
+          ),
+          if (_models.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${_models.length} Models',
+              style: context.textTheme.labelSmall,
+              textAlign: TextAlign.end,
             ),
           ],
-        ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _fetchModels,
+                icon: const Icon(Icons.cloud_download_outlined),
+                label: const Text('Models'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _testModel,
+                icon: const Icon(Icons.network_check_rounded),
+                label: Text(l10n.connected),
+              ),
+              FilledButton.icon(
+                onPressed: _busy ? null : _saveConfig,
+                icon: const Icon(Icons.save_outlined),
+                label: Text(l10n.save),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
     if (!panel) return content;
     return AppGlassPanel(
@@ -711,46 +927,52 @@ class _AiViewState extends ConsumerState<AiView> {
       padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
       child: Row(
         children: [
+          const Icon(Icons.forum_outlined, size: 20),
+          const SizedBox(width: 9),
           Expanded(
-            child: PopupMenuButton<String>(
-              enabled: !_busy,
-              tooltip: context.appLocalizations.more,
-              onSelected: _selectSession,
-              itemBuilder: (_) => store.sessions
-                  .map(
-                    (item) => PopupMenuItem(
-                      value: item.id,
-                      child: Row(
-                        children: [
-                          Icon(
-                            item.id == session.id
-                                ? Icons.chat_bubble_rounded
-                                : Icons.chat_bubble_outline_rounded,
-                            size: 18,
+            child: Text(
+              session.title,
+              style: context.textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          PopupMenuButton<String>(
+            enabled: !_busy,
+            tooltip: context.appLocalizations.more,
+            position: PopupMenuPosition.under,
+            offset: const Offset(0, 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            clipBehavior: Clip.antiAlias,
+            onSelected: _selectSession,
+            itemBuilder: (_) => store.sessions
+                .map(
+                  (item) => PopupMenuItem(
+                    value: item.id,
+                    child: Row(
+                      children: [
+                        Icon(
+                          item.id == session.id
+                              ? Icons.chat_bubble_rounded
+                              : Icons.chat_bubble_outline_rounded,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(item.title, overflow: TextOverflow.ellipsis),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-              child: Row(
-                children: [
-                  const Icon(Icons.forum_outlined, size: 20),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      session.title,
-                      style: context.textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
-                  const Icon(Icons.expand_more_rounded),
-                ],
-              ),
+                )
+                .toList(),
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(Icons.expand_more_rounded),
             ),
           ),
           IconButton(
@@ -784,6 +1006,8 @@ class _AiViewState extends ConsumerState<AiView> {
     final messages = store.activeSession.messages;
     final visibleMessages = [
       ...messages,
+      if (_agentStatus.isNotEmpty)
+        AiChatMessage(role: 'status', content: _agentStatus),
       if (_streamedText.isNotEmpty)
         AiChatMessage(role: 'assistant', content: _streamedText),
     ];
@@ -808,63 +1032,145 @@ class _AiViewState extends ConsumerState<AiView> {
                     controller: _scrollController,
                     padding: const EdgeInsets.all(18),
                     itemCount: visibleMessages.length,
-                    itemBuilder: (_, index) =>
-                        _MessageBubble(message: visibleMessages[index]),
+                    itemBuilder: (_, index) => _MessageBubble(
+                      message: visibleMessages[index],
+                      busy: _busy,
+                      onRetry: visibleMessages[index].role == 'status'
+                          ? null
+                          : () => _retryMessage(visibleMessages[index]),
+                      onEdit: visibleMessages[index].role == 'user'
+                          ? () => _editMessage(visibleMessages[index])
+                          : null,
+                    ),
                   ),
           ),
+          if (_requestError.isNotEmpty &&
+              _failedSessionId == store.activeSessionId)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+              child: Material(
+                color: context.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(
+                    Icons.error_outline_rounded,
+                    color: context.colorScheme.onErrorContainer,
+                  ),
+                  title: Text(
+                    context.appLocalizations.messageSendFailed,
+                    style: TextStyle(
+                      color: context.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _requestError,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: TextButton.icon(
+                    onPressed: _busy ? null : _retryFailedMessage,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(context.appLocalizations.retry),
+                  ),
+                ),
+              ),
+            ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 160),
             child: !_busy
                 ? const SizedBox.shrink(key: ValueKey(false))
-                : const LinearProgressIndicator(key: ValueKey(true), minHeight: 2),
+                : const LinearProgressIndicator(
+                    key: ValueKey(true),
+                    minHeight: 2,
+                  ),
           ),
           Divider(height: 1, color: context.colorScheme.outlineVariant),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                IconButton(
-                  tooltip: '${context.appLocalizations.importFile} Skill',
-                  onPressed: _busy
-                      ? null
-                      : () => _importSkillFile(addToConversation: true),
-                  icon: const Icon(Icons.attach_file_rounded),
-                ),
-                Expanded(
-                  child: Focus(
-                    onKeyEvent: (_, event) {
-                      final isEnter = event.logicalKey ==
-                              LogicalKeyboardKey.enter ||
-                          event.logicalKey == LogicalKeyboardKey.numpadEnter;
-                      if (event is KeyDownEvent &&
-                          isEnter &&
-                          !HardwareKeyboard.instance.isShiftPressed) {
-                        _sendMessage();
-                        return KeyEventResult.handled;
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: TextField(
-                      controller: _messageController,
-                      enabled: !_busy,
-                      minLines: 1,
-                      maxLines: 5,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      decoration: InputDecoration(
-                        hintText: context.appLocalizations.aiInputHint,
-                        border: InputBorder.none,
-                        filled: false,
+                if (_pendingAttachments.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < _pendingAttachments.length;
+                        index++
+                      )
+                        InputChip(
+                          avatar: Icon(
+                            _pendingAttachments[index].isImage
+                                ? Icons.image_outlined
+                                : Icons.description_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _pendingAttachments[index].name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onDeleted: _busy
+                              ? null
+                              : () => setState(() {
+                                  _pendingAttachments = [
+                                    ..._pendingAttachments.sublist(0, index),
+                                    ..._pendingAttachments.sublist(index + 1),
+                                  ];
+                                }),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      tooltip: context.appLocalizations.addAttachment,
+                      onPressed: _busy ? null : _pickConversationAttachment,
+                      icon: const Icon(Icons.attach_file_rounded),
+                    ),
+                    Expanded(
+                      child: Focus(
+                        onKeyEvent: (_, event) {
+                          final isEnter =
+                              event.logicalKey == LogicalKeyboardKey.enter ||
+                              event.logicalKey ==
+                                  LogicalKeyboardKey.numpadEnter;
+                          if (event is KeyDownEvent &&
+                              isEnter &&
+                              !HardwareKeyboard.instance.isShiftPressed) {
+                            _sendMessage();
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: TextField(
+                          controller: _messageController,
+                          enabled: !_busy,
+                          minLines: 1,
+                          maxLines: 5,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          decoration: InputDecoration(
+                            hintText: context.appLocalizations.aiInputHint,
+                            border: InputBorder.none,
+                            filled: false,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  tooltip: context.appLocalizations.submit,
-                  onPressed: _busy ? null : _sendMessage,
-                  icon: const Icon(Icons.arrow_upward_rounded),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      tooltip: context.appLocalizations.submit,
+                      onPressed: _busy ? null : _sendMessage,
+                      icon: const Icon(Icons.arrow_upward_rounded),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -901,35 +1207,120 @@ class _AiViewState extends ConsumerState<AiView> {
 
 class _MessageBubble extends StatelessWidget {
   final AiChatMessage message;
+  final bool busy;
+  final VoidCallback? onRetry;
+  final VoidCallback? onEdit;
 
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.busy,
+    required this.onRetry,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
+    final isStatus = message.role == 'status';
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 680),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isUser
-              ? context.colorScheme.primaryContainer
-              : context.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(isUser ? 20 : 6),
-            bottomRight: Radius.circular(isUser ? 6 : 20),
+      child: Column(
+        crossAxisAlignment: isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          Container(
+            constraints: const BoxConstraints(maxWidth: 680),
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isUser
+                  ? context.colorScheme.primaryContainer
+                  : context.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: Radius.circular(isUser ? 20 : 6),
+                bottomRight: Radius.circular(isUser ? 6 : 20),
+              ),
+            ),
+            child: isStatus
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        message.content,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  )
+                : isUser
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (message.content.isNotEmpty)
+                        SelectableText(
+                          message.content,
+                          style: context.textTheme.bodyMedium?.copyWith(
+                            height: 1.5,
+                          ),
+                        ),
+                      if (message.attachments.isNotEmpty) ...[
+                        if (message.content.isNotEmpty)
+                          const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: message.attachments
+                              .map(
+                                (item) => Chip(
+                                  avatar: Icon(
+                                    item.isImage
+                                        ? Icons.image_outlined
+                                        : Icons.description_outlined,
+                                    size: 16,
+                                  ),
+                                  label: Text(item.name),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                    ],
+                  )
+                : _MarkdownMessage(content: message.content),
           ),
-        ),
-        child: isUser
-            ? SelectableText(
-                message.content,
-                style: context.textTheme.bodyMedium?.copyWith(height: 1.5),
-              )
-            : _MarkdownMessage(content: message.content),
+          if (!isStatus)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onEdit != null)
+                  IconButton(
+                    tooltip: context.appLocalizations.editAndRetry,
+                    onPressed: busy ? null : onEdit,
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 18,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                if (onRetry != null)
+                  IconButton(
+                    tooltip: context.appLocalizations.retry,
+                    onPressed: busy ? null : onRetry,
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 18,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -964,7 +1355,10 @@ class _MarkdownMessage extends StatelessWidget {
         );
       } else if (token.startsWith('`')) {
         spans.add(
-          TextSpan(text: token.substring(1, token.length - 1), style: codeStyle),
+          TextSpan(
+            text: token.substring(1, token.length - 1),
+            style: codeStyle,
+          ),
         );
       } else {
         spans.add(
@@ -993,7 +1387,9 @@ class _MarkdownMessage extends StatelessWidget {
         codeBlock = !codeBlock;
         continue;
       }
-      TextStyle? lineStyle = context.textTheme.bodyMedium?.copyWith(height: 1.5);
+      TextStyle? lineStyle = context.textTheme.bodyMedium?.copyWith(
+        height: 1.5,
+      );
       if (codeBlock) {
         lineStyle = lineStyle?.copyWith(
           fontFamily: 'JetBrainsMono',

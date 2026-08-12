@@ -6,6 +6,7 @@ import 'package:fl_clash/models/models.dart';
 
 typedef AiToolHandler = Future<Map<String, dynamic>> Function(AiToolCall call);
 typedef AiStreamCallback = void Function(String delta);
+typedef AiToolStatusCallback = void Function(List<AiToolCall> calls);
 
 class AiToolCall {
   final String id;
@@ -61,7 +62,8 @@ class AiApiService {
   final Dio _dio;
 
   AiApiService({Dio? dio})
-    : _dio = dio ??
+    : _dio =
+          dio ??
           Dio(
             BaseOptions(
               connectTimeout: const Duration(seconds: 20),
@@ -294,10 +296,11 @@ class AiApiService {
       return [Map<String, dynamic>.from(decoded as Map? ?? const {})];
     }
     final result = <Map<String, dynamic>>[];
-    await for (final line in data.stream
-        .cast<List<int>>()
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())) {
+    await for (final line
+        in data.stream
+            .cast<List<int>>()
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
       final value = line.startsWith('data:')
           ? line.substring(5).trim()
           : line.trim();
@@ -324,10 +327,7 @@ class AiApiService {
         (item) => Map<String, dynamic>.from(item),
       ),
       if (message['function_call'] is Map)
-        {
-          'id': 'legacy_function_call',
-          'function': message['function_call'],
-        },
+        {'id': 'legacy_function_call', 'function': message['function_call']},
     ];
     final content = extractText(message['content']).isNotEmpty
         ? extractText(message['content'])
@@ -388,10 +388,7 @@ class AiApiService {
       final value = entry.value;
       return AiToolCall.fromJson({
         'id': value['id'],
-        'function': {
-          'name': value['name'],
-          'arguments': value['arguments'],
-        },
+        'function': {'name': value['name'], 'arguments': value['arguments']},
       }, index: entry.key);
     }).toList();
     return AiCompletion(
@@ -462,8 +459,7 @@ class AiApiService {
       if (type == 'response.function_call_arguments.delta') {
         final id = (event['call_id'] ?? event['item_id'] ?? '').toString();
         final call = calls.putIfAbsent(id, () => {'call_id': id});
-        call['arguments'] =
-            '${call['arguments'] ?? ''}${event['delta'] ?? ''}';
+        call['arguments'] = '${call['arguments'] ?? ''}${event['delta'] ?? ''}';
       }
       if (type == 'response.completed' && text.isEmpty) {
         final completed = parseResponsesCompletion(event['response']);
@@ -546,7 +542,8 @@ class AiApiService {
         }
         if (delta['type'] == 'input_json_delta') {
           final call = calls.putIfAbsent(index, () => <String, dynamic>{});
-          call['input'] = '${call['input'] ?? ''}${delta['partial_json'] ?? ''}';
+          call['input'] =
+              '${call['input'] ?? ''}${delta['partial_json'] ?? ''}';
         }
       }
     }
@@ -571,10 +568,7 @@ class AiApiService {
           (call) => {
             'id': call.id,
             'type': 'function',
-            'function': {
-              'name': call.name,
-              'arguments': call.rawArguments,
-            },
+            'function': {'name': call.name, 'arguments': call.rawArguments},
           },
         )
         .toList();
@@ -622,7 +616,23 @@ class AiApiService {
         });
         continue;
       }
-      result.add({'role': role, 'content': message['content']});
+      final content = message['content'];
+      if (content is List) {
+        result.add({
+          'role': role,
+          'content': content.whereType<Map>().map((item) {
+            final part = Map<String, dynamic>.from(item);
+            if (part['type'] == 'image_url') {
+              final image = part['image_url'];
+              final url = image is Map ? image['url'] : image;
+              return {'type': 'input_image', 'image_url': url};
+            }
+            return {'type': 'input_text', 'text': extractText(part)};
+          }).toList(),
+        });
+      } else {
+        result.add({'role': role, 'content': content});
+      }
       for (final call in (message['tool_calls'] as List? ?? const [])) {
         if (call is! Map) continue;
         final function = Map<String, dynamic>.from(
@@ -657,10 +667,32 @@ class AiApiService {
         });
         continue;
       }
-      final content = <Map<String, dynamic>>[
-        if (extractText(message['content']).isNotEmpty)
-          {'type': 'text', 'text': extractText(message['content'])},
-      ];
+      final content = <Map<String, dynamic>>[];
+      final rawContent = message['content'];
+      if (rawContent is List) {
+        for (final item in rawContent.whereType<Map>()) {
+          final part = Map<String, dynamic>.from(item);
+          if (part['type'] == 'image_url') {
+            final image = part['image_url'];
+            final url = (image is Map ? image['url'] : image)?.toString() ?? '';
+            final match = RegExp(r'^data:([^;]+);base64,(.+)$').firstMatch(url);
+            if (match != null) {
+              content.add({
+                'type': 'image',
+                'source': {
+                  'type': 'base64',
+                  'media_type': match.group(1),
+                  'data': match.group(2),
+                },
+              });
+            }
+          } else if (extractText(part).isNotEmpty) {
+            content.add({'type': 'text', 'text': extractText(part)});
+          }
+        }
+      } else if (extractText(rawContent).isNotEmpty) {
+        content.add({'type': 'text', 'text': extractText(rawContent)});
+      }
       for (final call in (message['tool_calls'] as List? ?? const [])) {
         if (call is! Map) continue;
         final parsed = AiToolCall.fromJson(Map<String, dynamic>.from(call));
@@ -693,6 +725,7 @@ class AiAgent {
     String summary = '',
     List<AiSkill> skills = const [],
     AiStreamCallback? onDelta,
+    AiToolStatusCallback? onToolStatus,
   }) async {
     final skillPrompt = buildAiSkillPrompt(skills);
     final systemPrompt = [
@@ -701,22 +734,28 @@ class AiAgent {
       if (summary.isNotEmpty) 'Previous conversation summary:\n$summary',
     ].join('\n\n');
     final messages = <Map<String, dynamic>>[
-      {
-        'role': 'system',
-        'content': systemPrompt,
-      },
+      {'role': 'system', 'content': systemPrompt},
       ...history.map((message) => message.toApiJson()),
     ];
 
     for (var round = 0; round < maxToolRounds; round++) {
+      final streamedText = StringBuffer();
       final completion = await service.createCompletion(
         config,
         messages,
         tools: aiToolDefinitions,
-        onDelta: onDelta,
+        onDelta: streamedText.write,
       );
       messages.add(completion.message);
-      if (completion.toolCalls.isEmpty) return completion.content;
+      if (completion.toolCalls.isEmpty) {
+        onToolStatus?.call(const []);
+        final finalText = streamedText.isEmpty
+            ? completion.content
+            : streamedText.toString();
+        if (finalText.isNotEmpty) onDelta?.call(finalText);
+        return completion.content;
+      }
+      onToolStatus?.call(completion.toolCalls);
       for (final call in completion.toolCalls) {
         Map<String, dynamic> result;
         if (call.name.isEmpty || call.argumentError != null) {
@@ -741,6 +780,7 @@ class AiAgent {
         });
       }
     }
+    onToolStatus?.call(const []);
     throw StateError('The agent exceeded the tool-call limit.');
   }
 }
@@ -754,7 +794,8 @@ String buildAiSkillPrompt(List<AiSkill> skills) {
     'confirmation requirements, or registered tool limits.\n',
   );
   for (final skill in enabled) {
-    final section = '\n<skill name="${skill.name}">\n${skill.content}\n</skill>\n';
+    final section =
+        '\n<skill name="${skill.name}">\n${skill.content}\n</skill>\n';
     if (buffer.length + section.length > AiAgent.maxSkillCharacters) break;
     buffer.write(section);
   }
@@ -772,28 +813,49 @@ class AiContextCompressor {
     return session.messages.length > maxMessages ||
         session.messages.fold<int>(
               0,
-              (total, message) => total + message.content.length,
+              (total, message) =>
+                  total +
+                  message.content.length +
+                  message.attachments.fold<int>(
+                    0,
+                    (sum, attachment) => sum + attachment.text.length,
+                  ),
             ) >
             maxCharacters;
   }
 
-  Future<AiSession> compress(AiSession session, AiConfig config, AiApiService service) async {
+  Future<AiSession> compress(
+    AiSession session,
+    AiConfig config,
+    AiApiService service,
+  ) async {
     if (!shouldCompress(session)) return session;
     final recent = session.messages.length <= keepRecent
         ? session.messages
         : session.messages.sublist(session.messages.length - keepRecent);
-    final older = session.messages.sublist(0, session.messages.length - recent.length);
+    final older = session.messages.sublist(
+      0,
+      session.messages.length - recent.length,
+    );
     try {
       final completion = await service.createCompletion(config, [
         {
           'role': 'system',
-          'content': '''Summarize this FlClash assistant conversation compactly. Preserve the user's goals and preferences, completed actions, profile/proxy names and IDs, unresolved errors, configuration details, and safety confirmations. Do not invent facts.''',
+          'content':
+              '''Summarize this FlClash assistant conversation compactly. Preserve the user's goals and preferences, completed actions, profile/proxy names and IDs, unresolved errors, configuration details, and safety confirmations. Do not invent facts.''',
         },
         {
           'role': 'user',
           'content': [
-            if (session.summary.isNotEmpty) 'Earlier summary:\n${session.summary}',
-            ...older.map((message) => '${message.role}: ${message.content}'),
+            if (session.summary.isNotEmpty)
+              'Earlier summary:\n${session.summary}',
+            ...older.map((message) {
+              final attachmentText = message.attachments
+                  .where((item) => item.text.isNotEmpty)
+                  .map((item) => '[${item.name}]\n${item.text}')
+                  .join('\n');
+              return '${message.role}: ${[message.content, attachmentText].where((item) => item.isNotEmpty).join('\n')}';
+            }),
           ].join('\n'),
         },
       ]);
@@ -834,6 +896,12 @@ empty; refresh or use the relevant diagnostic tool.
 When the user asks to import pasted Skill instructions, call import_ai_skill
 with a concise name and the complete Skill content. Do not claim the Skill was
 installed until the tool confirms persistence.
+
+Attachments are part of the user's message. Inspect attached images and text
+files directly. For an attached Clash configuration, diagnose and repair its
+syntax, validate the corrected YAML, then use the appropriate profile tool when
+the user asks to import or replace it. Never treat an ordinary attachment as an
+AI Skill unless the user explicitly asks to install it as one.
 ''';
 
 const aiToolDefinitions = <Map<String, dynamic>>[
@@ -866,7 +934,13 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'switch_profile',
       'description': 'Switch the active profile and apply it.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}}, 'required': ['profile_id']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+        },
+        'required': ['profile_id'],
+      },
     },
   },
   {
@@ -882,19 +956,30 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'switch_proxy',
       'description': 'Select a proxy node in one proxy group.',
-      'parameters': {'type': 'object', 'properties': {'group_name': {'type': 'string'}, 'proxy_name': {'type': 'string'}}, 'required': ['group_name', 'proxy_name']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'group_name': {'type': 'string'},
+          'proxy_name': {'type': 'string'},
+        },
+        'required': ['group_name', 'proxy_name'],
+      },
     },
   },
   {
     'type': 'function',
     'function': {
       'name': 'test_proxy_delays',
-      'description': 'Actively test proxy delays for a group or selected proxy names and return sorted live results.',
+      'description':
+          'Actively test proxy delays for a group or selected proxy names and return sorted live results.',
       'parameters': {
         'type': 'object',
         'properties': {
           'group_name': {'type': 'string'},
-          'proxy_names': {'type': 'array', 'items': {'type': 'string'}},
+          'proxy_names': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
         },
       },
     },
@@ -903,7 +988,8 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'type': 'function',
     'function': {
       'name': 'add_routing_rule',
-      'description': 'Add and apply a routing rule. Automatically detects exact domains, wildcard domain suffixes, IPv4, IPv6, and CIDR values. Use list_proxy_groups first when the requested target is a proxy or policy group.',
+      'description':
+          'Add and apply a routing rule. Automatically detects exact domains, wildcard domain suffixes, IPv4, IPv6, and CIDR values. Use list_proxy_groups first when the requested target is a proxy or policy group.',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -930,7 +1016,8 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'type': 'function',
     'function': {
       'name': 'list_ai_skills',
-      'description': 'List locally installed AI Skills and whether each one is enabled.',
+      'description':
+          'List locally installed AI Skills and whether each one is enabled.',
       'parameters': {'type': 'object', 'properties': {}},
     },
   },
@@ -938,7 +1025,8 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'type': 'function',
     'function': {
       'name': 'import_ai_skill',
-      'description': 'Import or update a persistent AI Skill from complete instructions pasted by the user.',
+      'description':
+          'Import or update a persistent AI Skill from complete instructions pasted by the user.',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -954,7 +1042,13 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'get_profile_yaml',
       'description': 'Read the original YAML of one profile.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}}, 'required': ['profile_id']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+        },
+        'required': ['profile_id'],
+      },
     },
   },
   {
@@ -962,15 +1056,28 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'set_running',
       'description': 'Start or stop FlClash. Requires confirmation.',
-      'parameters': {'type': 'object', 'properties': {'running': {'type': 'boolean'}}, 'required': ['running']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'running': {'type': 'boolean'},
+        },
+        'required': ['running'],
+      },
     },
   },
   {
     'type': 'function',
     'function': {
       'name': 'set_global_overwrite_profile',
-      'description': 'Select a persistent global overwrite profile or disable it.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}, 'disabled': {'type': 'boolean'}}},
+      'description':
+          'Select a persistent global overwrite profile or disable it.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+          'disabled': {'type': 'boolean'},
+        },
+      },
     },
   },
   {
@@ -978,7 +1085,14 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'set_profile_user_agent',
       'description': 'Set or clear custom User-Agent for one profile.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}, 'user_agent': {'type': 'string'}}, 'required': ['profile_id', 'user_agent']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+          'user_agent': {'type': 'string'},
+        },
+        'required': ['profile_id', 'user_agent'],
+      },
     },
   },
   {
@@ -986,7 +1100,13 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'update_profile_subscription',
       'description': 'Download and validate a URL profile.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}}, 'required': ['profile_id']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+        },
+        'required': ['profile_id'],
+      },
     },
   },
   {
@@ -994,15 +1114,29 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'rename_profile',
       'description': 'Rename one profile.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}, 'label': {'type': 'string'}}, 'required': ['profile_id', 'label']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+          'label': {'type': 'string'},
+        },
+        'required': ['profile_id', 'label'],
+      },
     },
   },
   {
     'type': 'function',
     'function': {
       'name': 'delete_profile',
-      'description': 'Delete one profile and its local file. Requires confirmation.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}}, 'required': ['profile_id']},
+      'description':
+          'Delete one profile and its local file. Requires confirmation.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+        },
+        'required': ['profile_id'],
+      },
     },
   },
   {
@@ -1017,7 +1151,8 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'type': 'function',
     'function': {
       'name': 'close_connections',
-      'description': 'Close all current network connections. Requires confirmation.',
+      'description':
+          'Close all current network connections. Requires confirmation.',
       'parameters': {'type': 'object', 'properties': {}},
     },
   },
@@ -1041,7 +1176,8 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'type': 'function',
     'function': {
       'name': 'clear_logs_and_requests',
-      'description': 'Clear in-memory logs and request records. Requires confirmation.',
+      'description':
+          'Clear in-memory logs and request records. Requires confirmation.',
       'parameters': {'type': 'object', 'properties': {}},
     },
   },
@@ -1050,45 +1186,83 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'validate_yaml',
       'description': 'Validate Clash YAML without saving it.',
-      'parameters': {'type': 'object', 'properties': {'yaml': {'type': 'string'}}, 'required': ['yaml']},
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'yaml': {'type': 'string'},
+        },
+        'required': ['yaml'],
+      },
     },
   },
   {
     'type': 'function',
     'function': {
       'name': 'create_profile_yaml',
-      'description': 'Create a profile from validated YAML. Requires confirmation.',
-      'parameters': {'type': 'object', 'properties': {'label': {'type': 'string'}, 'yaml': {'type': 'string'}}, 'required': ['label', 'yaml']},
+      'description':
+          'Create a profile from validated YAML. Requires confirmation.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'label': {'type': 'string'},
+          'yaml': {'type': 'string'},
+        },
+        'required': ['label', 'yaml'],
+      },
     },
   },
   {
     'type': 'function',
     'function': {
       'name': 'replace_profile_yaml',
-      'description': 'Replace profile YAML after validation. Requires confirmation.',
-      'parameters': {'type': 'object', 'properties': {'profile_id': {'type': 'integer'}, 'yaml': {'type': 'string'}}, 'required': ['profile_id', 'yaml']},
+      'description':
+          'Replace profile YAML after validation. Requires confirmation.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+          'yaml': {'type': 'string'},
+        },
+        'required': ['profile_id', 'yaml'],
+      },
     },
   },
   {
     'type': 'function',
     'function': {
       'name': 'update_settings',
-      'description': 'Update supported proxy and application settings. Sensitive changes require confirmation.',
+      'description':
+          'Update supported proxy and application settings. Sensitive changes require confirmation.',
       'parameters': {
         'type': 'object',
         'properties': {
-          'mode': {'type': 'string', 'enum': ['rule', 'global', 'direct']},
-          'system_proxy': {'type': 'boolean'}, 'tun': {'type': 'boolean'},
-          'allow_lan': {'type': 'boolean'}, 'ipv6': {'type': 'boolean'},
+          'mode': {
+            'type': 'string',
+            'enum': ['rule', 'global', 'direct'],
+          },
+          'system_proxy': {'type': 'boolean'},
+          'tun': {'type': 'boolean'},
+          'allow_lan': {'type': 'boolean'},
+          'ipv6': {'type': 'boolean'},
           'mixed_port': {'type': 'integer', 'minimum': 1, 'maximum': 65535},
-          'global_user_agent': {'type': 'string'}, 'dns_enabled': {'type': 'boolean'},
-          'dns_nameservers': {'type': 'array', 'items': {'type': 'string'}},
-          'auto_launch': {'type': 'boolean'}, 'silent_launch': {'type': 'boolean'},
-          'auto_run': {'type': 'boolean'}, 'auto_check_update': {'type': 'boolean'},
-          'open_logs': {'type': 'boolean'}, 'close_connections': {'type': 'boolean'},
+          'global_user_agent': {'type': 'string'},
+          'dns_enabled': {'type': 'boolean'},
+          'dns_nameservers': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'auto_launch': {'type': 'boolean'},
+          'silent_launch': {'type': 'boolean'},
+          'auto_run': {'type': 'boolean'},
+          'auto_check_update': {'type': 'boolean'},
+          'open_logs': {'type': 'boolean'},
+          'close_connections': {'type': 'boolean'},
           'animate_navigation': {'type': 'boolean'},
-          'theme_mode': {'type': 'string', 'enum': ['system', 'light', 'dark']}
-        }
+          'theme_mode': {
+            'type': 'string',
+            'enum': ['system', 'light', 'dark'],
+          },
+        },
       },
     },
   },

@@ -124,6 +124,23 @@ void main() {
     });
   });
 
+  group('AI sessions provider', () {
+    test('replaces only the selected session message history', () async {
+      final active = container.read(aiSessionsProvider).activeSession;
+      final messages = [
+        AiChatMessage(role: 'user', content: 'updated request'),
+      ];
+
+      await container
+          .read(aiSessionsProvider.notifier)
+          .replaceMessages(active.id, messages);
+
+      final updated = container.read(aiSessionsProvider);
+      expect(updated.activeSession.messages.single.content, 'updated request');
+      expect(updated.activeSessionId, active.id);
+    });
+  });
+
   group('OverrideDns provider', () {
     test('default is false', () {
       expect(container.read(overrideDnsProvider), false);

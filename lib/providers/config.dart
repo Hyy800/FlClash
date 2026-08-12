@@ -170,8 +170,9 @@ class AiSkills extends Notifier<List<AiSkill>> {
   }
 }
 
-final aiSessionsProvider =
-    NotifierProvider<AiSessions, AiSessionStore>(AiSessions.new);
+final aiSessionsProvider = NotifierProvider<AiSessions, AiSessionStore>(
+  AiSessions.new,
+);
 
 class AiSessions extends Notifier<AiSessionStore> {
   @override
@@ -244,7 +245,11 @@ class AiSessions extends Notifier<AiSessionStore> {
     if (session == null) return;
     final shouldName = session.messages.isEmpty && message.role == 'user';
     final title = shouldName
-        ? message.content.replaceAll(RegExp(r'\s+'), ' ').trim()
+        ? (message.content.trim().isEmpty && message.attachments.isNotEmpty
+                  ? message.attachments.first.name
+                  : message.content)
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim()
         : session.title;
     await replaceSession(
       session.copyWith(
@@ -252,6 +257,19 @@ class AiSessions extends Notifier<AiSessionStore> {
         messages: [...session.messages, message],
         updatedAt: DateTime.now(),
       ),
+    );
+  }
+
+  Future<void> replaceMessages(
+    String sessionId,
+    List<AiChatMessage> messages,
+  ) async {
+    final session = state.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    if (session == null) return;
+    await replaceSession(
+      session.copyWith(messages: messages, updatedAt: DateTime.now()),
     );
   }
 

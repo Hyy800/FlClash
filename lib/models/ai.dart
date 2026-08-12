@@ -160,16 +160,50 @@ class AiConfig {
   };
 }
 
+class AiAttachment {
+  final String name;
+  final String mimeType;
+  final String data;
+  final String text;
+
+  const AiAttachment({
+    required this.name,
+    required this.mimeType,
+    this.data = '',
+    this.text = '',
+  });
+
+  bool get isImage => mimeType.startsWith('image/') && data.isNotEmpty;
+
+  factory AiAttachment.fromJson(Map<String, dynamic> json) {
+    return AiAttachment(
+      name: json['name'] as String? ?? 'attachment',
+      mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
+      data: json['data'] as String? ?? '',
+      text: json['text'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'mimeType': mimeType,
+    if (data.isNotEmpty) 'data': data,
+    if (text.isNotEmpty) 'text': text,
+  };
+}
+
 class AiChatMessage {
   final String id;
   final String role;
   final String content;
+  final List<AiAttachment> attachments;
   final DateTime createdAt;
 
   AiChatMessage({
     String? id,
     required this.role,
     required this.content,
+    this.attachments = const [],
     DateTime? createdAt,
   }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
        createdAt = createdAt ?? DateTime.now();
@@ -179,6 +213,10 @@ class AiChatMessage {
       id: json['id'] as String?,
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
+      attachments: (json['attachments'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => AiAttachment.fromJson(Map<String, dynamic>.from(item)))
+          .toList(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         json['createdAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
       ),
@@ -189,10 +227,37 @@ class AiChatMessage {
     'id': id,
     'role': role,
     'content': content,
+    if (attachments.isNotEmpty)
+      'attachments': attachments.map((item) => item.toJson()).toList(),
     'createdAt': createdAt.millisecondsSinceEpoch,
   };
 
-  Map<String, dynamic> toApiJson() => {'role': role, 'content': content};
+  Map<String, dynamic> toApiJson() {
+    final fileSections = attachments
+        .where((item) => item.text.isNotEmpty)
+        .map(
+          (item) =>
+              '<attached_file name="${item.name}">\n${item.text}\n</attached_file>',
+        )
+        .join('\n\n');
+    final textContent = [
+      if (content.trim().isNotEmpty) content,
+      if (fileSections.isNotEmpty) fileSections,
+    ].join('\n\n');
+    final images = attachments.where((item) => item.isImage).toList();
+    if (images.isEmpty) return {'role': role, 'content': textContent};
+    return {
+      'role': role,
+      'content': [
+        if (textContent.isNotEmpty) {'type': 'text', 'text': textContent},
+        for (final image in images)
+          {
+            'type': 'image_url',
+            'image_url': {'url': 'data:${image.mimeType};base64,${image.data}'},
+          },
+      ],
+    };
+  }
 }
 
 class AiSession {
@@ -238,9 +303,7 @@ class AiSession {
       messages: (json['messages'] as List? ?? const [])
           .whereType<Map>()
           .map(
-            (item) => AiChatMessage.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
+            (item) => AiChatMessage.fromJson(Map<String, dynamic>.from(item)),
           )
           .toList(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(
@@ -286,9 +349,7 @@ class AiSessionStore {
   factory AiSessionStore.fromJson(Map<String, dynamic> json) {
     final sessions = (json['sessions'] as List? ?? const [])
         .whereType<Map>()
-        .map(
-          (item) => AiSession.fromJson(Map<String, dynamic>.from(item)),
-        )
+        .map((item) => AiSession.fromJson(Map<String, dynamic>.from(item)))
         .toList();
     if (sessions.isEmpty) {
       return AiSessionStore.initial();

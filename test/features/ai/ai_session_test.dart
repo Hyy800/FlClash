@@ -20,6 +20,51 @@ void main() {
     expect(restored.sessions.first.messages.single.content, 'hello');
   });
 
+  test('chat attachments persist and build multimodal API content', () {
+    final message = AiChatMessage(
+      role: 'user',
+      content: 'Repair this configuration',
+      attachments: const [
+        AiAttachment(
+          name: 'broken.yaml',
+          mimeType: 'text/plain',
+          text: 'proxies: [',
+        ),
+        AiAttachment(
+          name: 'screen.png',
+          mimeType: 'image/png',
+          data: 'aGVsbG8=',
+        ),
+      ],
+    );
+
+    final restored = AiChatMessage.fromJson(message.toJson());
+    expect(restored.attachments, hasLength(2));
+    final api = restored.toApiJson();
+    expect(api['content'], isA<List<dynamic>>());
+    final content = api['content'] as List<dynamic>;
+    expect(content.first.toString(), contains('broken.yaml'));
+    expect(content.last.toString(), contains('data:image/png;base64'));
+  });
+
+  test('text-only attachments use the attached file envelope', () {
+    final message = AiChatMessage(
+      role: 'user',
+      content: '',
+      attachments: const [
+        AiAttachment(
+          name: 'profile.yaml',
+          mimeType: 'text/plain',
+          text: 'mixed-port: 7890',
+        ),
+      ],
+    );
+
+    final api = message.toApiJson();
+    expect(api['content'], contains('<attached_file name="profile.yaml">'));
+    expect(api['content'], contains('mixed-port: 7890'));
+  });
+
   test('session store falls back from an invalid active id', () {
     final session = AiSession(title: 'Available');
     final restored = AiSessionStore.fromJson({
@@ -32,16 +77,20 @@ void main() {
   test('only an untouched active session can be reused', () {
     final empty = AiSession();
     expect(
-      AiSessionStore(activeSessionId: empty.id, sessions: [empty])
-          .canReuseActiveSession,
+      AiSessionStore(
+        activeSessionId: empty.id,
+        sessions: [empty],
+      ).canReuseActiveSession,
       isTrue,
     );
     final started = AiSession(
       messages: [AiChatMessage(role: 'user', content: 'hello')],
     );
     expect(
-      AiSessionStore(activeSessionId: started.id, sessions: [started])
-          .canReuseActiveSession,
+      AiSessionStore(
+        activeSessionId: started.id,
+        sessions: [started],
+      ).canReuseActiveSession,
       isFalse,
     );
   });
@@ -51,18 +100,12 @@ void main() {
 name: Routing helper
 ---
 Always inspect routing state first.''';
-    final skill = AiSkill(
-      name: AiSkill.inferName(content),
-      content: content,
-    );
+    final skill = AiSkill(name: AiSkill.inferName(content), content: content);
     final restored = AiSkill.fromJson(skill.toJson());
     expect(restored.name, 'Routing helper');
     expect(restored.content, content);
     expect(buildAiSkillPrompt([restored]), contains(content));
-    expect(
-      buildAiSkillPrompt([restored.copyWith(enabled: false)]),
-      isEmpty,
-    );
+    expect(buildAiSkillPrompt([restored.copyWith(enabled: false)]), isEmpty);
   });
 
   test('context compressor threshold covers count and character limits', () {

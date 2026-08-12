@@ -327,7 +327,7 @@ class ListItem<T> extends StatelessWidget {
       final child = openDelegate.widget;
       final onChanged = openDelegate.onChanged;
       return OpenContainer<T>(
-        closedColor: context.colorScheme.surface,
+        closedColor: Colors.transparent,
         openColor: context.colorScheme.surface,
         closedElevation: 0,
         openElevation: 0,

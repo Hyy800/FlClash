@@ -105,6 +105,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "action_view": MessageLookupByLibrary.simpleMessage("Show/Hide"),
     "add": MessageLookupByLibrary.simpleMessage("Add"),
+    "addAttachment": MessageLookupByLibrary.simpleMessage("Add image or file"),
     "addProfile": MessageLookupByLibrary.simpleMessage("Add Profile"),
     "addProxies": MessageLookupByLibrary.simpleMessage("Add proxies"),
     "addProxyGroup": MessageLookupByLibrary.simpleMessage("Add proxy group"),
@@ -131,6 +132,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Provide diverse configuration options",
     ),
     "agree": MessageLookupByLibrary.simpleMessage("Agree"),
+    "aiEmptyResponse": MessageLookupByLibrary.simpleMessage(
+      "The model returned an empty response",
+    ),
     "aiInputHint": MessageLookupByLibrary.simpleMessage(
       "Please enter your request",
     ),
@@ -157,6 +161,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "application": MessageLookupByLibrary.simpleMessage("Application"),
     "applicationDesc": MessageLookupByLibrary.simpleMessage(
       "Modify application related settings",
+    ),
+    "attachmentTooLarge": MessageLookupByLibrary.simpleMessage(
+      "The attachment is too large",
     ),
     "authorized": MessageLookupByLibrary.simpleMessage("Authorized"),
     "auto": MessageLookupByLibrary.simpleMessage("Auto"),
@@ -348,6 +355,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("Domain"),
     "download": MessageLookupByLibrary.simpleMessage("Download"),
     "edit": MessageLookupByLibrary.simpleMessage("Edit"),
+    "editAndRetry": MessageLookupByLibrary.simpleMessage("Edit and retry"),
     "editGlobalRules": MessageLookupByLibrary.simpleMessage(
       "Edit global rules",
     ),
@@ -552,6 +560,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "matchSourceIp": MessageLookupByLibrary.simpleMessage("Match source IP"),
     "maxFailedTimes": MessageLookupByLibrary.simpleMessage("Max failed times"),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
+    "messageSendFailed": MessageLookupByLibrary.simpleMessage(
+      "Message failed to send",
+    ),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage(
       "This is a message.",
@@ -795,6 +806,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Override",
     ),
     "restoreSuccess": MessageLookupByLibrary.simpleMessage("Restore success"),
+    "retry": MessageLookupByLibrary.simpleMessage("Retry"),
     "routeAddress": MessageLookupByLibrary.simpleMessage("Route address"),
     "routeAddressDesc": MessageLookupByLibrary.simpleMessage(
       "Config listen route address",
@@ -1028,6 +1040,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Unknown network error",
     ),
     "unnamed": MessageLookupByLibrary.simpleMessage("Unnamed"),
+    "unsupportedAttachment": MessageLookupByLibrary.simpleMessage(
+      "This file cannot be read as an image or text",
+    ),
     "update": MessageLookupByLibrary.simpleMessage("Update"),
     "upload": MessageLookupByLibrary.simpleMessage("Upload"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

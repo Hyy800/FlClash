@@ -26,6 +26,7 @@ class CommonScaffold extends StatefulWidget {
   final AppBarSearchState? searchState;
   final OnKeywordsUpdateCallback? onKeywordsUpdate;
   final bool? resizeToAvoidBottomInset;
+  final double appBarHeight;
 
   const CommonScaffold({
     super.key,
@@ -41,6 +42,7 @@ class CommonScaffold extends StatefulWidget {
     this.floatingActionButton,
     this.onKeywordsUpdate,
     this.resizeToAvoidBottomInset,
+    this.appBarHeight = 86,
   });
 
   @override
@@ -261,7 +263,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
 
   PreferredSizeWidget _buildAppBar(VoidCallback? backAction) {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(86),
+      preferredSize: Size.fromHeight(widget.appBarHeight),
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -271,6 +273,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                 builder: (_, state, _) {
                   return _buildAppBarWrap(
                     AppBar(
+                      toolbarHeight: widget.appBarHeight - 8,
                       automaticallyImplyLeading: backAction != null
                           ? false
                           : true,
