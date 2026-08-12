@@ -121,6 +121,7 @@ class StatusManagerState extends State<StatusManager> {
                                       _cancelMessage(messages.last.id);
                                     },
                                     child: Card(
+                                      clipBehavior: Clip.antiAlias,
                                       shape: const RoundedSuperellipseBorder(
                                         borderRadius: BorderRadius.all(
                                           Radius.circular(14),

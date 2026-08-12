@@ -26,6 +26,7 @@ class CommonDialog extends ConsumerWidget {
   Widget build(BuildContext context, ref) {
     final size = ref.watch(viewSizeProvider);
     return AlertDialog(
+      clipBehavior: Clip.antiAlias,
       title: Text(title),
       actions: actions,
       contentPadding: padding,

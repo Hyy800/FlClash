@@ -118,6 +118,8 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     final position = overlay.globalToLocal(globalPosition);
     final action = await showMenu<String>(
       context: context,
+      color: context.colorScheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       clipBehavior: Clip.antiAlias,
       menuPadding: const EdgeInsets.symmetric(vertical: 6),
@@ -305,6 +307,7 @@ class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {
   Widget build(BuildContext context) {
     final l10n = context.appLocalizations;
     return AlertDialog(
+      clipBehavior: Clip.antiAlias,
       title: Text(l10n.addRule),
       content: SizedBox(
         width: 420,

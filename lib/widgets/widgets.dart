@@ -38,4 +38,5 @@ export 'super_grid.dart';
 export 'tab.dart';
 export 'text.dart';
 export 'theme.dart';
+export 'user_agent_selector.dart';
 export 'wave.dart';

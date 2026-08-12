@@ -16,10 +16,7 @@ class AddProfileView extends StatelessWidget {
         .addProfileFormFile();
   }
 
-  Future<void> _handleAddProfileFormURL(
-    String url, {
-    String? userAgent,
-  }) async {
+  Future<void> _handleAddProfileFormURL(String url, {String? userAgent}) async {
     globalState.container
         .read(profilesActionProvider.notifier)
         .addProfileFormURL(url, userAgent: userAgent);
@@ -45,10 +42,7 @@ class AddProfileView extends StatelessWidget {
       child: const URLFormDialog(),
     );
     if (data != null) {
-      _handleAddProfileFormURL(
-        data.url,
-        userAgent: data.userAgent,
-      );
+      _handleAddProfileFormURL(data.url, userAgent: data.userAgent);
     }
   }
 
@@ -97,8 +91,7 @@ class URLFormDialog extends StatefulWidget {
 class _URLFormDialogState extends State<URLFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
-  final _userAgentController = TextEditingController();
-  bool _useCustomUserAgent = false;
+  String _userAgent = '';
 
   Future<void> _handleAddProfileFormURL() async {
     if (_formKey.currentState?.validate() != true) {
@@ -107,9 +100,7 @@ class _URLFormDialogState extends State<URLFormDialog> {
     Navigator.of(context).pop(
       AddProfileFormData(
         url: _urlController.text,
-        userAgent: _useCustomUserAgent
-            ? _userAgentController.text.trim()
-            : null,
+        userAgent: _userAgent.isEmpty ? null : _userAgent,
       ),
     );
   }
@@ -117,7 +108,6 @@ class _URLFormDialogState extends State<URLFormDialog> {
   @override
   void dispose() {
     _urlController.dispose();
-    _userAgentController.dispose();
     super.dispose();
   }
 
@@ -140,66 +130,29 @@ class _URLFormDialogState extends State<URLFormDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-              keyboardType: TextInputType.url,
-              minLines: 1,
-              maxLines: 5,
-              inputFormatters: TextInputLimits.limit(TextInputLimits.url),
-              onFieldSubmitted: (_) {
-                _handleAddProfileFormURL();
-              },
-              controller: _urlController,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return appLocalizations.emptyTip('').trim();
-                }
-                if (!value.isUrl) {
-                  return appLocalizations.urlTip('').trim();
-                }
-                return null;
-              },
-              decoration: InputDecoration(
-                labelText: appLocalizations.url,
-              ),
-            ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(appLocalizations.userAgent),
-                subtitle: Text(appLocalizations.custom),
-                value: _useCustomUserAgent,
-                onChanged: (value) {
-                  setState(() {
-                    _useCustomUserAgent = value ?? false;
-                  });
+                keyboardType: TextInputType.url,
+                minLines: 1,
+                maxLines: 5,
+                inputFormatters: TextInputLimits.limit(TextInputLimits.url),
+                onFieldSubmitted: (_) {
+                  _handleAddProfileFormURL();
                 },
+                controller: _urlController,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return appLocalizations.emptyTip('').trim();
+                  }
+                  if (!value.isUrl) {
+                    return appLocalizations.urlTip('').trim();
+                  }
+                  return null;
+                },
+                decoration: InputDecoration(labelText: appLocalizations.url),
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: !_useCustomUserAgent
-                    ? const SizedBox.shrink(key: ValueKey(false))
-                    : TextFormField(
-                        key: const ValueKey(true),
-                        autofocus: true,
-                        controller: _userAgentController,
-                        maxLength: TextInputLimits.userAgent,
-                        inputFormatters: TextInputLimits.limit(
-                          TextInputLimits.userAgent,
-                        ),
-                        decoration: InputDecoration(
-                          counterText: '',
-                          labelText: appLocalizations.userAgent,
-                        ),
-                        keyboardType: TextInputType.url,
-                        validator: (value) {
-                          if (_useCustomUserAgent &&
-                              (value == null || value.trim().isEmpty)) {
-                            return appLocalizations.emptyTip(
-                              appLocalizations.userAgent,
-                            );
-                          }
-                          return null;
-                        },
-                      ),
+              const SizedBox(height: 12),
+              UserAgentSelector(
+                value: _userAgent,
+                onChanged: (value) => setState(() => _userAgent = value),
               ),
             ],
           ),

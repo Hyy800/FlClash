@@ -121,10 +121,10 @@ class _ProfilesViewState extends State<ProfilesView> {
         final appLocalizations = context.appLocalizations;
         final isLoading = ref.watch(loadingProvider(LoadingTag.profiles));
         final state = ref.watch(profilesStateProvider);
-        final spacing = 10.mAp;
+        final spacing = 8.mAp;
         return CommonScaffold(
           isLoading: isLoading,
-          appBarHeight: 68,
+          appBarHeight: 60,
           title: appLocalizations.profiles,
           floatingActionButton: _buildFAB(),
           actions: _buildActions(state.profiles),
@@ -140,14 +140,14 @@ class _ProfilesViewState extends State<ProfilesView> {
                     padding: const EdgeInsets.only(
                       left: 16,
                       right: 16,
-                      top: 8,
-                      bottom: 88,
+                      top: 4,
+                      bottom: 76,
                     ),
                     child: Grid(
                       mainAxisSpacing: spacing,
                       crossAxisSpacing: spacing,
                       crossAxisCount: state.columns,
-                      mainAxisExtent: 132,
+                      mainAxisExtent: 110,
                       children: [
                         for (int i = 0; i < state.profiles.length; i++)
                           GridItem(

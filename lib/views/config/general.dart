@@ -7,10 +7,6 @@ import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const _defaultUaValue = '';
-const _customUaValue = '__custom_ua__';
-const _presetUas = ['clash-verge/v2.4.2', 'ClashforWindows/0.19.23'];
-
 class LogLevelItem extends ConsumerWidget {
   const LogLevelItem({super.key});
 
@@ -46,21 +42,37 @@ class UaItem extends ConsumerWidget {
   const UaItem({super.key});
 
   Future<void> _handleShowUaDialog(WidgetRef ref) async {
-    final result = await globalState.showCommonDialog<_UaDialogResult>(
-      child: _UaDialog(
-        value: ref.read(patchClashConfigProvider).globalUa,
-        customValue: ref.read(appSettingProvider).customUserAgent,
+    var selected = ref.read(patchClashConfigProvider).globalUa ?? '';
+    final result = await showDialog<String>(
+      context: globalState.navigatorKey.currentState!.context,
+      builder: (dialogContext) => AlertDialog(
+        clipBehavior: Clip.antiAlias,
+        title: Text(dialogContext.appLocalizations.userAgent),
+        content: SizedBox(
+          width: 520,
+          child: StatefulBuilder(
+            builder: (context, setDialogState) => UserAgentSelector(
+              value: selected,
+              onChanged: (value) => setDialogState(() => selected = value),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(dialogContext.appLocalizations.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, selected),
+            child: Text(dialogContext.appLocalizations.save),
+          ),
+        ],
       ),
     );
     if (result == null) {
       return;
     }
-    final userAgent = result.value.trim();
-    if (result.isCustom) {
-      ref
-          .read(appSettingProvider.notifier)
-          .update((state) => state.copyWith(customUserAgent: userAgent));
-    }
+    final userAgent = result.trim();
     ref
         .read(patchClashConfigProvider.notifier)
         .update(
@@ -120,181 +132,6 @@ class GlobalOverwriteItem extends ConsumerWidget {
               .read(globalOverwriteProfileIdProvider.notifier)
               .setValue(profileId == 0 ? null : profileId);
         },
-      ),
-    );
-  }
-}
-
-class _UaDialogResult {
-  final String value;
-  final bool isCustom;
-
-  const _UaDialogResult({required this.value, required this.isCustom});
-}
-
-class _UaDialog extends StatefulWidget {
-  final String? value;
-  final String customValue;
-
-  const _UaDialog({this.value, required this.customValue});
-
-  @override
-  State<_UaDialog> createState() => _UaDialogState();
-}
-
-class _UaDialogState extends State<_UaDialog> {
-  final _formKey = GlobalKey<FormState>();
-
-  late final TextEditingController _customController;
-  late String _groupValue;
-
-  @override
-  void initState() {
-    super.initState();
-    final value = widget.value ?? _defaultUaValue;
-    _groupValue = _presetUas.contains(value) || value.isEmpty
-        ? value
-        : _customUaValue;
-    _customController = TextEditingController(
-      text: _groupValue == _customUaValue ? value : widget.customValue,
-    );
-  }
-
-  void _handleChanged(String? value) {
-    if (value == null) {
-      return;
-    }
-    if (value == _customUaValue) {
-      setState(() {
-        _groupValue = value;
-      });
-      return;
-    }
-    Navigator.of(context).pop(_UaDialogResult(value: value, isCustom: false));
-  }
-
-  void _handleSubmit() {
-    if (_groupValue == _customUaValue &&
-        _formKey.currentState?.validate() == false) {
-      return;
-    }
-    Navigator.of(context).pop(
-      _UaDialogResult(
-        value: _groupValue == _customUaValue
-            ? _customController.text
-            : _groupValue,
-        isCustom: _groupValue == _customUaValue,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _customController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocalizations = context.appLocalizations;
-    return CommonDialog(
-      title: appLocalizations.userAgent,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: Text(appLocalizations.cancel),
-        ),
-        TextButton(
-          onPressed: _handleSubmit,
-          child: Text(appLocalizations.submit),
-        ),
-      ],
-      child: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: RadioGroup<String>(
-          groupValue: _groupValue,
-          onChanged: _handleChanged,
-          child: Wrap(
-            runSpacing: 8,
-            children: [
-              ListItem.radio(
-                delegate: RadioDelegate(
-                  value: _defaultUaValue,
-                  onTab: () {
-                    Navigator.of(context).pop(
-                      const _UaDialogResult(
-                        value: _defaultUaValue,
-                        isCustom: false,
-                      ),
-                    );
-                  },
-                ),
-                title: Text(appLocalizations.defaultText),
-              ),
-              for (final ua in _presetUas)
-                ListItem.radio(
-                  delegate: RadioDelegate(
-                    value: ua,
-                    onTab: () {
-                      Navigator.of(
-                        context,
-                      ).pop(_UaDialogResult(value: ua, isCustom: false));
-                    },
-                  ),
-                  title: Text(ua),
-                ),
-              ListItem.radio(
-                delegate: RadioDelegate(
-                  value: _customUaValue,
-                  onTab: () {
-                    setState(() {
-                      _groupValue = _customUaValue;
-                    });
-                  },
-                ),
-                title: Text(appLocalizations.custom),
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: _groupValue != _customUaValue
-                    ? const SizedBox.shrink(key: ValueKey(false))
-                    : Padding(
-                        key: const ValueKey(true),
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                        child: TextFormField(
-                          autofocus: true,
-                          controller: _customController,
-                          maxLength: TextInputLimits.userAgent,
-                          inputFormatters: TextInputLimits.limit(
-                            TextInputLimits.userAgent,
-                          ),
-                          decoration: InputDecoration(
-                            counterText: '',
-                            labelText: appLocalizations.userAgent,
-                          ),
-                          keyboardType: TextInputType.url,
-                          maxLines: 1,
-                          onFieldSubmitted: (_) {
-                            _handleSubmit();
-                          },
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return appLocalizations.emptyTip(
-                                appLocalizations.userAgent,
-                              );
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -10,12 +10,14 @@ class Preferences {
   static Preferences? _instance;
   static const _globalOverwriteProfileIdKey = 'globalOverwriteProfileId';
   static const _profileUserAgentsKey = 'profileUserAgents';
+  static const _userAgentPresetsKey = 'userAgentPresets';
   static const _aiConfigKey = 'aiConfig';
   static const _aiSessionsKey = 'aiSessions';
   static const _aiSkillsKey = 'aiSkills';
   Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
   int? _globalOverwriteProfileId;
   Map<int, String> _profileUserAgents = const {};
+  List<UserAgentPreset> _userAgentPresets = const [];
   AiConfig _aiConfig = const AiConfig();
   AiSessionStore _aiSessionStore = AiSessionStore.initial();
   List<AiSkill> _aiSkills = const [];
@@ -91,9 +93,41 @@ class Preferences {
     await preferences?.setString(
       _profileUserAgentsKey,
       json.encode({
-        for (final entry in values.entries)
-          entry.key.toString(): entry.value,
+        for (final entry in values.entries) entry.key.toString(): entry.value,
       }),
+    );
+  }
+
+  List<UserAgentPreset> get userAgentPresets => _userAgentPresets;
+
+  Future<void> loadUserAgentPresets() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    try {
+      final rawValue = preferences?.getString(_userAgentPresetsKey);
+      final data = rawValue == null ? const [] : json.decode(rawValue) as List;
+      _userAgentPresets = data
+          .whereType<Map>()
+          .map(
+            (item) => UserAgentPreset.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where(
+            (item) =>
+                item.id.trim().isNotEmpty &&
+                item.name.trim().isNotEmpty &&
+                item.value.trim().isNotEmpty,
+          )
+          .toList();
+    } catch (_) {
+      _userAgentPresets = const [];
+    }
+  }
+
+  Future<void> setUserAgentPresets(List<UserAgentPreset> values) async {
+    _userAgentPresets = List.unmodifiable(values);
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setString(
+      _userAgentPresetsKey,
+      json.encode(values.map((item) => item.toJson()).toList()),
     );
   }
 

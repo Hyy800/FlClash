@@ -148,8 +148,7 @@ class AppSidebarContainer extends ConsumerStatefulWidget {
       _AppSidebarContainerState();
 }
 
-class _AppSidebarContainerState
-    extends ConsumerState<AppSidebarContainer> {
+class _AppSidebarContainerState extends ConsumerState<AppSidebarContainer> {
   bool _isExpanded = false;
 
   void _updateSideBarWidth(double contentWidth) {
@@ -175,6 +174,11 @@ class _AppSidebarContainerState
       return widget.child;
     }
     final currentIndex = navigationState.currentIndex;
+    final isProfilesPage =
+        navigationItems[currentIndex].label == PageLabel.profiles;
+    final profileCount = ref.watch(
+      profilesProvider.select((profiles) => profiles.length),
+    );
     return SafeArea(
       minimum: const EdgeInsets.all(16),
       child: LayoutBuilder(
@@ -186,11 +190,20 @@ class _AppSidebarContainerState
               ? 900.0
               : constraints.maxHeight;
           final availableRailHeight = panelHeight - 28;
-          final railHeight = availableRailHeight
-              .clamp(300.0, 620.0)
-              .toDouble();
+          final railHeight = availableRailHeight.clamp(300.0, 620.0).toDouble();
           final railWidth = _isExpanded ? 196.0 : 72.0;
           final contentLeft = railWidth + 12;
+          final contentWidth = groupWidth - contentLeft;
+          final profileColumns = utils.getProfilesColumns(contentWidth);
+          final profileRows = profileCount == 0
+              ? 0
+              : (profileCount / profileColumns).ceil();
+          final desiredProfilesHeight = profileRows == 0
+              ? 360.0
+              : 60 + 4 + profileRows * 110 + (profileRows - 1) * 8 + 76;
+          final contentPanelHeight = isProfilesPage && profileCount > 0
+              ? desiredProfilesHeight.clamp(360.0, panelHeight).toDouble()
+              : panelHeight;
           return Center(
             child: SizedBox(
               width: groupWidth,
@@ -204,7 +217,7 @@ class _AppSidebarContainerState
                     left: contentLeft,
                     top: 0,
                     right: 0,
-                    bottom: 0,
+                    height: contentPanelHeight,
                     child: AppGlassPanel(
                       borderRadius: BorderRadius.circular(34),
                       child: LayoutBuilder(
@@ -408,10 +421,7 @@ class _AppRailItemState extends State<_AppRailItem> {
     if (widget.showLabel) {
       return content;
     }
-    return Tooltip(
-      message: navigationLabel(widget.item.label),
-      child: content,
-    );
+    return Tooltip(message: navigationLabel(widget.item.label), child: content);
   }
 }
 
@@ -419,10 +429,7 @@ class _RailExpandButton extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onPressed;
 
-  const _RailExpandButton({
-    required this.isExpanded,
-    required this.onPressed,
-  });
+  const _RailExpandButton({required this.isExpanded, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {

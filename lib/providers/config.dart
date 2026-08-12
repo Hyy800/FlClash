@@ -109,6 +109,49 @@ class ProfileUserAgents extends Notifier<Map<int, String>> {
   }
 }
 
+final userAgentPresetsProvider =
+    NotifierProvider<UserAgentPresets, List<UserAgentPreset>>(
+      UserAgentPresets.new,
+    );
+
+class UserAgentPresets extends Notifier<List<UserAgentPreset>> {
+  @override
+  List<UserAgentPreset> build() => preferences.userAgentPresets;
+
+  Future<void> save({
+    String? id,
+    required String name,
+    required String value,
+  }) async {
+    final normalizedName = name.trim();
+    final normalizedValue = value.trim();
+    if (normalizedName.isEmpty || normalizedValue.isEmpty) {
+      return;
+    }
+    final preset = UserAgentPreset(
+      id: id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      name: normalizedName,
+      value: normalizedValue,
+    );
+    final index = state.indexWhere((item) => item.id == preset.id);
+    final next = [...state];
+    if (index == -1) {
+      next.add(preset);
+    } else {
+      next[index] = preset;
+    }
+    state = List.unmodifiable(next);
+    await preferences.setUserAgentPresets(state);
+  }
+
+  Future<void> remove(String id) async {
+    final next = state.where((item) => item.id != id).toList();
+    if (next.length == state.length) return;
+    state = List.unmodifiable(next);
+    await preferences.setUserAgentPresets(state);
+  }
+}
+
 final aiSettingProvider = NotifierProvider<AiSetting, AiConfig>(AiSetting.new);
 
 class AiSetting extends Notifier<AiConfig> {

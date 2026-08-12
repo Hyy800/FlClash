@@ -1044,6 +1044,46 @@ class AppLocalizations {
     return Intl.message('User-Agent', name: 'userAgent', desc: '', args: []);
   }
 
+  /// `User-Agent presets`
+  String get userAgentPresets {
+    return Intl.message(
+      'User-Agent presets',
+      name: 'userAgentPresets',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add User-Agent preset`
+  String get addUserAgentPreset {
+    return Intl.message(
+      'Add User-Agent preset',
+      name: 'addUserAgentPreset',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Edit User-Agent preset`
+  String get editUserAgentPreset {
+    return Intl.message(
+      'Edit User-Agent preset',
+      name: 'editUserAgentPreset',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No custom User-Agent presets yet`
+  String get noUserAgentPresets {
+    return Intl.message(
+      'No custom User-Agent presets yet',
+      name: 'noUserAgentPresets',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Unified delay`
   String get unifiedDelay {
     return Intl.message(
