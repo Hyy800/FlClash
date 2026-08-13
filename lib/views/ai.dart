@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -42,6 +41,9 @@ class _AiViewState extends ConsumerState<AiView> {
   bool _busy = false;
   bool _hideKey = true;
   StateSetter? _apiSettingsState;
+  String? _lastConversationId;
+  int _lastConversationItemCount = -1;
+  int _scrollRequest = 0;
 
   void _setPageState(VoidCallback update) {
     if (!mounted) return;
@@ -890,14 +892,21 @@ class _AiViewState extends ConsumerState<AiView> {
   }
 
   void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-      );
-    });
+    final request = ++_scrollRequest;
+    void scrollAfterLayout(int framesRemaining) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || request != _scrollRequest) return;
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+        if (framesRemaining > 1) {
+          scrollAfterLayout(framesRemaining - 1);
+          WidgetsBinding.instance.scheduleFrame();
+        }
+      });
+    }
+
+    scrollAfterLayout(2);
   }
 
   Widget _buildSettings({bool panel = true}) {
@@ -1121,6 +1130,12 @@ class _AiViewState extends ConsumerState<AiView> {
       if (_streamedText.isNotEmpty)
         AiChatMessage(role: 'assistant', content: _streamedText),
     ];
+    if (_lastConversationId != store.activeSessionId ||
+        _lastConversationItemCount != visibleMessages.length) {
+      _lastConversationId = store.activeSessionId;
+      _lastConversationItemCount = visibleMessages.length;
+      _scrollToBottom();
+    }
     return AppGlassPanel(
       borderRadius: BorderRadius.circular(28),
       child: Column(

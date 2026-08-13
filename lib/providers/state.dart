@@ -789,9 +789,7 @@ bool customOverwriteGroupIsValid(
 @riverpod
 Future<SetupState> setupState(Ref ref, int? profileId) async {
   final profile = ref.watch(profileProvider(profileId));
-  final globalOverwriteProfileId = ref.watch(
-    globalOverwriteProfileIdProvider,
-  );
+  final globalOverwriteProfileId = ref.watch(globalOverwriteProfileIdProvider);
   final globalOverwriteProfile = ref.watch(
     profileProvider(globalOverwriteProfileId),
   );
@@ -810,13 +808,16 @@ Future<SetupState> setupState(Ref ref, int? profileId) async {
   final overrideDns = ref.watch(overrideDnsProvider);
   List<ProxyGroup> proxyGroups = [];
   List<Rule> rules = [];
-  List<Rule> addedRules = [];
+  final globalRules = ref.watch(globalRulesProvider);
+  final List<Rule> addedRules = [];
   Script? script;
   if (overwriteProfileId != null) {
     if (overwriteType == OverwriteType.standard) {
-      addedRules = await database.rulesDao
-          .queryAddedRules(overwriteProfileId)
-          .get();
+      addedRules.addAll(
+        await database.rulesDao
+            .queryProfileAddedRules(overwriteProfileId)
+            .get(),
+      );
     } else if (overwriteType == OverwriteType.script) {
       script = scriptId == null
           ? null
@@ -837,6 +838,7 @@ Future<SetupState> setupState(Ref ref, int? profileId) async {
     profileLastUpdateDate: profileLastUpdateDate,
     overwriteType: overwriteType,
     addedRules: addedRules,
+    globalRules: globalRules,
     script: script,
     overrideDns: overrideDns,
     dns: dns,

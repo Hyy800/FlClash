@@ -156,11 +156,8 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     }.toList();
     final draft = await showDialog<_RoutingRuleDraft>(
       context: context,
-      builder: (context) => _AddRoutingRuleDialog(
-        content: source.content,
-        targets: targets,
-        allowProfile: profileId != null,
-      ),
+      builder: (context) =>
+          _AddRoutingRuleDialog(content: source.content, targets: targets),
     );
     if (draft == null || !mounted) return;
     final rule = Rule(
@@ -169,11 +166,8 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
       content: source.content,
       ruleTarget: draft.target,
     );
-    if (draft.profile && profileId != null) {
-      ref.read(profileAddedRulesProvider(profileId).notifier).put(rule);
-    } else {
-      ref.read(globalRulesProvider.notifier).put(rule);
-    }
+    if (profileId == null) return;
+    ref.read(profileAddedRulesProvider(profileId).notifier).put(rule);
     ref
         .read(setupActionProvider.notifier)
         .applyProfileDebounce(silence: true, force: true);
@@ -272,21 +266,15 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
 
 class _RoutingRuleDraft {
   final String target;
-  final bool profile;
 
-  const _RoutingRuleDraft({required this.target, required this.profile});
+  const _RoutingRuleDraft({required this.target});
 }
 
 class _AddRoutingRuleDialog extends StatefulWidget {
   final String content;
   final List<String> targets;
-  final bool allowProfile;
 
-  const _AddRoutingRuleDialog({
-    required this.content,
-    required this.targets,
-    required this.allowProfile,
-  });
+  const _AddRoutingRuleDialog({required this.content, required this.targets});
 
   @override
   State<_AddRoutingRuleDialog> createState() => _AddRoutingRuleDialogState();
@@ -294,13 +282,11 @@ class _AddRoutingRuleDialog extends StatefulWidget {
 
 class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {
   late String _target;
-  late bool _profile;
 
   @override
   void initState() {
     super.initState();
     _target = widget.targets.firstOrNull ?? RuleTarget.DIRECT.name;
-    _profile = widget.allowProfile;
   }
 
   @override
@@ -320,27 +306,6 @@ class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {
               style: context.textTheme.bodyMedium?.toJetBrainsMono,
             ),
             const SizedBox(height: 18),
-            if (widget.allowProfile) ...[
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(
-                    value: true,
-                    icon: const Icon(Icons.layers_outlined),
-                    label: Text(l10n.profile),
-                  ),
-                  ButtonSegment(
-                    value: false,
-                    icon: const Icon(Icons.public_rounded),
-                    label: Text(l10n.global),
-                  ),
-                ],
-                selected: {_profile},
-                onSelectionChanged: (value) {
-                  setState(() => _profile = value.first);
-                },
-              ),
-              const SizedBox(height: 14),
-            ],
             DropdownButtonFormField<String>(
               initialValue: _target,
               isExpanded: true,
@@ -366,10 +331,8 @@ class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {
           child: Text(l10n.cancel),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(
-            context,
-            _RoutingRuleDraft(target: _target, profile: _profile),
-          ),
+          onPressed: () =>
+              Navigator.pop(context, _RoutingRuleDraft(target: _target)),
           child: Text(l10n.confirm),
         ),
       ],

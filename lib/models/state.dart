@@ -369,6 +369,7 @@ abstract class SetupState with _$SetupState {
     required List<Rule> rules,
     required List<ProxyGroup> proxyGroups,
     required List<Rule> addedRules,
+    required List<Rule> globalRules,
     required Script? script,
     required bool overrideDns,
     required Dns dns,

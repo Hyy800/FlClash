@@ -8,8 +8,10 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_js
   gtk
   hotkey_manager_linux
+  irondash_engine_context
   screen_retriever_linux
   sqlite3_flutter_libs
+  super_native_extensions
   tray_manager
   url_launcher_linux
   wifi_ssid

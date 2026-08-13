@@ -425,50 +425,6 @@ final class ScriptFamily extends $Family
   String toString() => r'scriptProvider';
 }
 
-@ProviderFor(GlobalRules)
-final globalRulesProvider = GlobalRulesProvider._();
-
-final class GlobalRulesProvider
-    extends $StreamNotifierProvider<GlobalRules, List<Rule>> {
-  GlobalRulesProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'globalRulesProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$globalRulesHash();
-
-  @$internal
-  @override
-  GlobalRules create() => GlobalRules();
-}
-
-String _$globalRulesHash() => r'209223171050c7d26de48537f8ff4f14d6fe5b1d';
-
-abstract class _$GlobalRules extends $StreamNotifier<List<Rule>> {
-  Stream<List<Rule>> build();
-  @$mustCallSuper
-  @override
-  void runBuild() {
-    final ref = this.ref as $Ref<AsyncValue<List<Rule>>, List<Rule>>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<AsyncValue<List<Rule>>, List<Rule>>,
-              AsyncValue<List<Rule>>,
-              Object?,
-              Object?
-            >;
-    element.handleCreate(ref, build);
-  }
-}
-
 @ProviderFor(ProfileAddedRules)
 final profileAddedRulesProvider = ProfileAddedRulesFamily._();
 
@@ -510,7 +466,7 @@ final class ProfileAddedRulesProvider
   }
 }
 
-String _$profileAddedRulesHash() => r'eae5aef723d5fa858c35a530bca21aa0f80f00ad';
+String _$profileAddedRulesHash() => r'e796d0197570ec20fefe08c6a807877671c54560';
 
 final class ProfileAddedRulesFamily extends $Family
     with

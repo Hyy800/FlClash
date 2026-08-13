@@ -74,6 +74,16 @@ class AppLocalizations {
     return Intl.message('Dashboard', name: 'dashboard', desc: '', args: []);
   }
 
+  /// `Current node`
+  String get currentNode {
+    return Intl.message(
+      'Current node',
+      name: 'currentNode',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Proxies`
   String get proxies {
     return Intl.message('Proxies', name: 'proxies', desc: '', args: []);
@@ -3069,16 +3079,6 @@ class AppLocalizations {
     return Intl.message('Added rules', name: 'addedRules', desc: '', args: []);
   }
 
-  /// `Control global added rules`
-  String get controlGlobalAddedRules {
-    return Intl.message(
-      'Control global added rules',
-      name: 'controlGlobalAddedRules',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Override script`
   String get overrideScript {
     return Intl.message(
@@ -3099,11 +3099,11 @@ class AppLocalizations {
     );
   }
 
-  /// `Edit global rules`
-  String get editGlobalRules {
+  /// `Global rules`
+  String get globalRules {
     return Intl.message(
-      'Edit global rules',
-      name: 'editGlobalRules',
+      'Global rules',
+      name: 'globalRules',
       desc: '',
       args: [],
     );

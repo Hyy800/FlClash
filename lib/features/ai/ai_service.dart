@@ -989,7 +989,7 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'add_routing_rule',
       'description':
-          'Add and apply a routing rule. Automatically detects exact domains, wildcard domain suffixes, IPv4, IPv6, and CIDR values. Use list_proxy_groups first when the requested target is a proxy or policy group.',
+          'Add and apply a routing rule to the current or a specified profile. Automatically detects exact domains, wildcard domain suffixes, IPv4, IPv6, and CIDR values. Use list_proxy_groups first when the requested target is a proxy or policy group.',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -1003,7 +1003,7 @@ const aiToolDefinitions = <Map<String, dynamic>>[
           },
           'scope': {
             'type': 'string',
-            'enum': ['global', 'current_profile', 'profile'],
+            'enum': ['current_profile', 'profile'],
           },
           'profile_id': {'type': 'integer'},
           'no_resolve': {'type': 'boolean'},

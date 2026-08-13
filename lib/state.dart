@@ -91,7 +91,7 @@ class GlobalState {
       preferences.loadAiSkills(),
     ]);
     final configMap = await preferences.getConfigMap();
-    final config = await migration.migrationIfNeeded(
+    var config = await migration.migrationIfNeeded(
       configMap,
       sync: (data) async {
         final newConfigMap = data.configMap;
@@ -109,6 +109,36 @@ class GlobalState {
         return config;
       },
     );
+    if (config.globalRules.isEmpty &&
+        config.legacyGlobalScript.trim().isNotEmpty) {
+      try {
+        final rules = await extractRulesFromOverrideScript(
+          config.legacyGlobalScript,
+        );
+        config = config.copyWith(
+          globalRules: rules.map(Rule.parse).toList(),
+          legacyGlobalScript: '',
+        );
+        await preferences.saveConfig(config);
+      } catch (error) {
+        commonPrint.log(
+          'Failed to migrate global rule script: $error',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+    if (config.globalRules.isEmpty) {
+      final legacyGlobalRules = await database.rulesDao
+          .queryGlobalAddedRules()
+          .get();
+      if (legacyGlobalRules.isNotEmpty) {
+        config = config.copyWith(globalRules: legacyGlobalRules);
+        await Future.wait([
+          preferences.saveConfig(config),
+          database.rulesDao.delRules(legacyGlobalRules.map((rule) => rule.id)),
+        ]);
+      }
+    }
     final configOverrides = buildConfigOverrides(config);
     container = ProviderContainer(
       overrides: [...appStateOverrides, ...configOverrides],

@@ -380,6 +380,12 @@ class ExcludeSSIDs extends _$ExcludeSSIDs with AutoDisposeNotifierMixin {
   }
 }
 
+@Riverpod(keepAlive: true)
+class GlobalRules extends _$GlobalRules with AutoDisposeNotifierMixin {
+  @override
+  List<Rule> build() => [];
+}
+
 @Riverpod(name: 'configProvider')
 Config _config(Ref ref) {
   final appSettingProps = ref.watch(appSettingProvider);
@@ -394,6 +400,7 @@ Config _config(Ref ref) {
   final proxiesStyleProps = ref.watch(proxiesStyleSettingProvider);
   final patchClashConfig = ref.watch(patchClashConfigProvider);
   final excludeSSIDs = ref.watch(excludeSSIDsProvider);
+  final globalRules = ref.watch(globalRulesProvider);
   return Config(
     appSettingProps: appSettingProps,
     windowProps: windowProps,
@@ -407,6 +414,7 @@ Config _config(Ref ref) {
     proxiesStyleProps: proxiesStyleProps,
     patchClashConfig: patchClashConfig,
     excludeSSIDs: excludeSSIDs,
+    globalRules: globalRules,
   );
 }
 
@@ -430,5 +438,6 @@ List<Override> buildConfigOverrides(Config config) {
       (_, _) => config.patchClashConfig,
     ),
     excludeSSIDsProvider.overrideWithBuild((_, _) => config.excludeSSIDs),
+    globalRulesProvider.overrideWithBuild((_, _) => config.globalRules),
   ];
 }

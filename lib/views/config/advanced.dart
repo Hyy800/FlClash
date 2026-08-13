@@ -7,8 +7,6 @@ import 'package:fl_clash/widgets/list.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
 
-import 'rules.dart';
-
 class AdvancedConfigView extends StatelessWidget {
   const AdvancedConfigView({super.key});
 
@@ -38,16 +36,7 @@ class AdvancedConfigView extends StatelessWidget {
         title: const Text('DNS'),
         subtitle: Text(appLocalizations.dnsDesc),
         leading: const Icon(Icons.dns),
-        delegate: const OpenDelegate(
-          widget: DnsSettingsView(),
-          blur: false,
-        ),
-      ),
-      ListItem.open(
-        title: Text(appLocalizations.addedRules),
-        subtitle: Text(appLocalizations.controlGlobalAddedRules),
-        leading: const Icon(Icons.library_books),
-        delegate: const OpenDelegate(widget: AddedRulesView(), blur: false),
+        delegate: const OpenDelegate(widget: DnsSettingsView(), blur: false),
       ),
       ListItem.open(
         title: Text(appLocalizations.script),

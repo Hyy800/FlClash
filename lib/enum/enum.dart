@@ -370,6 +370,7 @@ enum PageLabel {
   dashboard,
   proxies,
   profiles,
+  globalRules,
   ai,
   tools,
   logs,

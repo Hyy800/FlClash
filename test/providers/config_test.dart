@@ -222,6 +222,7 @@ void main() {
       expect(config.hotKeyActions, isEmpty);
       expect(config.patchClashConfig, const PatchClashConfig());
       expect(config.excludeSSIDs, isEmpty);
+      expect(config.globalRules, isEmpty);
     });
 
     test('reflects updated sub-provider values', () {
@@ -233,12 +234,25 @@ void main() {
       container
           .read(excludeSSIDsProvider.notifier)
           .update((_) => ['Office Wi-Fi']);
+      container
+          .read(globalRulesProvider.notifier)
+          .update(
+            (_) => const [
+              Rule(
+                id: 1,
+                ruleAction: RuleAction.DOMAIN,
+                content: 'example.com',
+                ruleTarget: 'DIRECT',
+              ),
+            ],
+          );
 
       final config = container.read(configProvider);
       expect(config.currentProfileId, 99);
       expect(config.overrideDns, true);
       expect(config.patchClashConfig.mixedPort, 7890);
       expect(config.excludeSSIDs, ['Office Wi-Fi']);
+      expect(config.globalRules.single.rawValue, 'DOMAIN,example.com,DIRECT');
     });
   });
 
@@ -250,7 +264,7 @@ void main() {
         overrideDns: true,
       );
       final overrides = buildConfigOverrides(config);
-      expect(overrides.length, 12);
+      expect(overrides.length, 13);
 
       final overrideContainer = ProviderContainer(overrides: overrides);
       addTearDown(overrideContainer.dispose);

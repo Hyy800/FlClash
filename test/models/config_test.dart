@@ -370,6 +370,7 @@ void main() {
       expect(restored.networkProps.systemProxy, true);
       expect(restored.vpnProps.enable, true);
       expect(restored.hotKeyActions, isEmpty);
+      expect(restored.globalRules, isEmpty);
     });
 
     test('realFromJson handles null', () {
@@ -390,6 +391,14 @@ void main() {
           themeMode: ThemeMode.system,
         ),
         windowProps: WindowProps(width: 1280, height: 720),
+        globalRules: [
+          Rule(
+            id: 1,
+            ruleAction: RuleAction.DOMAIN_SUFFIX,
+            content: 'example.com',
+            ruleTarget: 'DIRECT',
+          ),
+        ],
       );
       final restored = roundTrip(() => config.toJson(), Config.fromJson);
       expect(restored.currentProfileId, 42);
@@ -400,6 +409,10 @@ void main() {
       expect(restored.vpnProps.enable, false);
       expect(restored.windowProps.width, 1280);
       expect(restored.windowProps.height, 720);
+      expect(
+        restored.globalRules.single.rawValue,
+        'DOMAIN-SUFFIX,example.com,DIRECT',
+      );
     });
   });
 }

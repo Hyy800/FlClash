@@ -14,4 +14,17 @@ void main() {
       lessThan(items.indexWhere((item) => item.label == PageLabel.tools)),
     );
   });
+
+  test('global rules is a dedicated desktop navigation item', () {
+    final items = navigation.getItems(hasProxies: true);
+    final globalRulesItem = items.singleWhere(
+      (item) => item.label == PageLabel.globalRules,
+    );
+
+    expect(globalRulesItem.modes, [NavigationItemMode.desktop]);
+    expect(
+      items.indexOf(globalRulesItem),
+      greaterThan(items.indexWhere((item) => item.label == PageLabel.profiles)),
+    );
+  });
 }

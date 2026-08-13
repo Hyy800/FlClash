@@ -253,6 +253,10 @@ abstract class Config with _$Config {
     @Default(defaultWindowProps) WindowProps windowProps,
     @Default(defaultClashConfig) PatchClashConfig patchClashConfig,
     @Default([]) List<String> excludeSSIDs,
+    @Default([]) List<Rule> globalRules,
+    @JsonKey(name: 'globalScript', includeToJson: false)
+    @Default('')
+    String legacyGlobalScript,
   }) = _Config;
 
   factory Config.fromJson(Map<String, Object?> json) => _$ConfigFromJson(json);

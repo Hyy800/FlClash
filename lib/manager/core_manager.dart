@@ -7,7 +7,6 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
-import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/material.dart';
@@ -45,24 +44,17 @@ class _CoreContainerState extends ConsumerState<CoreManager>
         ref.read(setupActionProvider.notifier).updateConfigDebounce();
       }
     });
-    ref.listenManual(
-      patchClashConfigProvider.select((state) => state.dns),
-      (prev, next) {
-        if (prev != next) {
-          ref
-              .read(setupActionProvider.notifier)
-              .applyProfileDebounce(force: true, silence: true);
-        }
-      },
-    );
-    ref.listenManual(overrideDnsProvider, (prev, next) {
+    ref.listenManual(patchClashConfigProvider.select((state) => state.dns), (
+      prev,
+      next,
+    ) {
       if (prev != next) {
         ref
             .read(setupActionProvider.notifier)
             .applyProfileDebounce(force: true, silence: true);
       }
     });
-    ref.listenManual(globalRulesProvider, (prev, next) {
+    ref.listenManual(overrideDnsProvider, (prev, next) {
       if (prev != next) {
         ref
             .read(setupActionProvider.notifier)

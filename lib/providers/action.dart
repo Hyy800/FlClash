@@ -299,11 +299,10 @@ class SetupAction extends _$SetupAction {
     final List<Rule> addedRules = [];
     final List<ProxyGroup> proxyGroups = [];
     final List<Rule> rules = [];
+    addedRules.addAll(setupState.addedRules);
     if (setupState.overwriteType == OverwriteType.script) {
       scriptContent = await setupState.script?.content;
-    } else if (setupState.overwriteType == OverwriteType.standard) {
-      addedRules.addAll(setupState.addedRules);
-    } else {
+    } else if (setupState.overwriteType == OverwriteType.custom) {
       proxyGroups.addAll(setupState.proxyGroups);
       rules.addAll(setupState.rules);
     }
@@ -319,7 +318,7 @@ class SetupAction extends _$SetupAction {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
     final directory = await appPath.profilesPath;
-    final res = makeRealProfileTask(
+    var finalConfig = await makeRealProfileTask(
       MakeRealProfileState(
         rules: rules,
         proxyGroups: proxyGroups,
@@ -333,7 +332,14 @@ class SetupAction extends _$SetupAction {
         defaultUA: defaultUA,
       ),
     );
-    return res;
+    if (setupState.globalRules.isNotEmpty) {
+      final script = buildRulesOverrideScript(
+        setupState.globalRules.map((rule) => rule.rawValue),
+      );
+      finalConfig = await handleEvaluate(script, finalConfig);
+    }
+    final yaml = await encodeYamlTask(finalConfig);
+    return VM2(yaml, yaml.toMd5());
   }
 
   Future<String> getProfileWithId(int profileId) async {
@@ -482,6 +488,7 @@ class BackupAction extends _$BackupAction {
       ref.read(overrideDnsProvider.notifier).value = config.overrideDns;
       ref.read(networkSettingProvider.notifier).value = config.networkProps;
       ref.read(hotKeyActionsProvider.notifier).value = config.hotKeyActions;
+      ref.read(globalRulesProvider.notifier).value = config.globalRules;
       return;
     } finally {
       await restoreDir.safeDelete(recursive: true);
@@ -856,9 +863,7 @@ class ProfilesAction extends _$ProfilesAction {
     ref.read(profilesProvider.notifier).del(id);
     clearEffect(id);
     if (ref.read(globalOverwriteProfileIdProvider) == id) {
-      await ref
-          .read(globalOverwriteProfileIdProvider.notifier)
-          .setValue(null);
+      await ref.read(globalOverwriteProfileIdProvider.notifier).setValue(null);
     }
     await ref.read(profileUserAgentsProvider.notifier).remove(id);
     final currentProfileId = ref.read(currentProfileIdProvider);

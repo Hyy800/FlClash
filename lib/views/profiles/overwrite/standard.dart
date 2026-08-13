@@ -74,10 +74,6 @@ class _StandardContentState extends ConsumerState<StandardContent> {
     _profileId = ProfileIdProvider.of(context)!.profileId;
   }
 
-  void _handleToEditGlobalAddedRules() {
-    BaseNavigator.push(context, _EditGlobalAddedRules(_profileId));
-  }
-
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
@@ -172,64 +168,8 @@ class _StandardContentState extends ConsumerState<StandardContent> {
               );
             },
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(
-            child: MoreActionButton(
-              label: appLocalizations.controlGlobalAddedRules,
-              onPressed: _handleToEditGlobalAddedRules,
-            ),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _EditGlobalAddedRules extends ConsumerWidget {
-  final int profileId;
-
-  const _EditGlobalAddedRules(this.profileId);
-
-  void _handleChange(WidgetRef ref, int profileId, bool status, int ruleId) {
-    if (status) {
-      ref.read(profileDisabledRuleIdsProvider(profileId).notifier).put(ruleId);
-    } else {
-      ref.read(profileDisabledRuleIdsProvider(profileId).notifier).del(ruleId);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final appLocalizations = context.appLocalizations;
-    final disabledRuleIds =
-        ref.watch(profileDisabledRuleIdsProvider(profileId)).value ?? [];
-    final rules = ref.watch(globalRulesProvider).value ?? [];
-    return BaseScaffold(
-      title: appLocalizations.editGlobalRules,
-      body: rules.isEmpty
-          ? NullStatus(
-              label: appLocalizations.nullTip(appLocalizations.rule),
-              illustration: const RuleEmptyIllustration(),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemExtent: ruleItemHeight,
-              itemBuilder: (context, index) {
-                final rule = rules[index];
-                final position = ItemPosition.get(index, rules.length);
-                return ItemPositionProvider(
-                  position: position,
-                  child: RuleStatusItem(
-                    status: !disabledRuleIds.contains(rule.id),
-                    rule: rule,
-                    onChange: (status) {
-                      _handleChange(ref, profileId, !status, rule.id);
-                    },
-                  ),
-                );
-              },
-              itemCount: rules.length,
-            ),
     );
   }
 }

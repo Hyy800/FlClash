@@ -632,6 +632,58 @@ abstract class _$ExcludeSSIDs extends $Notifier<List<String>> {
   }
 }
 
+@ProviderFor(GlobalRules)
+final globalRulesProvider = GlobalRulesProvider._();
+
+final class GlobalRulesProvider
+    extends $NotifierProvider<GlobalRules, List<Rule>> {
+  GlobalRulesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'globalRulesProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$globalRulesHash();
+
+  @$internal
+  @override
+  GlobalRules create() => GlobalRules();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(List<Rule> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<List<Rule>>(value),
+    );
+  }
+}
+
+String _$globalRulesHash() => r'bd5761c8b93b492c955f765ec8758634eb382d6a';
+
+abstract class _$GlobalRules extends $Notifier<List<Rule>> {
+  List<Rule> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<List<Rule>, List<Rule>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<List<Rule>, List<Rule>>,
+              List<Rule>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(_config)
 final configProvider = _ConfigProvider._();
 
@@ -670,4 +722,4 @@ final class _ConfigProvider extends $FunctionalProvider<Config, Config, Config>
   }
 }
 
-String _$_configHash() => r'7f29da1e31a3393fb36ab43c21f0d1b38223afec';
+String _$_configHash() => r'264fab6a5d09f60eef6dfe0a77a9eaa0ad8ad60b';

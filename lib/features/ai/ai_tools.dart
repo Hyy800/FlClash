@@ -11,10 +11,8 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/material.dart';
 
-typedef AiToolConfirmation = Future<bool> Function(
-  String action,
-  String details,
-);
+typedef AiToolConfirmation =
+    Future<bool> Function(String action, String details);
 
 typedef AiRoutingRuleSource = ({RuleAction action, String content});
 
@@ -51,11 +49,10 @@ AiRoutingRuleSource parseAiRoutingRuleSource(String input) {
     }
   }
 
-  final uri = Uri.tryParse(
-    value.contains('://') ? value : 'http://$value',
-  );
+  final uri = Uri.tryParse(value.contains('://') ? value : 'http://$value');
   if (uri != null && uri.host.isNotEmpty) {
-    final hasUrlParts = value.contains('://') ||
+    final hasUrlParts =
+        value.contains('://') ||
         value.contains('/') ||
         (uri.hasPort && InternetAddress.tryParse(value) == null);
     if (hasUrlParts) value = uri.host;
@@ -69,10 +66,7 @@ AiRoutingRuleSource parseAiRoutingRuleSource(String input) {
     final address = InternetAddress.tryParse(cidrParts.first);
     final prefix = int.tryParse(cidrParts.last);
     final maxPrefix = address?.type == InternetAddressType.IPv6 ? 128 : 32;
-    if (address == null ||
-        prefix == null ||
-        prefix < 0 ||
-        prefix > maxPrefix) {
+    if (address == null || prefix == null || prefix < 0 || prefix > maxPrefix) {
       throw const FormatException('Invalid IP CIDR rule value.');
     }
     return (
@@ -89,8 +83,8 @@ AiRoutingRuleSource parseAiRoutingRuleSource(String input) {
       action: address.type == InternetAddressType.IPv6
           ? RuleAction.IP_CIDR6
           : RuleAction.IP_CIDR,
-      content: '${address.address}/${
-          address.type == InternetAddressType.IPv6 ? 128 : 32}',
+      content:
+          '${address.address}/${address.type == InternetAddressType.IPv6 ? 128 : 32}',
     );
   }
 
@@ -201,10 +195,7 @@ class AiToolExecutor {
       'ipv6': patch.ipv6,
       'mixed_port': patch.mixedPort,
       'global_user_agent': patch.globalUa,
-      'dns': {
-        'enabled': patch.dns.enable,
-        'nameservers': patch.dns.nameserver,
-      },
+      'dns': {'enabled': patch.dns.enable, 'nameservers': patch.dns.nameserver},
       'global_overwrite_profile_id': container.read(
         globalOverwriteProfileIdProvider,
       ),
@@ -317,7 +308,8 @@ class AiToolExecutor {
     final currentGroupName = container
         .read(currentProfileProvider)
         ?.currentGroupName;
-    final fallbackGroup = groups.getGroup(currentGroupName ?? '') ?? groups.first;
+    final fallbackGroup =
+        groups.getGroup(currentGroupName ?? '') ?? groups.first;
     final group = requestedGroup.isEmpty
         ? fallbackGroup
         : groups.getGroup(requestedGroup);
@@ -337,7 +329,8 @@ class AiToolExecutor {
         .toSet();
     final proxies = group.all
         .where(
-          (proxy) => requestedNames.isEmpty || requestedNames.contains(proxy.name),
+          (proxy) =>
+              requestedNames.isEmpty || requestedNames.contains(proxy.name),
         )
         .take(100)
         .toList();
@@ -378,7 +371,9 @@ class AiToolExecutor {
       return aDelay.compareTo(bDelay);
     });
     container.read(sortNumProvider.notifier).add();
-    final fastest = results.where((item) => item['available'] == true).firstOrNull;
+    final fastest = results
+        .where((item) => item['available'] == true)
+        .firstOrNull;
     return {
       'ok': true,
       'group_name': group.name,
@@ -430,9 +425,7 @@ class AiToolExecutor {
       ...groups.expand((group) => group.all.map((proxy) => proxy.name)),
     };
     final target = availableTargets
-        .where(
-          (item) => item.toLowerCase() == requestedTarget.toLowerCase(),
-        )
+        .where((item) => item.toLowerCase() == requestedTarget.toLowerCase())
         .firstOrNull;
     if (target == null) {
       return {
@@ -443,23 +436,21 @@ class AiToolExecutor {
       };
     }
 
-    final scope = arguments['scope']?.toString().trim().toLowerCase() ??
+    final scope =
+        arguments['scope']?.toString().trim().toLowerCase() ??
         'current_profile';
-    if (!{'global', 'current_profile', 'profile'}.contains(scope)) {
+    if (!{'current_profile', 'profile'}.contains(scope)) {
       return {
         'ok': false,
-        'error': 'scope must be global, current_profile, or profile.',
+        'error': 'scope must be current_profile or profile.',
       };
     }
-    int? profileId;
-    if (scope != 'global') {
-      profileId = scope == 'profile'
-          ? _readInt(arguments, 'profile_id')
-          : container.read(currentProfileIdProvider);
-      if (profileId == null ||
-          container.read(profilesProvider).getProfile(profileId) == null) {
-        return {'ok': false, 'error': 'The target profile was not found.'};
-      }
+    final profileId = scope == 'profile'
+        ? _readInt(arguments, 'profile_id')
+        : container.read(currentProfileIdProvider);
+    if (profileId == null ||
+        container.read(profilesProvider).getProfile(profileId) == null) {
+      return {'ok': false, 'error': 'The target profile was not found.'};
     }
 
     final rule = Rule(
@@ -469,9 +460,9 @@ class AiToolExecutor {
       ruleTarget: target,
       noResolve: arguments['no_resolve'] as bool? ?? false,
     );
-    final existingRules = profileId == null
-        ? container.read(globalRulesProvider.notifier).value
-        : container.read(profileAddedRulesProvider(profileId).notifier).value;
+    final existingRules = container
+        .read(profileAddedRulesProvider(profileId).notifier)
+        .value;
     final duplicate = existingRules.any(
       (item) =>
           item.ruleAction == rule.ruleAction &&
@@ -485,23 +476,18 @@ class AiToolExecutor {
         'changed': false,
         'rule': rule.rawValue,
         'scope': scope,
-        if (profileId != null) 'profile_id': profileId,
+        'profile_id': profileId,
       };
     }
 
     final approved = await confirm(
       'add_routing_rule',
-      '${rule.rawValue}\nscope: $scope${
-          profileId == null ? '' : '\nprofile_id: $profileId'}',
+      '${rule.rawValue}\nscope: $scope\nprofile_id: $profileId',
     );
     if (!approved) return {'ok': false, 'cancelled': true};
-    if (profileId == null) {
-      await container.read(globalRulesProvider.notifier).putAndWait(rule);
-    } else {
-      await container
-          .read(profileAddedRulesProvider(profileId).notifier)
-          .putAndWait(rule);
-    }
+    await container
+        .read(profileAddedRulesProvider(profileId).notifier)
+        .putAndWait(rule);
     await container
         .read(setupActionProvider.notifier)
         .applyProfile(force: true);
@@ -513,7 +499,7 @@ class AiToolExecutor {
       'content': source.content,
       'target': target,
       'scope': scope,
-      if (profileId != null) 'profile_id': profileId,
+      'profile_id': profileId,
       'applied': true,
     };
   }
@@ -667,9 +653,7 @@ class AiToolExecutor {
     if (!await confirm('restart_core', 'Restart the FlClash core process.')) {
       return {'ok': false, 'cancelled': true};
     }
-    await globalState.container
-        .read(coreActionProvider.notifier)
-        .restartCore();
+    await globalState.container.read(coreActionProvider.notifier).restartCore();
     return {'ok': true};
   }
 
@@ -736,10 +720,7 @@ class AiToolExecutor {
   ) async {
     final content = _readString(arguments, 'yaml');
     final message = await coreController.validateConfigWithData(content);
-    return {
-      'ok': message.isEmpty,
-      if (message.isNotEmpty) 'error': message,
-    };
+    return {'ok': message.isEmpty, if (message.isNotEmpty) 'error': message};
   }
 
   Future<Map<String, dynamic>> _createProfileYaml(
@@ -815,8 +796,7 @@ class AiToolExecutor {
         .read(networkSettingProvider)
         .systemProxy;
     if ((tunValue != null && tunValue != currentTun) ||
-        (systemProxyValue != null &&
-            systemProxyValue != currentSystemProxy)) {
+        (systemProxyValue != null && systemProxyValue != currentSystemProxy)) {
       final approved = await confirm(
         'update_settings',
         const JsonEncoder.withIndent('  ').convert(arguments),
@@ -844,7 +824,9 @@ class AiToolExecutor {
       if (arguments['mixed_port'] case final num value) {
         final port = value.toInt();
         if (port < 1 || port > 65535) {
-          throw const FormatException('mixed_port must be between 1 and 65535.');
+          throw const FormatException(
+            'mixed_port must be between 1 and 65535.',
+          );
         }
         next = next.copyWith(mixedPort: port);
       }
@@ -876,8 +858,7 @@ class AiToolExecutor {
     container.read(appSettingProvider.notifier).update((state) {
       return state.copyWith(
         autoLaunch: arguments['auto_launch'] as bool? ?? state.autoLaunch,
-        silentLaunch:
-            arguments['silent_launch'] as bool? ?? state.silentLaunch,
+        silentLaunch: arguments['silent_launch'] as bool? ?? state.silentLaunch,
         autoRun: arguments['auto_run'] as bool? ?? state.autoRun,
         autoCheckUpdate:
             arguments['auto_check_update'] as bool? ?? state.autoCheckUpdate,
@@ -885,15 +866,15 @@ class AiToolExecutor {
         closeConnections:
             arguments['close_connections'] as bool? ?? state.closeConnections,
         isAnimateToPage:
-            arguments['animate_navigation'] as bool? ??
-            state.isAnimateToPage,
+            arguments['animate_navigation'] as bool? ?? state.isAnimateToPage,
       );
     });
     if (arguments['theme_mode'] case final String value) {
       container
           .read(themeSettingProvider.notifier)
           .update(
-            (state) => state.copyWith(themeMode: ThemeMode.values.byName(value)),
+            (state) =>
+                state.copyWith(themeMode: ThemeMode.values.byName(value)),
           );
     }
     if (arguments.containsKey('global_user_agent')) {
