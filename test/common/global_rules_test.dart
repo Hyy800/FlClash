@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/clash_config.dart';
@@ -5,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final requiresQuickJs = !Platform.isWindows
+      ? 'QuickJS test library is only bundled with the Windows test build.'
+      : false;
 
   group('mergeProfileAddedRules', () {
     test('keeps per-profile graphical rules working', () {
@@ -40,7 +45,7 @@ void main() {
         'DOMAIN-SUFFIX,feemoo.vip,DIRECT',
         'MATCH,ProfileProxy',
       ]);
-    });
+    }, skip: requiresQuickJs);
 
     test('runs after profile processing and prefixes rules', () async {
       const script = '''
@@ -63,7 +68,7 @@ function main(config) {
         'DOMAIN,profile.example,DIRECT',
         'MATCH,ProfileProxy',
       ]);
-    });
+    }, skip: requiresQuickJs);
 
     test('extracts rules from the previous generated script', () async {
       final script = buildRulesOverrideScript([
@@ -75,6 +80,6 @@ function main(config) {
         'DOMAIN-SUFFIX,legacy.example,DIRECT',
         'DOMAIN,old.example,REJECT',
       ]);
-    });
+    }, skip: requiresQuickJs);
   });
 }
