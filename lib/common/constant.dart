@@ -106,8 +106,9 @@ const defaultPrimaryColor = 0xFF4C5BFF;
 const legacyPrimaryColor = 0xFFD8C0C3;
 
 double getWidgetHeight(num lines) {
-  final space = 14.mAp;
-  return max(lines * (80.ap + space) - space, 0);
+  if (lines <= 0) return 0;
+  if (lines == 1) return 82.ap;
+  return max(148.ap + (lines - 2) * 66.ap, 0);
 }
 
 const maxLength = 1000;

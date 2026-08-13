@@ -295,26 +295,26 @@ enum FunctionTag {
 }
 
 enum DashboardWidget {
-  networkSpeed(GridItem(crossAxisCellCount: 8, child: NetworkSpeed())),
-  outboundModeV2(GridItem(crossAxisCellCount: 8, child: OutboundModeV2())),
-  outboundMode(GridItem(crossAxisCellCount: 4, child: OutboundMode())),
-  trafficUsage(GridItem(crossAxisCellCount: 4, child: TrafficUsage())),
-  networkDetection(GridItem(crossAxisCellCount: 4, child: NetworkDetection())),
+  networkSpeed(GridItem(crossAxisCellCount: 6, child: NetworkSpeed())),
+  outboundModeV2(GridItem(crossAxisCellCount: 12, child: OutboundModeV2())),
+  outboundMode(GridItem(crossAxisCellCount: 6, child: OutboundMode())),
+  trafficUsage(GridItem(crossAxisCellCount: 6, child: TrafficUsage())),
+  networkDetection(GridItem(crossAxisCellCount: 6, child: NetworkDetection())),
   tunButton(
-    GridItem(crossAxisCellCount: 4, child: TUNButton()),
+    GridItem(crossAxisCellCount: 6, child: TUNButton()),
     platforms: desktopPlatforms,
   ),
   vpnButton(
-    GridItem(crossAxisCellCount: 4, child: VpnButton()),
+    GridItem(crossAxisCellCount: 6, child: VpnButton()),
     platforms: [SupportPlatform.Android],
   ),
   systemProxyButton(
-    GridItem(crossAxisCellCount: 4, child: SystemProxyButton()),
+    GridItem(crossAxisCellCount: 6, child: SystemProxyButton()),
     platforms: desktopPlatforms,
   ),
-  currentNode(GridItem(crossAxisCellCount: 4, child: CurrentNode())),
-  intranetIp(GridItem(crossAxisCellCount: 4, child: IntranetIP())),
-  memoryInfo(GridItem(crossAxisCellCount: 4, child: MemoryInfo()));
+  currentNode(GridItem(crossAxisCellCount: 6, child: CurrentNode())),
+  intranetIp(GridItem(crossAxisCellCount: 6, child: IntranetIP())),
+  memoryInfo(GridItem(crossAxisCellCount: 6, child: MemoryInfo()));
 
   final GridItem widget;
   final List<SupportPlatform> platforms;

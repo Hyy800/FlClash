@@ -85,6 +85,7 @@ class GlobalState {
     await Future.wait([
       preferences.loadGlobalOverwriteProfileId(),
       preferences.loadProfileUserAgents(),
+      preferences.loadDisabledProfileIds(),
       preferences.loadUserAgentPresets(),
       preferences.loadAiConfig(),
       preferences.loadAiSessions(),

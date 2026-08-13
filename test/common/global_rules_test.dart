@@ -47,6 +47,136 @@ void main() {
       ]);
     }, skip: requiresQuickJs);
 
+    test('places application rules before every other rule', () async {
+      final script = buildRulesOverrideScript(
+        [
+          'DOMAIN,example.com,DIRECT',
+          r'PROCESS-PATH,C:\Apps\Player.exe,Office',
+        ],
+        additionalTargets: ['Office'],
+      );
+      final result = await handleEvaluate(script, {
+        'rules': ['MATCH,DIRECT'],
+      });
+
+      expect(result['rules'], [
+        r'PROCESS-PATH,C:\Apps\Player.exe,Office',
+        'DOMAIN,example.com,DIRECT',
+        'MATCH,DIRECT',
+      ]);
+    }, skip: requiresQuickJs);
+
+    test(
+      'keeps node and proxy-group targets available in the profile',
+      () async {
+        final script = buildRulesOverrideScript([
+          'DOMAIN,node.example,Tokyo 01',
+          'DOMAIN,group.example,Auto Select',
+        ]);
+        final result = await handleEvaluate(script, {
+          'proxies': [
+            {'name': 'Tokyo 01'},
+          ],
+          'proxy-groups': [
+            {
+              'name': 'Auto Select',
+              'proxies': ['Tokyo 01'],
+            },
+          ],
+          'rules': ['MATCH,Auto Select'],
+        });
+
+        expect(result['rules'], [
+          'DOMAIN,node.example,Tokyo 01',
+          'DOMAIN,group.example,Auto Select',
+          'MATCH,Auto Select',
+        ]);
+      },
+      skip: requiresQuickJs,
+    );
+
+    test(
+      'skips MATCH and targets missing from the active profile',
+      () async {
+        final script = buildRulesOverrideScript([
+          'DOMAIN,invalid.example,MATCH',
+          'DOMAIN,missing.example,Missing node',
+          'DOMAIN,direct.example,DIRECT',
+        ]);
+        final result = await handleEvaluate(script, {
+          'rules': ['MATCH,ProfileProxy'],
+        });
+
+        expect(result['rules'], [
+          'DOMAIN,direct.example,DIRECT',
+          'MATCH,ProfileProxy',
+        ]);
+      },
+      skip: requiresQuickJs,
+    );
+
+    test('keeps provider nodes supplied by the provider cache', () async {
+      final script = buildRulesOverrideScript(
+        ['DOMAIN,provider.example,Provider node'],
+        additionalTargets: ['Provider node'],
+      );
+      final result = await handleEvaluate(script, {
+        'proxy-providers': {
+          'subscription': {'type': 'http'},
+        },
+        'rules': ['MATCH,DIRECT'],
+      });
+
+      expect(result['rules'], [
+        'DOMAIN,provider.example,Provider node',
+        'MATCH,DIRECT',
+      ]);
+    }, skip: requiresQuickJs);
+
+    test(
+      'automatically remaps a missing target to another profile',
+      () async {
+        final script = buildRulesOverrideScript(
+          ['DOMAIN,cross-profile.example,Tokyo'],
+          additionalTargets: ['[Office] Tokyo'],
+          targetAliases: {
+            'Tokyo': ['[Office] Tokyo'],
+          },
+        );
+        final result = await handleEvaluate(script, {
+          'proxies': [
+            {'name': '[Office] Tokyo'},
+          ],
+          'rules': ['MATCH,DIRECT'],
+        });
+
+        expect(result['rules'], [
+          'DOMAIN,cross-profile.example,[Office] Tokyo',
+          'MATCH,DIRECT',
+        ]);
+      },
+      skip: requiresQuickJs,
+    );
+
+    test('prefers a same-name target in the active profile', () async {
+      final script = buildRulesOverrideScript(
+        ['DOMAIN,active.example,Tokyo'],
+        additionalTargets: ['[Office] Tokyo'],
+        targetAliases: {
+          'Tokyo': ['[Office] Tokyo'],
+        },
+      );
+      final result = await handleEvaluate(script, {
+        'proxies': [
+          {'name': 'Tokyo'},
+          {'name': '[Office] Tokyo'},
+        ],
+        'rules': ['MATCH,DIRECT'],
+      });
+
+      expect(result['rules'], ['DOMAIN,active.example,Tokyo', 'MATCH,DIRECT']);
+    }, skip: requiresQuickJs);
+
     test('runs after profile processing and prefixes rules', () async {
       const script = '''
 function main(config) {
@@ -81,5 +211,52 @@ function main(config) {
         'DOMAIN,old.example,REJECT',
       ]);
     }, skip: requiresQuickJs);
+  });
+
+  test('loads node names from a local proxy-provider cache', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'flclash-provider-test-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final providerFile = File('${directory.path}\\provider.yaml');
+    await providerFile.writeAsString('''
+proxies:
+  - name: Provider Tokyo
+    type: ss
+  - name: Provider Osaka
+    type: vmess
+''');
+
+    final targets = await loadProxyProviderTargets({
+      'proxy-providers': {
+        'subscription': {'path': providerFile.path},
+      },
+    }, profilesPath: directory.path);
+
+    expect(targets, {'Provider Tokyo', 'Provider Osaka'});
+  });
+
+  test('applies provider namespace overrides to cached node names', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'flclash-prefixed-provider-test-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final providerFile = File('${directory.path}\\provider.yaml');
+    await providerFile.writeAsString('''
+proxies:
+  - name: Tokyo
+    type: ss
+''');
+
+    final targets = await loadProxyProviderTargets({
+      'proxy-providers': {
+        'subscription': {
+          'path': providerFile.path,
+          'override': {'additional-prefix': '[Office] '},
+        },
+      },
+    }, profilesPath: directory.path);
+
+    expect(targets, {'[Office] Tokyo'});
   });
 }

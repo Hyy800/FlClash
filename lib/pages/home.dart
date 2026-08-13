@@ -154,11 +154,20 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       return;
     }
     final isAnimateToPage = ref.read(appSettingProvider).isAnimateToPage;
-    if (isAnimateToPage && !ignoreAnimateTo) {
+    final currentPage = _pageController.hasClients
+        ? _pageController.page?.round() ?? _pageController.initialPage
+        : _pageController.initialPage;
+    final isAdjacent = (currentPage - index).abs() == 1;
+    final allowAnimation =
+        isAnimateToPage &&
+        !ignoreAnimateTo &&
+        isAdjacent &&
+        ref.read(isMobileViewProvider);
+    if (allowAnimation) {
       await _pageController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutQuart,
       );
     } else {
       _pageController.jumpToPage(index);

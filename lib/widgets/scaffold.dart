@@ -42,7 +42,7 @@ class CommonScaffold extends StatefulWidget {
     this.floatingActionButton,
     this.onKeywordsUpdate,
     this.resizeToAvoidBottomInset,
-    this.appBarHeight = 86,
+    this.appBarHeight = 76,
   });
 
   @override

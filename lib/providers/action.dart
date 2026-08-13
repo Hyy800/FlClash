@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
@@ -19,6 +20,8 @@ part 'generated/action.g.dart';
 
 @Riverpod(keepAlive: true)
 class CommonAction extends _$CommonAction {
+  bool _updatingTraffic = false;
+
   @override
   void build() {}
 
@@ -55,13 +58,28 @@ class CommonAction extends _$CommonAction {
   }
 
   Future<void> updateTraffic() async {
-    final onlyStatisticsProxy = ref.read(
-      appSettingProvider.select((state) => state.onlyStatisticsProxy),
-    );
-    final traffic = await coreController.getTraffic(onlyStatisticsProxy);
-    ref.read(trafficsProvider.notifier).addTraffic(traffic);
-    ref.read(totalTrafficProvider.notifier).value = await coreController
-        .getTotalTraffic(onlyStatisticsProxy);
+    if (_updatingTraffic) return;
+    _updatingTraffic = true;
+    try {
+      final onlyStatisticsProxy = ref.read(
+        appSettingProvider.select((state) => state.onlyStatisticsProxy),
+      );
+      final traffic = await coreController.getTraffic(onlyStatisticsProxy);
+      ref.read(trafficsProvider.notifier).addTraffic(traffic);
+      ref.read(totalTrafficProvider.notifier).value = await coreController
+          .getTotalTraffic(onlyStatisticsProxy);
+      final connections = await coreController.getConnections();
+      ref
+          .read(ruleUsagesProvider.notifier)
+          .sample(ref.read(globalRulesProvider), connections);
+    } catch (error) {
+      commonPrint.log(
+        'Update traffic failed: $error',
+        logLevel: LogLevel.warning,
+      );
+    } finally {
+      _updatingTraffic = false;
+    }
   }
 
   Future<void> autoCheckUpdate() async {
@@ -209,6 +227,7 @@ class SetupAction extends _$SetupAction {
       coreController.resetTraffic();
       ref.read(trafficsProvider.notifier).clear();
       ref.read(totalTrafficProvider.notifier).value = const Traffic();
+      ref.read(ruleUsagesProvider.notifier).clear();
       ref.read(runTimeProvider.notifier).value = null;
       ref.read(checkIpNumProvider.notifier).add();
     }
@@ -294,15 +313,39 @@ class SetupAction extends _$SetupAction {
     final overrideDns = ref.read(overrideDnsProvider);
     final appendSystemDns = networkVM2.a;
     final routeMode = networkVM2.b;
-    final configMap = await coreController.getConfig(profileId);
+    final activeProfilePath = await appPath.getProfilePath(
+      profileId.toString(),
+    );
+    final activeValidationMessage = await coreController.validateConfig(
+      activeProfilePath,
+    );
+    final activeProfileValid = activeValidationMessage.isEmpty;
+    final Map<String, dynamic> configMap;
+    if (activeProfileValid) {
+      configMap = await coreController.getConfig(profileId);
+    } else {
+      commonPrint.log(
+        'Use safe base for invalid active profile $profileId: '
+        '$activeValidationMessage',
+        logLevel: LogLevel.warning,
+      );
+      configMap = {
+        'proxies': <dynamic>[],
+        'proxy-groups': <dynamic>[],
+        'proxy-providers': <String, dynamic>{},
+        'rules': <String>['MATCH,DIRECT'],
+      };
+    }
     String? scriptContent;
     final List<Rule> addedRules = [];
     final List<ProxyGroup> proxyGroups = [];
     final List<Rule> rules = [];
-    addedRules.addAll(setupState.addedRules);
-    if (setupState.overwriteType == OverwriteType.script) {
+    if (activeProfileValid) addedRules.addAll(setupState.addedRules);
+    if (activeProfileValid &&
+        setupState.overwriteType == OverwriteType.script) {
       scriptContent = await setupState.script?.content;
-    } else if (setupState.overwriteType == OverwriteType.custom) {
+    } else if (activeProfileValid &&
+        setupState.overwriteType == OverwriteType.custom) {
       proxyGroups.addAll(setupState.proxyGroups);
       rules.addAll(setupState.rules);
     }
@@ -332,13 +375,116 @@ class SetupAction extends _$SetupAction {
         defaultUA: defaultUA,
       ),
     );
+    final activeOnlyConfig = Map<String, dynamic>.from(
+      json.decode(json.encode(finalConfig)) as Map,
+    );
+    final globalSources = <GlobalProfileSource>[];
+    final disabledProfileIds = ref.read(disabledProfileIdsProvider);
+    for (final profile in ref.read(profilesProvider)) {
+      if (profile.id == profileId) continue;
+      if (disabledProfileIds.contains(profile.id)) continue;
+      try {
+        final profilePath = await appPath.getProfilePath(profile.id.toString());
+        final validationMessage = await coreController.validateConfig(
+          profilePath,
+        );
+        if (validationMessage.isNotEmpty) {
+          commonPrint.log(
+            'Skip invalid global node source ${profile.id}: '
+            '$validationMessage',
+            logLevel: LogLevel.warning,
+          );
+          continue;
+        }
+        final source = await isolateGlobalProfileSource(
+          GlobalProfileSource(
+            profileId: profile.id,
+            label: profile.realLabel,
+            config: await coreController.getConfig(profile.id),
+          ),
+          profilesPath: directory,
+        );
+        globalSources.add(source);
+      } catch (error) {
+        commonPrint.log(
+          'Skip global node source ${profile.id}: $error',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+    final safeGlobalNodePool = await buildValidatedGlobalNodePool(
+      activeConfig: finalConfig,
+      sources: globalSources,
+      profilesPath: directory,
+      validate: (candidate) async {
+        try {
+          final yaml = await encodeYamlTask(candidate);
+          return (await coreController.validateConfigWithData(yaml)).isEmpty;
+        } catch (_) {
+          return false;
+        }
+      },
+    );
+    for (final skippedProfileId in safeGlobalNodePool.skippedProfileIds) {
+      commonPrint.log(
+        'Skip invalid global node source $skippedProfileId',
+        logLevel: LogLevel.warning,
+      );
+    }
+    final globalNodePool = safeGlobalNodePool.result;
+    finalConfig = globalNodePool.config;
     if (setupState.globalRules.isNotEmpty) {
+      final providerTargets = await loadProxyProviderTargets(
+        finalConfig,
+        profilesPath: directory,
+      );
+      final targetAliases = <String, List<String>>{
+        for (final entry in globalNodePool.targetAliases.entries)
+          entry.key: [...entry.value],
+      };
+      for (final target in providerTargets) {
+        final namespaceEnd = target.indexOf('] ');
+        if (!target.startsWith('[') || namespaceEnd < 0) continue;
+        final original = target.substring(namespaceEnd + 2);
+        final aliases = targetAliases.putIfAbsent(original, () => <String>[]);
+        if (!aliases.contains(target)) aliases.add(target);
+      }
       final script = buildRulesOverrideScript(
         setupState.globalRules.map((rule) => rule.rawValue),
+        additionalTargets: {...providerTargets, ...globalNodePool.targets},
+        targetAliases: targetAliases,
       );
       finalConfig = await handleEvaluate(script, finalConfig);
     }
-    final yaml = await encodeYamlTask(finalConfig);
+    var yaml = await encodeYamlTask(finalConfig);
+    final finalValidationMessage = await coreController.validateConfigWithData(
+      yaml,
+    );
+    if (finalValidationMessage.isNotEmpty) {
+      commonPrint.log(
+        'Global node pool rejected, use isolated active profile: '
+        '$finalValidationMessage',
+        logLevel: LogLevel.warning,
+      );
+      finalConfig = activeOnlyConfig;
+      if (setupState.globalRules.isNotEmpty) {
+        final providerTargets = await loadProxyProviderTargets(
+          finalConfig,
+          profilesPath: directory,
+        );
+        final script = buildRulesOverrideScript(
+          setupState.globalRules.map((rule) => rule.rawValue),
+          additionalTargets: providerTargets,
+        );
+        finalConfig = await handleEvaluate(script, finalConfig);
+      }
+      yaml = await encodeYamlTask(finalConfig);
+      final activeValidationMessage = await coreController
+          .validateConfigWithData(yaml);
+      if (activeValidationMessage.isNotEmpty) {
+        throw activeValidationMessage;
+      }
+    }
     return VM2(yaml, yaml.toMd5());
   }
 
@@ -866,11 +1012,16 @@ class ProfilesAction extends _$ProfilesAction {
       await ref.read(globalOverwriteProfileIdProvider.notifier).setValue(null);
     }
     await ref.read(profileUserAgentsProvider.notifier).remove(id);
+    await ref.read(disabledProfileIdsProvider.notifier).remove(id);
     final currentProfileId = ref.read(currentProfileIdProvider);
     if (currentProfileId == id) {
       final profiles = ref.read(profilesProvider);
-      if (profiles.isNotEmpty) {
-        final updateId = profiles.first.id;
+      final disabledProfileIds = ref.read(disabledProfileIdsProvider);
+      final enabledProfiles = profiles
+          .where((profile) => !disabledProfileIds.contains(profile.id))
+          .toList();
+      if (enabledProfiles.isNotEmpty) {
+        final updateId = enabledProfiles.first.id;
         ref.read(currentProfileIdProvider.notifier).value = updateId;
       } else {
         ref.read(currentProfileIdProvider.notifier).value = null;
@@ -880,7 +1031,9 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> autoUpdateProfiles() async {
+    final disabledProfileIds = ref.read(disabledProfileIdsProvider);
     for (final profile in ref.read(profilesProvider)) {
+      if (disabledProfileIds.contains(profile.id)) continue;
       if (!profile.autoUpdate) continue;
       final isNotNeedUpdate = profile.lastUpdateDate
           ?.add(profile.autoUpdateDuration)
@@ -903,7 +1056,9 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> updateProfiles() async {
+    final disabledProfileIds = ref.read(disabledProfileIdsProvider);
     for (final profile in ref.read(profilesProvider)) {
+      if (disabledProfileIds.contains(profile.id)) continue;
       if (profile.type == ProfileType.file) continue;
       await updateProfile(profile);
     }

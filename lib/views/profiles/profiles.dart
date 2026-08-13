@@ -62,7 +62,11 @@ class _ProfilesViewState extends State<ProfilesView> {
     }
     _isUpdating = true;
     final List<UpdatingMessage> messages = [];
+    final disabledProfileIds = globalState.container.read(
+      disabledProfileIdsProvider,
+    );
     final updateProfiles = profiles.map<Future>((profile) async {
+      if (disabledProfileIds.contains(profile.id)) return;
       if (profile.type == ProfileType.file) return;
       try {
         await globalState.container
@@ -173,7 +177,7 @@ class _ProfilesViewState extends State<ProfilesView> {
   }
 }
 
-class ProfileItem extends StatelessWidget {
+class ProfileItem extends ConsumerWidget {
   final Profile profile;
   final int? groupValue;
   final void Function(int? value) onChanged;
@@ -276,126 +280,159 @@ class ProfileItem extends StatelessWidget {
     BaseNavigator.push(context, OverwriteView(profileId: id));
   }
 
+  Future<void> _setEnabled(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    final profiles = ref.read(profilesProvider);
+    final disabledIds = ref.read(disabledProfileIdsProvider);
+    final enabledProfiles = profiles
+        .where((item) => !disabledIds.contains(item.id))
+        .toList();
+    if (!enabled && enabledProfiles.length <= 1) {
+      context.showNotifier(context.appLocalizations.keepOneProfileEnabled);
+      return;
+    }
+    if (!enabled && profile.id == ref.read(currentProfileIdProvider)) {
+      final nextProfile = profiles.firstWhere(
+        (item) => item.id != profile.id && !disabledIds.contains(item.id),
+      );
+      ref.read(currentProfileIdProvider.notifier).value = nextProfile.id;
+    }
+    await ref
+        .read(disabledProfileIdsProvider.notifier)
+        .setEnabled(profile.id, enabled);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
+    final enabled = !ref.watch(disabledProfileIdsProvider).contains(profile.id);
     return CommonCard(
-      isSelected: profile.id == groupValue,
-      onPressed: () {
-        onChanged(profile.id);
-      },
+      isSelected: enabled && profile.id == groupValue,
+      onPressed: enabled ? () => onChanged(profile.id) : null,
       child: ListItem(
         key: Key(profile.id.toString()),
         horizontalTitleGap: 16,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         trailing: SizedBox(
           height: 40,
-          width: 40,
-          child: Consumer(
-            builder: (_, ref, _) {
-              final isUpdating = ref.watch(
-                isUpdatingProvider(profile.updatingKey),
-              );
-              return FadeThroughBox(
-                child: isUpdating
-                    ? const Padding(
-                        key: ValueKey('loading'),
-                        padding: EdgeInsets.all(8),
-                        child: CircularProgressIndicator(),
-                      )
-                    : CommonPopupBox(
-                        key: const ValueKey('menu'),
-                        popup: CommonPopupMenu(
-                          items: [
-                            PopupMenuItemData(
-                              icon: Icons.edit_outlined,
-                              label: appLocalizations.edit,
-                              onPressed: () {
-                                _handleShowEditExtendPage(context);
-                              },
-                            ),
-                            PopupMenuItemData(
-                              icon: Icons.visibility_outlined,
-                              label: appLocalizations.preview,
-                              onPressed: () {
-                                _handlePreview(context);
-                              },
-                            ),
-                            if (profile.type == ProfileType.url) ...[
-                              PopupMenuItemData(
-                                icon: Icons.sync_alt_sharp,
-                                label: appLocalizations.sync,
-                                onPressed: () {
-                                  updateProfile();
-                                },
-                              ),
-                            ],
-                            PopupMenuItemData(
-                              icon: Icons.emergency_outlined,
-                              label: appLocalizations.more,
-                              subItems: [
+          width: 104,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Switch(
+                value: enabled,
+                onChanged: (value) => _setEnabled(context, ref, value),
+              ),
+              Consumer(
+                builder: (_, ref, _) {
+                  final isUpdating = ref.watch(
+                    isUpdatingProvider(profile.updatingKey),
+                  );
+                  return FadeThroughBox(
+                    child: isUpdating
+                        ? const Padding(
+                            key: ValueKey('loading'),
+                            padding: EdgeInsets.all(8),
+                            child: CircularProgressIndicator(),
+                          )
+                        : CommonPopupBox(
+                            key: const ValueKey('menu'),
+                            popup: CommonPopupMenu(
+                              items: [
                                 PopupMenuItemData(
-                                  icon: Icons.extension_outlined,
-                                  label: appLocalizations.override,
+                                  icon: Icons.edit_outlined,
+                                  label: appLocalizations.edit,
                                   onPressed: () {
-                                    _handlePushGenProfilePage(
-                                      context,
-                                      profile.id,
-                                    );
+                                    _handleShowEditExtendPage(context);
                                   },
                                 ),
-                                // PopupMenuItemData(
-                                //   icon: Icons.extension_outlined,
-                                //   label: appLocalizations.override + "1",
-                                //   onPressed: () {
-                                //     final overrideProfileView = OverrideProfileView(
-                                //       profileId: profile.id,
-                                //     );
-                                //     BaseNavigator.push(
-                                //       context,
-                                //       overrideProfileView,
-                                //     );
-                                //   },
-                                // ),
+                                PopupMenuItemData(
+                                  icon: Icons.visibility_outlined,
+                                  label: appLocalizations.preview,
+                                  onPressed: () {
+                                    _handlePreview(context);
+                                  },
+                                ),
                                 if (profile.type == ProfileType.url) ...[
                                   PopupMenuItemData(
-                                    icon: Icons.copy,
-                                    label: appLocalizations.copyLink,
+                                    icon: Icons.sync_alt_sharp,
+                                    label: appLocalizations.sync,
                                     onPressed: () {
-                                      _handleCopyLink(context);
+                                      updateProfile();
                                     },
                                   ),
                                 ],
                                 PopupMenuItemData(
-                                  icon: Icons.file_copy_outlined,
-                                  label: appLocalizations.exportFile,
+                                  icon: Icons.emergency_outlined,
+                                  label: appLocalizations.more,
+                                  subItems: [
+                                    PopupMenuItemData(
+                                      icon: Icons.extension_outlined,
+                                      label: appLocalizations.override,
+                                      onPressed: () {
+                                        _handlePushGenProfilePage(
+                                          context,
+                                          profile.id,
+                                        );
+                                      },
+                                    ),
+                                    // PopupMenuItemData(
+                                    //   icon: Icons.extension_outlined,
+                                    //   label: appLocalizations.override + "1",
+                                    //   onPressed: () {
+                                    //     final overrideProfileView = OverrideProfileView(
+                                    //       profileId: profile.id,
+                                    //     );
+                                    //     BaseNavigator.push(
+                                    //       context,
+                                    //       overrideProfileView,
+                                    //     );
+                                    //   },
+                                    // ),
+                                    if (profile.type == ProfileType.url) ...[
+                                      PopupMenuItemData(
+                                        icon: Icons.copy,
+                                        label: appLocalizations.copyLink,
+                                        onPressed: () {
+                                          _handleCopyLink(context);
+                                        },
+                                      ),
+                                    ],
+                                    PopupMenuItemData(
+                                      icon: Icons.file_copy_outlined,
+                                      label: appLocalizations.exportFile,
+                                      onPressed: () {
+                                        _handleExportFile(context);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                PopupMenuItemData(
+                                  danger: true,
+                                  icon: Icons.delete_outlined,
+                                  label: appLocalizations.delete,
                                   onPressed: () {
-                                    _handleExportFile(context);
+                                    _handleDeleteProfile(context);
                                   },
                                 ),
                               ],
                             ),
-                            PopupMenuItemData(
-                              danger: true,
-                              icon: Icons.delete_outlined,
-                              label: appLocalizations.delete,
-                              onPressed: () {
-                                _handleDeleteProfile(context);
-                              },
-                            ),
-                          ],
-                        ),
-                        targetBuilder: (open) {
-                          return IconButton(
-                            onPressed: () {
-                              open();
+                            targetBuilder: (open) {
+                              return IconButton(
+                                onPressed: () {
+                                  open();
+                                },
+                                icon: const Icon(Icons.more_vert),
+                              );
                             },
-                            icon: const Icon(Icons.more_vert),
-                          );
-                        },
-                      ),
-              );
-            },
+                          ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
         title: Transform.translate(
@@ -406,7 +443,11 @@ class ProfileItem extends StatelessWidget {
             children: [
               Text(
                 profile.realLabel,
-                style: context.textTheme.titleMedium,
+                style: context.textTheme.titleMedium?.copyWith(
+                  color: enabled
+                      ? context.colorScheme.onSurface
+                      : context.colorScheme.onSurfaceVariant,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

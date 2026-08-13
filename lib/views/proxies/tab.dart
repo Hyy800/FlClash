@@ -16,6 +16,97 @@ import 'common.dart';
 typedef ProxyGroupViewKeyMap =
     Map<String, GlobalObjectKey<_ProxyGroupViewState>>;
 
+class ProxyNodePanel extends StatelessWidget {
+  final Widget child;
+
+  const ProxyNodePanel({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('proxy-node-panel'),
+      margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: context.colorScheme.surfaceContainerLowest.withValues(
+          alpha: 0.72,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: context.colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class ProxyTabMoreButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  const ProxyTabMoreButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: const ValueKey('proxy-group-more-button'),
+      style: IconButton.styleFrom(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        disabledBackgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon),
+    );
+  }
+}
+
+class ProxyTabHeaderBoundary extends StatelessWidget {
+  final bool hasOverflow;
+  final Widget tabs;
+  final Widget moreButton;
+
+  const ProxyTabHeaderBoundary({
+    super.key,
+    required this.hasOverflow,
+    required this.tabs,
+    required this.moreButton,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRect(
+            key: const ValueKey('proxy-group-tabs-clip'),
+            child: Padding(
+              padding: EdgeInsets.only(right: hasOverflow ? 8 : 0),
+              child: tabs,
+            ),
+          ),
+        ),
+        if (hasOverflow)
+          SizedBox(
+            key: const ValueKey('proxy-group-more-slot'),
+            width: 50,
+            height: 46,
+            child: moreButton,
+          ),
+      ],
+    );
+  }
+}
+
 class ProxiesTabView extends ConsumerStatefulWidget {
   const ProxiesTabView({super.key});
 
@@ -69,24 +160,11 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
     return Consumer(
       builder: (_, ref, _) {
         final isMobileView = ref.watch(isMobileViewProvider);
-        return Material(
-          color: context.colorScheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              color: context.colorScheme.outlineVariant.withAlpha(110),
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: IconButton(
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-            ),
-            onPressed: _showMoreMenu,
-            icon: isMobileView
-                ? const Icon(Icons.expand_more_rounded)
-                : const Icon(Icons.chevron_right_rounded),
-          ),
+        return ProxyTabMoreButton(
+          onPressed: _showMoreMenu,
+          icon: isMobileView
+              ? Icons.expand_more_rounded
+              : Icons.chevron_right_rounded,
         );
       },
     );
@@ -191,28 +269,26 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
       );
     }
     _keyMap = {};
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        NotificationListener<ScrollMetricsNotification>(
-          onNotification: (scrollNotification) {
-            _hasMoreButtonNotifier.value =
-                scrollNotification.metrics.maxScrollExtent > 0;
-            return false;
-          },
-          child: ValueListenableBuilder(
-            valueListenable: _hasMoreButtonNotifier,
-            builder: (_, value, child) {
-              return Stack(
-                alignment: AlignmentDirectional.centerStart,
-                children: [
-                  TabBar(
+    return ProxyNodePanel(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          NotificationListener<ScrollMetricsNotification>(
+            onNotification: (scrollNotification) {
+              _hasMoreButtonNotifier.value =
+                  scrollNotification.metrics.maxScrollExtent > 0;
+              return false;
+            },
+            child: ValueListenableBuilder(
+              valueListenable: _hasMoreButtonNotifier,
+              builder: (_, value, child) {
+                return ProxyTabHeaderBoundary(
+                  hasOverflow: value,
+                  moreButton: child!,
+                  tabs: TabBar(
                     controller: _tabController,
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16 + (value ? 16 : 0),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     dividerColor: Colors.transparent,
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
@@ -222,6 +298,7 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
                     tabs: [
                       for (final group in groups)
                         Tab(
+                          height: 46,
                           child: Builder(
                             builder: (context) {
                               return EmojiText(
@@ -233,37 +310,35 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
                         ),
                     ],
                   ),
-                  if (value) Positioned(right: 0, child: child!),
-                ],
-              );
-            },
-            child: ColoredBox(
-              color: context.colorScheme.surfaceContainerLow,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: _buildMoreButton(),
-              ),
+                );
+              },
+              child: _buildMoreButton(),
             ),
           ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              for (final group in groups)
-                ProxyGroupView(
-                  key: _keyMap.updateCacheValue(
-                    group.name,
-                    () => GlobalObjectKey<_ProxyGroupViewState>(group.name),
-                  ),
-                  group: group,
-                  columns: state.columns,
-                  cardType: state.proxyCardType,
-                ),
-            ],
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: context.colorScheme.outlineVariant.withValues(alpha: 0.55),
           ),
-        ),
-      ],
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                for (final group in groups)
+                  ProxyGroupView(
+                    key: _keyMap.updateCacheValue(
+                      group.name,
+                      () => GlobalObjectKey<_ProxyGroupViewState>(group.name),
+                    ),
+                    group: group,
+                    columns: state.columns,
+                    cardType: state.proxyCardType,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -342,9 +417,9 @@ class _ProxyGroupViewState extends ConsumerState<ProxyGroupView> {
         key: _getPageStorageKey(),
         controller: _controller,
         padding: const EdgeInsets.only(
-          top: 16,
-          left: 16,
-          right: 16,
+          top: 12,
+          left: 12,
+          right: 12,
           bottom: 96,
         ),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

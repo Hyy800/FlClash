@@ -3099,11 +3099,41 @@ class AppLocalizations {
     );
   }
 
-  /// `Global rules`
+  /// `Rules`
   String get globalRules {
+    return Intl.message('Rules', name: 'globalRules', desc: '', args: []);
+  }
+
+  /// `Built-in JavaScript merges rules into every profile and resolves missing targets from the global node pool.`
+  String get globalRulesDesc {
     return Intl.message(
-      'Global rules',
-      name: 'globalRules',
+      'Built-in JavaScript merges rules into every profile and resolves missing targets from the global node pool.',
+      name: 'globalRulesDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Select routing target`
+  String get selectRuleTarget {
+    return Intl.message(
+      'Select routing target',
+      name: 'selectRuleTarget',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `All`
+  String get allTargets {
+    return Intl.message('All', name: 'allTargets', desc: '', args: []);
+  }
+
+  /// `Unavailable in this profile`
+  String get ruleTargetUnavailable {
+    return Intl.message(
+      'Unavailable in this profile',
+      name: 'ruleTargetUnavailable',
       desc: '',
       args: [],
     );
@@ -4606,6 +4636,16 @@ class AppLocalizations {
       name: 'entriesCount',
       desc: '',
       args: [count],
+    );
+  }
+
+  /// `Keep at least one profile enabled`
+  String get keepOneProfileEnabled {
+    return Intl.message(
+      'Keep at least one profile enabled',
+      name: 'keepOneProfileEnabled',
+      desc: '',
+      args: [],
     );
   }
 }

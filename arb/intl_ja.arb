@@ -398,7 +398,11 @@
   "addedRules": "追加ルール",
   "overrideScript": "上書きスクリプト",
   "goToConfigureScript": "スクリプト設定に移動",
-  "globalRules": "グローバルルール",
+  "globalRules": "ルール",
+  "globalRulesDesc": "内蔵 JavaScript がルールをすべてのプロファイルへ自動統合し、不足する対象をグローバルノードプールから解決します。",
+  "selectRuleTarget": "ルーティング対象を選択",
+  "allTargets": "すべて",
+  "ruleTargetUnavailable": "このプロファイルでは利用不可",
   "externalFetch": "外部取得",
   "confirmForceCrashCore": "コアを強制的にクラッシュさせてもよろしいですか？",
   "confirmClearAllData": "すべてのデータをクリアしてもよろしいですか？",
@@ -562,5 +566,6 @@
   "geoSkipped": "{name} スキップ済み",
   "geoUpdated": "{name} 更新済み",
   "secondsCount": "{count} 秒",
-  "entriesCount": "{count} エントリ"
+  "entriesCount": "{count} エントリ",
+  "keepOneProfileEnabled": "有効なプロファイルを少なくとも1つ残してください"
 }

@@ -398,7 +398,11 @@
   "addedRules": "Added rules",
   "overrideScript": "Override script",
   "goToConfigureScript": "Go to configure script",
-  "globalRules": "Global rules",
+  "globalRules": "Rules",
+  "globalRulesDesc": "Built-in JavaScript merges rules into every profile and resolves missing targets from the global node pool.",
+  "selectRuleTarget": "Select routing target",
+  "allTargets": "All",
+  "ruleTargetUnavailable": "Unavailable in this profile",
   "externalFetch": "External fetch",
   "confirmForceCrashCore": "Are you sure you want to force crash the core?",
   "confirmClearAllData": "Are you sure you want to clear all data?",
@@ -562,5 +566,6 @@
   "geoSkipped": "{name} skipped",
   "geoUpdated": "{name} updated",
   "secondsCount": "{count} seconds",
-  "entriesCount": "{count} entries"
+  "entriesCount": "{count} entries",
+  "keepOneProfileEnabled": "Keep at least one profile enabled"
 }

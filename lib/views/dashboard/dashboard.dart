@@ -1,7 +1,4 @@
-import 'dart:math';
-
 import 'package:defer_pointer/defer_pointer.dart';
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -74,9 +71,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                         iconSize: 20,
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.green.harmonizeWith(
-                            context.colorScheme.primary,
-                          ),
+                          backgroundColor: const Color(0xFF16866F),
                           foregroundColor: switch (Theme.brightnessOf(
                             context,
                           )) {
@@ -232,8 +227,8 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(dashboardStateProvider);
-    final columns = max(4 * ((dashboardState.contentWidth / 280).ceil()), 8);
-    final spacing = 16.mAp;
+    const columns = 12;
+    final spacing = 8.mAp;
     final children = [
       ...dashboardState.dashboardWidgets
           .where(
@@ -256,42 +251,136 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         title: context.appLocalizations.dashboard,
         actions: _buildActions(isEdit),
         floatingActionButton: const StartButton(),
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              18.mAp,
-              18.mAp,
-              18.mAp,
-              92.mAp,
-            ),
-            child: isEdit
-                ? SystemBackBlock(
-                    child: CommonPopScope(
-                      child: SuperGrid(
-                        key: key,
-                        crossAxisCount: columns,
-                        crossAxisSpacing: spacing,
-                        mainAxisSpacing: spacing,
-                        children: children,
-                        onUpdate: () {
-                          _handleSave();
+        body: Theme(
+          data: Theme.of(context).copyWith(
+            textTheme: Theme.of(context).textTheme.apply(fontSizeFactor: 0.9),
+            iconTheme: Theme.of(context).iconTheme.copyWith(size: 19),
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(12.mAp, 6.mAp, 12.mAp, 64.mAp),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _DashboardCommandHeader(),
+                  const SizedBox(height: 8),
+                  if (isEdit)
+                    SystemBackBlock(
+                      child: CommonPopScope(
+                        onPop: (context) {
+                          _handleUpdateIsEdit();
+                          return false;
                         },
+                        child: SuperGrid(
+                          key: key,
+                          crossAxisCount: columns,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                          onUpdate: _handleSave,
+                          children: children,
+                        ),
                       ),
-                      onPop: (context) {
-                        _handleUpdateIsEdit();
-                        return false;
-                      },
+                    )
+                  else
+                    Grid(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: spacing,
+                      children: children,
                     ),
-                  )
-                : Grid(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: spacing,
-                    mainAxisSpacing: spacing,
-                    children: children,
-                  ),
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DashboardCommandHeader extends ConsumerWidget {
+  const _DashboardCommandHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final coreStatus = ref.watch(coreStatusProvider);
+    final isStart = ref.watch(isStartProvider);
+    final runTime = ref.watch(runTimeProvider);
+    final colorScheme = context.colorScheme;
+    final statusColor = switch (coreStatus) {
+      CoreStatus.connected => colorScheme.secondary,
+      CoreStatus.connecting => colorScheme.tertiary,
+      CoreStatus.disconnected => colorScheme.error,
+    };
+    final statusLabel = switch (coreStatus) {
+      CoreStatus.connected => context.appLocalizations.connected,
+      CoreStatus.connecting => context.appLocalizations.connecting,
+      CoreStatus.disconnected => context.appLocalizations.disconnected,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+          final status = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Text(
+                '${context.appLocalizations.coreStatus} · $statusLabel',
+                style: context.textTheme.labelLarge,
+              ),
+            ],
+          );
+          final runtime = Text(
+            isStart
+                ? utils.getTimeText(runTime)
+                : context.appLocalizations.stop,
+            style: context.textTheme.titleMedium?.copyWith(
+              color: isStart
+                  ? colorScheme.secondary
+                  : colorScheme.onSurfaceVariant,
+              fontFamily: FontFamily.jetBrainsMono.value,
+            ),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [status, const SizedBox(height: 8), runtime],
+            );
+          }
+          return Row(
+            children: [
+              const Icon(Icons.monitor_heart_outlined, size: 20),
+              const SizedBox(width: 10),
+              status,
+              const Spacer(),
+              Text(
+                'UPTIME',
+                style: context.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 10),
+              runtime,
+            ],
+          );
+        },
       ),
     );
   }
@@ -309,9 +398,9 @@ class _AddDashboardWidgetModal extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Grid(
-          crossAxisCount: 8,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisCount: 12,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
           children: items
               .map(
                 (item) => item.wrap(

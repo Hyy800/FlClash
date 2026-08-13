@@ -398,7 +398,11 @@
   "addedRules": "Добавленные правила",
   "overrideScript": "Скрипт переопределения",
   "goToConfigureScript": "Перейти к настройке скрипта",
-  "globalRules": "Глобальные правила",
+  "globalRules": "Правила",
+  "globalRulesDesc": "Встроенный JavaScript объединяет правила с каждым профилем и находит отсутствующие цели в глобальном пуле узлов.",
+  "selectRuleTarget": "Выбрать цель маршрутизации",
+  "allTargets": "Все",
+  "ruleTargetUnavailable": "Недоступно в этом профиле",
   "externalFetch": "Внешнее получение",
   "confirmForceCrashCore": "Вы уверены, что хотите принудительно аварийно завершить работу ядра?",
   "confirmClearAllData": "Вы уверены, что хотите очистить все данные?",
@@ -562,5 +566,6 @@
   "geoSkipped": "{name} пропущено",
   "geoUpdated": "{name} обновлено",
   "secondsCount": "{count} секунд",
-  "entriesCount": "{count} записей"
+  "entriesCount": "{count} записей",
+  "keepOneProfileEnabled": "Оставьте включённым хотя бы один профиль"
 }

@@ -38,8 +38,9 @@ class ApplicationState extends ConsumerState<Application> {
 
   ColorScheme _getAppColorScheme({required Brightness brightness}) {
     return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF5B6FA8),
+      seedColor: const Color(0xFF2563EB),
       brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
   }
 

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/ai/ai_service.dart';
@@ -8,13 +10,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AiApiService', () {
+    test('emits SSE events while the transport is still open', () async {
+      final controller = StreamController<Uint8List>();
+      final events = <Map<String, dynamic>>[];
+      final completion = AiApiService.readSseForTest(
+        controller.stream,
+        onEvent: events.add,
+      );
+
+      controller.add(
+        Uint8List.fromList(
+          utf8.encode('data: {"type":"delta","delta":"hello"}\n\n'),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events.single['delta'], 'hello');
+      controller.add(Uint8List.fromList(utf8.encode('data: [DONE]\n\n')));
+      await controller.close();
+      expect(await completion, hasLength(1));
+    });
+
     test('normalizes compatible API endpoints', () {
       expect(
         AiApiService.endpoint('https://example.com/v1///', '/models'),
         'https://example.com/v1/models',
       );
       expect(
-        AiApiService.endpoint('https://example.com/openai/v1', 'chat/completions'),
+        AiApiService.endpoint(
+          'https://example.com/openai/v1',
+          'chat/completions',
+        ),
         'https://example.com/openai/v1/chat/completions',
       );
     });
@@ -83,10 +109,7 @@ void main() {
                   {
                     'index': 0,
                     'id': 'call_1',
-                    'function': {
-                      'name': 'switch_',
-                      'arguments': '{"profile_',
-                    },
+                    'function': {'name': 'switch_', 'arguments': '{"profile_'},
                   },
                 ],
               },
@@ -117,10 +140,7 @@ void main() {
         'choices': [
           {
             'message': {
-              'function_call': {
-                'name': 'get_app_state',
-                'arguments': '{}',
-              },
+              'function_call': {'name': 'get_app_state', 'arguments': '{}'},
             },
           },
         ],
@@ -130,26 +150,23 @@ void main() {
 
     test('parses Responses streaming events', () {
       final deltas = <String>[];
-      final result = AiApiService.parseResponsesStream(
-        [
-          {'type': 'response.output_text.delta', 'delta': 'hello'},
-          {
-            'type': 'response.output_item.added',
-            'item': {
-              'type': 'function_call',
-              'call_id': 'call_2',
-              'name': 'get_app_state',
-              'arguments': '',
-            },
-          },
-          {
-            'type': 'response.function_call_arguments.delta',
+      final result = AiApiService.parseResponsesStream([
+        {'type': 'response.output_text.delta', 'delta': 'hello'},
+        {
+          'type': 'response.output_item.added',
+          'item': {
+            'type': 'function_call',
             'call_id': 'call_2',
-            'delta': '{}',
+            'name': 'get_app_state',
+            'arguments': '',
           },
-        ],
-        onDelta: deltas.add,
-      );
+        },
+        {
+          'type': 'response.function_call_arguments.delta',
+          'call_id': 'call_2',
+          'delta': '{}',
+        },
+      ], onDelta: deltas.add);
       expect(result.content, 'hello');
       expect(deltas, ['hello']);
       expect(result.toolCalls.single.name, 'get_app_state');
@@ -204,35 +221,55 @@ void main() {
     expect(aiSystemPrompt, contains('Persist until'));
   });
 
+  test(
+    'agent forwards transport deltas without duplicating the reply',
+    () async {
+      final deltas = <String>[];
+      final reply = await AiAgent(_StreamingAiApiService()).run(
+        config: const AiConfig(
+          baseUrl: 'https://example.com/v1',
+          apiKey: 'secret',
+          model: 'model-a',
+        ),
+        history: const [],
+        toolHandler: (_) async => const {},
+        onDelta: deltas.add,
+      );
+
+      expect(deltas, ['he', 'llo']);
+      expect(reply, 'hello');
+    },
+  );
+
   group('AI routing rule detection', () {
     test('detects domains and wildcard suffixes', () {
-      expect(
-        parseAiRoutingRuleSource('Example.COM'),
-        (action: RuleAction.DOMAIN, content: 'example.com'),
-      );
-      expect(
-        parseAiRoutingRuleSource('*.Example.COM'),
-        (action: RuleAction.DOMAIN_SUFFIX, content: 'example.com'),
-      );
-      expect(
-        parseAiRoutingRuleSource('https://example.com/path'),
-        (action: RuleAction.DOMAIN, content: 'example.com'),
-      );
+      expect(parseAiRoutingRuleSource('Example.COM'), (
+        action: RuleAction.DOMAIN,
+        content: 'example.com',
+      ));
+      expect(parseAiRoutingRuleSource('*.Example.COM'), (
+        action: RuleAction.DOMAIN_SUFFIX,
+        content: 'example.com',
+      ));
+      expect(parseAiRoutingRuleSource('https://example.com/path'), (
+        action: RuleAction.DOMAIN,
+        content: 'example.com',
+      ));
     });
 
     test('detects IPv4, IPv6, and CIDR values', () {
-      expect(
-        parseAiRoutingRuleSource('192.0.2.8'),
-        (action: RuleAction.IP_CIDR, content: '192.0.2.8/32'),
-      );
-      expect(
-        parseAiRoutingRuleSource('2001:db8::8'),
-        (action: RuleAction.IP_CIDR6, content: '2001:db8::8/128'),
-      );
-      expect(
-        parseAiRoutingRuleSource('192.0.2.0/24'),
-        (action: RuleAction.IP_CIDR, content: '192.0.2.0/24'),
-      );
+      expect(parseAiRoutingRuleSource('192.0.2.8'), (
+        action: RuleAction.IP_CIDR,
+        content: '192.0.2.8/32',
+      ));
+      expect(parseAiRoutingRuleSource('2001:db8::8'), (
+        action: RuleAction.IP_CIDR6,
+        content: '2001:db8::8/128',
+      ));
+      expect(parseAiRoutingRuleSource('192.0.2.0/24'), (
+        action: RuleAction.IP_CIDR,
+        content: '192.0.2.0/24',
+      ));
     });
 
     test('rejects invalid values', () {
@@ -246,4 +283,22 @@ void main() {
       );
     });
   });
+}
+
+class _StreamingAiApiService extends AiApiService {
+  @override
+  Future<AiCompletion> createCompletion(
+    AiConfig config,
+    List<Map<String, dynamic>> messages, {
+    List<Map<String, dynamic>> tools = const [],
+    AiStreamCallback? onDelta,
+  }) async {
+    onDelta?.call('he');
+    await Future<void>.delayed(Duration.zero);
+    onDelta?.call('llo');
+    return const AiCompletion(
+      message: {'role': 'assistant', 'content': 'hello'},
+      toolCalls: [],
+    );
+  }
 }

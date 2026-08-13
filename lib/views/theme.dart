@@ -47,7 +47,7 @@ class ThemeView extends ConsumerWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
         child: AppGlassPanel(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(26),
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,7 +60,7 @@ class ThemeView extends ConsumerWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: context.colorScheme.primary.withAlpha(28),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(13),
                     ),
                     child: Icon(
                       Icons.contrast_rounded,
@@ -87,9 +87,8 @@ class ThemeView extends ConsumerWidget {
                           ref
                               .read(themeSettingProvider.notifier)
                               .update(
-                                (state) => state.copyWith(
-                                  themeMode: item.themeMode,
-                                ),
+                                (state) =>
+                                    state.copyWith(themeMode: item.themeMode),
                               );
                         },
                       ),
@@ -132,7 +131,7 @@ class _ThemeModeChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     return CommonCard(
       isSelected: isSelected,
-      radius: 22,
+      radius: 20,
       onPressed: onPressed,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       child: Row(
@@ -147,7 +146,7 @@ class _ThemeModeChoice extends StatelessWidget {
               color: isSelected
                   ? context.colorScheme.primary
                   : context.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               item.iconData,
@@ -168,11 +167,7 @@ class _ThemeModeChoice extends StatelessWidget {
                     key: const ValueKey(true),
                     color: context.colorScheme.primary,
                   )
-                : const SizedBox(
-                    key: ValueKey(false),
-                    width: 24,
-                    height: 24,
-                  ),
+                : const SizedBox(key: ValueKey(false), width: 24, height: 24),
           ),
         ],
       ),

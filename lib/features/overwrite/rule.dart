@@ -9,6 +9,8 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
+import 'rule_target.dart';
+
 final ruleItemHeight =
     globalState.measure.bodyLargeHeight +
     globalState.measure.bodyMediumHeight +
@@ -193,8 +195,15 @@ class RuleStatusItem extends StatelessWidget {
 
 class AddOrEditRuleDialog extends StatefulWidget {
   final Rule? rule;
+  final RuleAction? initialAction;
+  final String? initialContent;
 
-  const AddOrEditRuleDialog({super.key, this.rule});
+  const AddOrEditRuleDialog({
+    super.key,
+    this.rule,
+    this.initialAction,
+    this.initialContent,
+  });
 
   @override
   State<AddOrEditRuleDialog> createState() => _AddOrEditRuleDialogState();
@@ -206,7 +215,6 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
   final _contentController = TextEditingController();
   bool _noResolve = false;
   bool _src = false;
-  List<DropdownMenuEntry> _targetItems = [];
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -216,25 +224,21 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
   }
 
   void _initState() {
-    _targetItems = [
-      ...RuleTarget.values.map(
-        (item) => DropdownMenuEntry(value: item.name, label: item.name),
-      ),
-      const DropdownMenuEntry(value: 'MATCH', label: 'MATCH'),
-    ];
     final rule = widget.rule;
     if (rule != null) {
       _ruleAction = rule.ruleAction;
       _contentController.text = rule.content ?? '';
-      _ruleTargetController.text = rule.ruleTarget ?? '';
+      final target = rule.ruleTarget ?? '';
+      _ruleTargetController.text = target.toUpperCase() == 'MATCH'
+          ? RuleTarget.DIRECT.name
+          : target;
       _noResolve = rule.noResolve;
       _src = rule.src;
       return;
     }
-    _ruleAction = RuleAction.addedRuleActions.first;
-    if (_targetItems.isNotEmpty) {
-      _ruleTargetController.text = _targetItems.first.value;
-    }
+    _ruleAction = widget.initialAction ?? RuleAction.addedRuleActions.first;
+    _contentController.text = widget.initialContent ?? '';
+    _ruleTargetController.text = RuleTarget.DIRECT.name;
   }
 
   @override
@@ -338,18 +342,47 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
                           appLocalizations.ruleTarget,
                         );
                       }
+                      if (_ruleTargetController.text.toUpperCase() == 'MATCH') {
+                        return appLocalizations.invalidProxy('MATCH');
+                      }
                       return null;
                     },
                     builder: (filed) {
-                      return DropdownMenu(
-                        controller: _ruleTargetController,
-                        label: Text(appLocalizations.ruleTarget),
-                        width: 200,
-                        menuHeight: 250,
-                        enableFilter: false,
-                        enableSearch: false,
-                        dropdownMenuEntries: _targetItems,
-                        errorText: filed.errorText,
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          final target = await globalState
+                              .showCommonDialog<String>(
+                                filter: false,
+                                child: RuleTargetSelectorDialog(
+                                  value: _ruleTargetController.text,
+                                ),
+                              );
+                          if (target == null) return;
+                          setState(() => _ruleTargetController.text = target);
+                          filed.didChange(target);
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
+                            labelText: appLocalizations.ruleTarget,
+                            errorText: filed.errorText,
+                            suffixIcon: const Icon(Icons.tune_rounded),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.alt_route_rounded, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _ruleTargetController.text,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),

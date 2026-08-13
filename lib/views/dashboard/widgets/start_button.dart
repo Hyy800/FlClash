@@ -84,11 +84,7 @@ class _StartButtonState extends ConsumerState<StartButton>
           final progress = _animation.value.clamp(0.0, 1.0).toDouble();
           final activeColor = suspend
               ? colorScheme.tertiary
-              : Color.lerp(
-                  const Color(0xFF18A978),
-                  colorScheme.primary,
-                  0.18,
-                )!;
+              : const Color(0xFF16866F);
           final accentColor = Color.lerp(
             colorScheme.primary,
             activeColor,
@@ -99,102 +95,85 @@ class _StartButtonState extends ConsumerState<StartButton>
             Colors.white,
             progress,
           )!;
-          final shape = RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(22),
+          final shape = RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           );
           return Semantics(
             button: true,
             toggled: isStart,
             child: SizedBox(
-              height: 52,
+              height: 50,
               child: AnimatedContainer(
                 duration: midDuration,
                 curve: Curves.easeOutCubic,
                 decoration: ShapeDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    accentColor,
-                    Color.lerp(
-                      colorScheme.primaryContainer,
-                      activeColor.withAlpha(205),
-                      progress,
-                    )!,
-                  ],
-                ),
-                shape: shape.copyWith(
-                  side: BorderSide(color: Colors.white.withAlpha(42)),
-                ),
-                shadows: [
-                  BoxShadow(
-                    color: accentColor.withAlpha(80),
-                    blurRadius: 28,
-                    offset: const Offset(0, 12),
+                  color: accentColor,
+                  shape: shape.copyWith(
+                    side: BorderSide(color: colorScheme.outlineVariant),
                   ),
-                ],
-              ),
+                ),
                 child: Material(
                   color: Colors.transparent,
                   clipBehavior: Clip.antiAlias,
                   shape: shape,
                   child: InkWell(
-                  customBorder: shape,
-                  onTap: handleSwitchStart,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(35),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Colors.white.withAlpha(40),
+                    customBorder: shape,
+                    onTap: handleSwitchStart,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(35),
+                              borderRadius: BorderRadius.circular(11),
+                              border: Border.all(
+                                color: Colors.white.withAlpha(40),
+                              ),
+                            ),
+                            child: IconTheme(
+                              data: IconThemeData(color: foregroundColor),
+                              child: AnimatedIcon(
+                                icon: AnimatedIcons.play_pause,
+                                progress: _animation,
+                              ),
                             ),
                           ),
-                          child: IconTheme(
-                            data: IconThemeData(color: foregroundColor),
-                            child: AnimatedIcon(
-                              icon: AnimatedIcons.play_pause,
-                              progress: _animation,
-                            ),
-                          ),
-                        ),
-                        ClipRect(
-                          child: Align(
-                            widthFactor: progress,
-                            child: Opacity(
-                              opacity: progress,
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 12,
-                                  right: 8,
-                                ),
-                                child: DefaultTextStyle(
-                                  style: context.textTheme.titleMedium!.copyWith(
-                                    color: foregroundColor,
-                                    fontWeight: FontWeight.w700,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
+                          ClipRect(
+                            child: Align(
+                              widthFactor: progress,
+                              child: Opacity(
+                                opacity: progress,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 12,
+                                    right: 8,
                                   ),
-                                  child: child!,
+                                  child: DefaultTextStyle(
+                                    style: context.textTheme.titleMedium!
+                                        .copyWith(
+                                          color: foregroundColor,
+                                          fontWeight: FontWeight.w700,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                    child: child!,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 ),
               ),
@@ -217,7 +196,7 @@ class _StartButtonState extends ConsumerState<StartButton>
                   );
                 },
               ),
-        ),
+      ),
     );
   }
 }

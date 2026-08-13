@@ -1,3 +1,11 @@
+int _lastAiId = 0;
+
+String _newAiId() {
+  final now = DateTime.now().microsecondsSinceEpoch;
+  _lastAiId = now > _lastAiId ? now : _lastAiId + 1;
+  return _lastAiId.toString();
+}
+
 enum AiApiProtocol {
   auto,
   openAiChat,
@@ -34,7 +42,7 @@ class AiSkill {
     required this.content,
     this.enabled = true,
     DateTime? importedAt,
-  }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+  }) : id = id ?? _newAiId(),
        importedAt = importedAt ?? DateTime.now() {
     if (name.trim().isEmpty) {
       throw const FormatException('Skill name cannot be empty.');
@@ -205,7 +213,7 @@ class AiChatMessage {
     required this.content,
     this.attachments = const [],
     DateTime? createdAt,
-  }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+  }) : id = id ?? _newAiId(),
        createdAt = createdAt ?? DateTime.now();
 
   factory AiChatMessage.fromJson(Map<String, dynamic> json) {
@@ -275,7 +283,7 @@ class AiSession {
     this.messages = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+  }) : id = id ?? _newAiId(),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
 

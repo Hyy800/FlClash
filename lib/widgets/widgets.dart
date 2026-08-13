@@ -30,6 +30,7 @@ export 'pop_scope.dart';
 export 'popup.dart';
 export 'scaffold.dart';
 export 'scroll.dart';
+export 'settings_layout.dart';
 export 'setting.dart';
 export 'sheet.dart';
 export 'side_sheet.dart';

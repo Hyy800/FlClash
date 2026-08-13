@@ -10,6 +10,7 @@ class Preferences {
   static Preferences? _instance;
   static const _globalOverwriteProfileIdKey = 'globalOverwriteProfileId';
   static const _profileUserAgentsKey = 'profileUserAgents';
+  static const _disabledProfileIdsKey = 'disabledProfileIds';
   static const _userAgentPresetsKey = 'userAgentPresets';
   static const _aiConfigKey = 'aiConfig';
   static const _aiSessionsKey = 'aiSessions';
@@ -17,6 +18,7 @@ class Preferences {
   Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
   int? _globalOverwriteProfileId;
   Map<int, String> _profileUserAgents = const {};
+  Set<int> _disabledProfileIds = const {};
   List<UserAgentPreset> _userAgentPresets = const [];
   AiConfig _aiConfig = const AiConfig();
   AiSessionStore _aiSessionStore = AiSessionStore.initial();
@@ -95,6 +97,26 @@ class Preferences {
       json.encode({
         for (final entry in values.entries) entry.key.toString(): entry.value,
       }),
+    );
+  }
+
+  Set<int> get disabledProfileIds => _disabledProfileIds;
+
+  Future<void> loadDisabledProfileIds() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    _disabledProfileIds =
+        (preferences?.getStringList(_disabledProfileIdsKey) ?? [])
+            .map(int.tryParse)
+            .whereType<int>()
+            .toSet();
+  }
+
+  Future<void> setDisabledProfileIds(Set<int> values) async {
+    _disabledProfileIds = Set.unmodifiable(values);
+    final preferences = await sharedPreferencesCompleter.future;
+    await preferences?.setStringList(
+      _disabledProfileIdsKey,
+      values.map((id) => id.toString()).toList(),
     );
   }
 

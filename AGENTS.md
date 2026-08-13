@@ -1,7 +1,7 @@
 # AGENTS.md
 
 This file is the entry point for AI coding agents working in this repository. Keep it small: detailed guidance lives under
-`.agents/`, and discoverable repo skills live under `.agents/skills/*/SKILL.md`.
+`.agents/`.
 
 ## Start Here
 
@@ -17,7 +17,6 @@ Read these only when the task touches their area:
   local plugins.
 - [.agents/agent-config.md](.agents/agent-config.md): how to choose between `AGENTS.md`, `.agents`, skills, Codex config,
   command rules, and hooks.
-- [.agents/skills.md](.agents/skills.md): index of repo-scoped skills in `.agents/skills/`.
 
 ## Highest Priority Rules
 
@@ -28,8 +27,3 @@ Read these only when the task touches their area:
   preferences, and declared return types.
 - For CI parity, verify with `flutter pub get`, `flutter analyze --no-fatal-infos`, and
   `flutter test --reporter expanded` when practical.
-
-## Repo Skills
-
-Use repo skills from `.agents/skills/` when a task matches their descriptions. Current skills cover localization,
-provider tests, UI work, and core/platform changes.

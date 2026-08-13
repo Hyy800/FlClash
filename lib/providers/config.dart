@@ -80,6 +80,32 @@ final profileUserAgentsProvider =
       ProfileUserAgents.new,
     );
 
+final disabledProfileIdsProvider =
+    NotifierProvider<DisabledProfileIds, Set<int>>(DisabledProfileIds.new);
+
+class DisabledProfileIds extends Notifier<Set<int>> {
+  @override
+  Set<int> build() => preferences.disabledProfileIds;
+
+  Future<void> setEnabled(int profileId, bool enabled) async {
+    final next = Set<int>.from(state);
+    if (enabled) {
+      next.remove(profileId);
+    } else {
+      next.add(profileId);
+    }
+    state = Set.unmodifiable(next);
+    await preferences.setDisabledProfileIds(state);
+  }
+
+  Future<void> remove(int profileId) async {
+    if (!state.contains(profileId)) return;
+    final next = Set<int>.from(state)..remove(profileId);
+    state = Set.unmodifiable(next);
+    await preferences.setDisabledProfileIds(state);
+  }
+}
+
 class ProfileUserAgents extends Notifier<Map<int, String>> {
   @override
   Map<int, String> build() => preferences.profileUserAgents;

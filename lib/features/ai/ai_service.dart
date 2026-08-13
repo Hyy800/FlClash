@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fl_clash/models/models.dart';
@@ -7,6 +8,7 @@ import 'package:fl_clash/models/models.dart';
 typedef AiToolHandler = Future<Map<String, dynamic>> Function(AiToolCall call);
 typedef AiStreamCallback = void Function(String delta);
 typedef AiToolStatusCallback = void Function(List<AiToolCall> calls);
+typedef AiSseEventCallback = void Function(Map<String, dynamic> event);
 
 class AiToolCall {
   final String id;
@@ -231,8 +233,22 @@ class AiApiService {
       options: _options(config, stream: stream),
     );
     if (!stream) return parseChatCompletion(response.data);
-    final chunks = await _readSse(response.data);
-    return parseChatStream(chunks, onDelta: onDelta);
+    final chunks = await _readSse(
+      response.data,
+      onEvent: (event) {
+        final choices = event['choices'] as List? ?? const [];
+        if (choices.isEmpty) return;
+        final choice = Map<String, dynamic>.from(choices.first as Map);
+        final delta = Map<String, dynamic>.from(
+          choice['delta'] as Map? ?? choice['message'] as Map? ?? const {},
+        );
+        final content = extractText(delta['content']);
+        final reasoning = extractText(delta['reasoning_content']);
+        final part = content.isNotEmpty ? content : reasoning;
+        if (part.isNotEmpty) onDelta?.call(part);
+      },
+    );
+    return parseChatStream(chunks);
   }
 
   Future<AiCompletion> _createResponses(
@@ -258,8 +274,16 @@ class AiApiService {
       options: _options(config, stream: stream),
     );
     if (!stream) return parseResponsesCompletion(response.data);
-    final chunks = await _readSse(response.data);
-    return parseResponsesStream(chunks, onDelta: onDelta);
+    final chunks = await _readSse(
+      response.data,
+      onEvent: (event) {
+        if (event['type'] == 'response.output_text.delta') {
+          final part = event['delta']?.toString() ?? '';
+          if (part.isNotEmpty) onDelta?.call(part);
+        }
+      },
+    );
+    return parseResponsesStream(chunks);
   }
 
   Future<AiCompletion> _createAnthropic(
@@ -286,14 +310,30 @@ class AiApiService {
       options: _options(config, stream: stream),
     );
     if (!stream) return parseAnthropicCompletion(response.data);
-    final chunks = await _readSse(response.data);
-    return parseAnthropicStream(chunks, onDelta: onDelta);
+    final chunks = await _readSse(
+      response.data,
+      onEvent: (event) {
+        if (event['type'] != 'content_block_delta') return;
+        final delta = Map<String, dynamic>.from(
+          event['delta'] as Map? ?? const {},
+        );
+        if (delta['type'] != 'text_delta') return;
+        final part = delta['text']?.toString() ?? '';
+        if (part.isNotEmpty) onDelta?.call(part);
+      },
+    );
+    return parseAnthropicStream(chunks);
   }
 
-  static Future<List<Map<String, dynamic>>> _readSse(dynamic data) async {
+  static Future<List<Map<String, dynamic>>> _readSse(
+    dynamic data, {
+    AiSseEventCallback? onEvent,
+  }) async {
     if (data is! ResponseBody) {
       final decoded = data is String ? jsonDecode(data) : data;
-      return [Map<String, dynamic>.from(decoded as Map? ?? const {})];
+      final event = Map<String, dynamic>.from(decoded as Map? ?? const {});
+      onEvent?.call(event);
+      return [event];
     }
     final result = <Map<String, dynamic>>[];
     await for (final line
@@ -308,10 +348,19 @@ class AiApiService {
         continue;
       }
       try {
-        result.add(Map<String, dynamic>.from(jsonDecode(value) as Map));
+        final event = Map<String, dynamic>.from(jsonDecode(value) as Map);
+        result.add(event);
+        onEvent?.call(event);
       } catch (_) {}
     }
     return result;
+  }
+
+  static Future<List<Map<String, dynamic>>> readSseForTest(
+    Stream<Uint8List> stream, {
+    AiSseEventCallback? onEvent,
+  }) {
+    return _readSse(ResponseBody(stream, 200), onEvent: onEvent);
   }
 
   static AiCompletion parseChatCompletion(dynamic raw) {
@@ -744,15 +793,14 @@ class AiAgent {
         config,
         messages,
         tools: aiToolDefinitions,
-        onDelta: streamedText.write,
+        onDelta: (delta) {
+          streamedText.write(delta);
+          onDelta?.call(delta);
+        },
       );
       messages.add(completion.message);
       if (completion.toolCalls.isEmpty) {
         onToolStatus?.call(const []);
-        final finalText = streamedText.isEmpty
-            ? completion.content
-            : streamedText.toString();
-        if (finalText.isNotEmpty) onDelta?.call(finalText);
         return completion.content;
       }
       onToolStatus?.call(completion.toolCalls);

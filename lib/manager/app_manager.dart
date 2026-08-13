@@ -46,6 +46,13 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
             .applyProfileDebounce(silence: true, force: true);
       }
     });
+    ref.listenManual(disabledProfileIdsProvider, (prev, next) {
+      if (prev != next) {
+        ref
+            .read(setupActionProvider.notifier)
+            .applyProfileDebounce(silence: true, force: true);
+      }
+    });
     ref.listenManual(needUpdateGroupsProvider, (prev, next) {
       if (prev != next) {
         globalState.container
@@ -149,7 +156,7 @@ class AppSidebarContainer extends ConsumerStatefulWidget {
 }
 
 class _AppSidebarContainerState extends ConsumerState<AppSidebarContainer> {
-  bool _isExpanded = false;
+  bool _isExpanded = true;
 
   void _updateSideBarWidth(double contentWidth) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -174,121 +181,125 @@ class _AppSidebarContainerState extends ConsumerState<AppSidebarContainer> {
       return widget.child;
     }
     final currentIndex = navigationState.currentIndex;
+    final railWidth = _isExpanded ? 214.0 : 76.0;
     return SafeArea(
-      minimum: const EdgeInsets.all(16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final groupWidth = constraints.maxWidth > 1408
-              ? 1408.0
-              : constraints.maxWidth;
-          final panelHeight = constraints.maxHeight > 900
-              ? 900.0
-              : constraints.maxHeight;
-          final availableRailHeight = panelHeight - 28;
-          final railHeight = availableRailHeight.clamp(300.0, 620.0).toDouble();
-          final railWidth = _isExpanded ? 196.0 : 72.0;
-          final contentLeft = railWidth + 12;
-          return Center(
-            child: SizedBox(
-              width: groupWidth,
-              height: panelHeight,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    left: contentLeft,
-                    top: 0,
-                    right: 0,
-                    height: panelHeight,
-                    child: AppGlassPanel(
-                      borderRadius: BorderRadius.circular(34),
-                      child: LayoutBuilder(
-                        builder: (_, contentConstraints) {
-                          _updateSideBarWidth(contentConstraints.maxWidth);
-                          return widget.child;
-                        },
-                      ),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: railWidth,
+            margin: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+            padding: EdgeInsets.fromLTRB(
+              _isExpanded ? 12 : 9,
+              18,
+              _isExpanded ? 12 : 9,
+              14,
+            ),
+            decoration: BoxDecoration(
+              color: context.colorScheme.surfaceContainerLowest.withAlpha(218),
+              border: Border.all(
+                color: Theme.brightnessOf(context) == Brightness.dark
+                    ? Colors.white.withAlpha(26)
+                    : Colors.white.withAlpha(205),
+              ),
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: [
+                BoxShadow(
+                  color: context.colorScheme.shadow.withAlpha(18),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _AppCommandBrand(showLabel: _isExpanded),
+                const SizedBox(height: 22),
+                Expanded(
+                  child: ScrollConfiguration(
+                    behavior: HiddenBarScrollBehavior(),
+                    child: ListView.separated(
+                      padding: EdgeInsets.zero,
+                      itemCount: navigationItems.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final item = navigationItems[index];
+                        return _AppRailItem(
+                          item: item,
+                          isSelected: currentIndex == index,
+                          showLabel: _isExpanded,
+                          onPressed: () => _handleToPage(item.label),
+                        );
+                      },
                     ),
                   ),
-                  Positioned(
-                    left: 0,
-                    top: (panelHeight - railHeight) / 2,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      width: railWidth,
-                      height: railHeight,
-                      child: AppGlassPanel(
-                        borderRadius: BorderRadius.circular(36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 10,
-                        ),
-                        child: Column(
-                          children: [
-                            if (system.isMacOS) const SizedBox(height: 8),
-                            if (!system.isMacOS)
-                              Container(
-                                width: 46,
-                                height: 46,
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: context.colorScheme.primary.withAlpha(
-                                    30,
-                                  ),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: const AppIcon(),
-                              ),
-                            const SizedBox(height: 14),
-                            Expanded(
-                              child: ScrollConfiguration(
-                                behavior: HiddenBarScrollBehavior(),
-                                child: ListView.separated(
-                                  padding: EdgeInsets.zero,
-                                  itemCount: navigationItems.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 6),
-                                  itemBuilder: (context, index) {
-                                    final item = navigationItems[index];
-                                    return _AppRailItem(
-                                      item: item,
-                                      isSelected: currentIndex == index,
-                                      showLabel: _isExpanded,
-                                      onPressed: () {
-                                        _handleToPage(item.label);
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Divider(
-                              color: context.colorScheme.outlineVariant
-                                  .withAlpha(100),
-                            ),
-                            const SizedBox(height: 6),
-                            _RailExpandButton(
-                              isExpanded: _isExpanded,
-                              onPressed: () {
-                                setState(() {
-                                  _isExpanded = !_isExpanded;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                ),
+                Divider(color: context.colorScheme.outlineVariant),
+                const SizedBox(height: 8),
+                _RailExpandButton(
+                  isExpanded: _isExpanded,
+                  onPressed: () {
+                    setState(() => _isExpanded = !_isExpanded);
+                  },
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: LayoutBuilder(
+                builder: (_, constraints) {
+                  _updateSideBarWidth(constraints.maxWidth);
+                  return widget.child;
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppCommandBrand extends StatelessWidget {
+  final bool showLabel;
+
+  const _AppCommandBrand({required this.showLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 50,
+      child: Row(
+        children: [
+          const SizedBox(width: 44, height: 44, child: AppIcon()),
+          if (showLabel) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'FlClash',
+                    style: context.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.25,
+                    ),
+                  ),
+                  Text(
+                    'Proxy Control',
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: context.colorScheme.secondary,
+                      fontSize: 10,
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        },
+          ],
+        ],
       ),
     );
   }
@@ -321,11 +332,11 @@ class _AppRailItemState extends State<_AppRailItem> {
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
     final content = SizedBox(
-      height: 48,
+      height: 46,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           onTap: widget.onPressed,
           onHover: (value) {
             if (_isHovered != value) {
@@ -334,68 +345,61 @@ class _AppRailItemState extends State<_AppRailItem> {
               });
             }
           },
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 150),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
-            scale: _isHovered && !widget.isSelected ? 1.06 : 1,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
+            decoration: BoxDecoration(
+              color: widget.isSelected
+                  ? colorScheme.primary.withAlpha(
+                      Theme.brightnessOf(context) == Brightness.dark ? 48 : 25,
+                    )
+                  : _isHovered
+                  ? colorScheme.surfaceContainerHigh.withAlpha(160)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
                 color: widget.isSelected
-                    ? colorScheme.primary
-                    : _isHovered
-                    ? colorScheme.surfaceContainerHighest.withAlpha(180)
+                    ? colorScheme.primary.withAlpha(72)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: widget.isSelected
-                    ? [
-                        BoxShadow(
-                          color: colorScheme.primary.withAlpha(74),
-                          blurRadius: 18,
-                          offset: const Offset(0, 7),
-                        ),
-                      ]
-                    : const [],
               ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: widget.showLabel ? 12 : 0,
-                ),
-                child: Row(
-                  mainAxisAlignment: widget.showLabel
-                      ? MainAxisAlignment.start
-                      : MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      child: IconTheme(
-                        data: IconThemeData(
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.showLabel ? 12 : 0,
+              ),
+              child: Row(
+                mainAxisAlignment: widget.showLabel
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: widget.isSelected
+                            ? colorScheme.primary
+                            : foregroundColor,
+                        size: 22,
+                      ),
+                      child: widget.item.icon,
+                    ),
+                  ),
+                  if (widget.showLabel) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        navigationLabel(widget.item.label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.labelLarge?.copyWith(
                           color: widget.isSelected
-                              ? colorScheme.onPrimary
+                              ? colorScheme.onPrimaryContainer
                               : foregroundColor,
-                          size: 22,
                         ),
-                        child: widget.item.icon,
                       ),
                     ),
-                    if (widget.showLabel) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          navigationLabel(widget.item.label),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.labelLarge?.copyWith(
-                            color: widget.isSelected
-                                ? colorScheme.onPrimary
-                                : foregroundColor,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
             ),
           ),
@@ -425,7 +429,7 @@ class _RailExpandButton extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
             onTap: onPressed,
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: isExpanded ? 12 : 0),

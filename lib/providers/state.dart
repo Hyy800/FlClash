@@ -790,8 +790,13 @@ bool customOverwriteGroupIsValid(
 Future<SetupState> setupState(Ref ref, int? profileId) async {
   final profile = ref.watch(profileProvider(profileId));
   final globalOverwriteProfileId = ref.watch(globalOverwriteProfileIdProvider);
+  final disabledProfileIds = ref.watch(disabledProfileIdsProvider);
   final globalOverwriteProfile = ref.watch(
-    profileProvider(globalOverwriteProfileId),
+    profileProvider(
+      disabledProfileIds.contains(globalOverwriteProfileId)
+          ? null
+          : globalOverwriteProfileId,
+    ),
   );
   final overwriteProfile = globalOverwriteProfile ?? profile;
   final overwriteProfileId = overwriteProfile?.id;

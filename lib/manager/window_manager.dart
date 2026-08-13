@@ -30,9 +30,7 @@ class _WindowContainerState extends ConsumerState<WindowManager>
     super.initState();
     ref.listenManual(currentBrightnessProvider, (_, next) {
       if (system.isWindows) {
-        windowExtManager.setWindowBrightness(
-          dark: next == Brightness.dark,
-        );
+        windowExtManager.setWindowBrightness(dark: next == Brightness.dark);
       }
     }, fireImmediately: true);
     ref.listenManual(appSettingProvider.select((state) => state.autoLaunch), (
@@ -112,14 +110,49 @@ class _WindowContainerState extends ConsumerState<WindowManager>
   }
 }
 
-class WindowHeaderContainer extends StatelessWidget {
+class WindowHeaderContainer extends StatefulWidget {
   final Widget child;
 
   const WindowHeaderContainer({super.key, required this.child});
 
   @override
+  State<WindowHeaderContainer> createState() => _WindowHeaderContainerState();
+}
+
+class _WindowHeaderContainerState extends State<WindowHeaderContainer>
+    with WindowListener {
+  bool _isMaximized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (system.isWindows) {
+      windowManager.addListener(this);
+      windowManager.isMaximized().then((value) {
+        if (mounted) setState(() => _isMaximized = value);
+      });
+    }
+  }
+
+  @override
+  void onWindowMaximize() {
+    if (mounted) setState(() => _isMaximized = true);
+  }
+
+  @override
+  void onWindowUnmaximize() {
+    if (mounted) setState(() => _isMaximized = false);
+  }
+
+  @override
+  void dispose() {
+    if (system.isWindows) windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer(
+    final content = Consumer(
       builder: (_, ref, child) {
         final isMobileView = ref.watch(isMobileViewProvider);
         final version = ref.watch(versionProvider);
@@ -138,7 +171,26 @@ class WindowHeaderContainer extends StatelessWidget {
           ],
         );
       },
-      child: child,
+      child: widget.child,
+    );
+    if (!system.isWindows) return content;
+    final radius = _isMaximized ? BorderRadius.zero : BorderRadius.circular(12);
+    return ColoredBox(
+      color: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: context.colorScheme.surface,
+            borderRadius: radius,
+            border: _isMaximized
+                ? null
+                : Border.all(color: context.colorScheme.outlineVariant),
+          ),
+          child: content,
+        ),
+      ),
     );
   }
 }
@@ -176,14 +228,8 @@ class _WindowHeaderState extends State<WindowHeader> {
     final isMaximized = await windowManager.isMaximized();
     if (isMaximized) {
       await windowManager.unmaximize();
-      if (system.isWindows) {
-        windowExtManager.setWindowCornerPreference(round: true);
-      }
     } else {
       await windowManager.maximize();
-      if (system.isWindows) {
-        windowExtManager.setWindowCornerPreference(round: false);
-      }
     }
     final res = await windowManager.isMaximized();
     if (mounted) {
@@ -198,58 +244,70 @@ class _WindowHeaderState extends State<WindowHeader> {
   }
 
   Widget _buildActions() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () async {
-            _updatePin();
-          },
-          icon: ValueListenableBuilder(
-            valueListenable: isPinNotifier,
-            builder: (_, value, _) {
-              return value
-                  ? const Icon(Icons.push_pin)
-                  : const Icon(Icons.push_pin_outlined);
-            },
+    return Theme(
+      data: Theme.of(context).copyWith(
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: context.colorScheme.onSurfaceVariant,
+            hoverColor: context.colorScheme.primary.withAlpha(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
-        IconButton(
-          onPressed: () {
-            windowManager.minimize();
-          },
-          icon: const Icon(Icons.remove),
-        ),
-        IconButton(
-          onPressed: () async {
-            _updateMaximized();
-          },
-          icon: ValueListenableBuilder(
-            valueListenable: isMaximizedNotifier,
-            builder: (_, value, _) {
-              return value
-                  ? const Icon(Icons.filter_none, size: 20)
-                  : const Icon(Icons.crop_square);
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () async {
+              _updatePin();
             },
+            icon: ValueListenableBuilder(
+              valueListenable: isPinNotifier,
+              builder: (_, value, _) {
+                return value
+                    ? const Icon(Icons.push_pin)
+                    : const Icon(Icons.push_pin_outlined);
+              },
+            ),
           ),
-        ),
-        IconButton(
-          onPressed: () {
-            globalState.container
-                .read(systemActionProvider.notifier)
-                .handleClose();
-          },
-          icon: const Icon(Icons.close),
-        ),
-        // const SizedBox(
-        //   width: 8,
-        // ),
-      ],
+          IconButton(
+            onPressed: () {
+              windowManager.minimize();
+            },
+            icon: const Icon(Icons.remove),
+          ),
+          IconButton(
+            onPressed: () async {
+              _updateMaximized();
+            },
+            icon: ValueListenableBuilder(
+              valueListenable: isMaximizedNotifier,
+              builder: (_, value, _) {
+                return value
+                    ? const Icon(Icons.filter_none, size: 20)
+                    : const Icon(Icons.crop_square);
+              },
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              globalState.container
+                  .read(systemActionProvider.notifier)
+                  .handleClose();
+            },
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Material(
+      color: Colors.transparent,
       child: Stack(
         alignment: AlignmentDirectional.center,
         children: [
@@ -262,7 +320,7 @@ class _WindowHeaderState extends State<WindowHeader> {
                 _updateMaximized();
               },
               child: Container(
-                color: context.colorScheme.secondary.opacity15,
+                color: context.colorScheme.surfaceContainerLow.withAlpha(196),
                 alignment: Alignment.centerLeft,
                 height: kHeaderHeight,
               ),
@@ -284,32 +342,10 @@ class AppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: context.colorScheme.primary.withAlpha(70),
-        ),
-          borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            context.colorScheme.primaryContainer,
-            context.colorScheme.tertiaryContainer,
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: context.colorScheme.primary.withAlpha(35),
-              blurRadius: 12,
-              offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-        padding: const EdgeInsets.all(7),
-      child: Transform.translate(
-        offset: const Offset(0, -1),
-          child: Image.asset('assets/images/icon.png', width: 28, height: 28),
+    return SizedBox.expand(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.asset('assets/images/icon.png', fit: BoxFit.cover),
       ),
     );
   }

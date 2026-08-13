@@ -178,7 +178,7 @@ class CommonCard extends StatelessWidget {
           colorScheme.surfaceContainerHigh,
         );
       }
-      return colorScheme.surfaceContainerLow;
+      return colorScheme.surfaceContainerLow.withAlpha(220);
     }
     if (isSelected) {
       return Color.alphaBlend(
@@ -186,7 +186,7 @@ class CommonCard extends StatelessWidget {
         colorScheme.surfaceContainerLow,
       );
     }
-    return colorScheme.surfaceContainerLow;
+    return colorScheme.surfaceContainerLow.withAlpha(220);
   }
 
   Color? _buildForegroundColor(BuildContext context) {
@@ -238,12 +238,12 @@ class CommonCard extends StatelessWidget {
       childWidget = Stack(children: children);
     }
 
-    final colorScheme = context.colorScheme;
-    final cardShape = (shape ??
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radius ?? 20),
-            ))
-        .copyWith(side: _buildBorderSide(context, const <WidgetState>{}));
+    final cardShape =
+        (shape ??
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(radius ?? 14),
+                ))
+            .copyWith(side: _buildBorderSide(context, const <WidgetState>{}));
     final backgroundColor = _buildBackgroundColor(context)!;
     final foregroundColor = _buildForegroundColor(context)!;
     final card = AnimatedContainer(
@@ -252,16 +252,7 @@ class CommonCard extends StatelessWidget {
       decoration: ShapeDecoration(
         color: backgroundColor,
         shape: cardShape,
-        shadows: isSelected
-            ? [
-                BoxShadow(
-                  color: colorScheme.primary.withAlpha(30),
-                  blurRadius: 12,
-                  spreadRadius: -3,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : const [],
+        shadows: const [],
       ),
       child: Material(
         color: Colors.transparent,

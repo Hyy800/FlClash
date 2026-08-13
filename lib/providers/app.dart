@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/features/overwrite/rule_usage.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/services.dart';
@@ -55,6 +56,27 @@ class Requests extends _$Requests with AutoDisposeNotifierMixin {
 
   void addRequest(TrackerInfo value) {
     this.value = state.copyWith()..add(value);
+  }
+}
+
+@Riverpod(keepAlive: true)
+class RuleUsages extends _$RuleUsages with AutoDisposeNotifierMixin {
+  final RuleUsageAccumulator _accumulator = RuleUsageAccumulator();
+
+  @override
+  Map<int, RuleUsage> build() => const {};
+
+  void sample(List<Rule> rules, List<TrackerInfo> connections) {
+    value = _accumulator.sample(
+      rules: rules,
+      connections: connections,
+      now: DateTime.now(),
+    );
+  }
+
+  void clear() {
+    _accumulator.clear();
+    value = const {};
   }
 }
 

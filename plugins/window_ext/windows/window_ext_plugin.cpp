@@ -100,10 +100,6 @@ std::optional<LRESULT> WindowExtPlugin::HandleWindowProc(HWND hWnd,
       return result;
     }
   }
-  if (message == WM_SIZE && use_region_rounding_ &&
-      wParam != SIZE_MINIMIZED) {
-    UpdateWindowRegion(hWnd);
-  }
   return result;
 }
 
@@ -165,34 +161,15 @@ void WindowExtPlugin::EnableFramelessWindow(HWND hwnd) {
   SetWindowLongPtr(hwnd, GWL_STYLE, style);
   frameless_ = true;
 
+  // Remove the DWM outline before the first Flutter frame is presented.
+  const COLORREF no_border = DWMWA_COLOR_NONE;
+  DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &no_border,
+                        sizeof(no_border));
+
   SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
                    SWP_NOACTIVATE);
 }
-
-void WindowExtPlugin::UpdateWindowRegion(HWND hwnd) {
-  if (!use_region_rounding_) {
-    return;
-  }
-  if (!round_requested_ || IsZoomed(hwnd)) {
-    SetWindowRgn(hwnd, nullptr, TRUE);
-    return;
-  }
-  RECT rect{};
-  if (!GetWindowRect(hwnd, &rect)) {
-    return;
-  }
-  const int width = rect.right - rect.left;
-  const int height = rect.bottom - rect.top;
-  const UINT dpi = GetDpiForWindow(hwnd);
-  const int diameter = MulDiv(24, dpi == 0 ? 96 : dpi, 96);
-  HRGN region = CreateRoundRectRgn(0, 0, width + 1, height + 1,
-                                   diameter, diameter);
-  if (region != nullptr && SetWindowRgn(hwnd, region, TRUE) == 0) {
-    DeleteObject(region);
-  }
-}
-
 
 void WindowExtPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
@@ -226,17 +203,10 @@ void WindowExtPlugin::HandleMethodCall(
           const HRESULT status = DwmSetWindowAttribute(
               hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, &preference,
               sizeof(preference));
-          round_requested_ = round;
-          if (FAILED(status)) {
-            // Windows 10 does not expose DWMWA_WINDOW_CORNER_PREFERENCE.
-            // Fall back to a DPI-aware native window region and keep it in
-            // sync while the window is resized.
-            use_region_rounding_ = true;
-            UpdateWindowRegion(hWnd);
-          } else if (use_region_rounding_) {
-            SetWindowRgn(hWnd, nullptr, TRUE);
-            use_region_rounding_ = false;
-          }
+          static_cast<void>(status);
+          // Window content is clipped by Flutter on Windows 10 and 11. The
+          // HWND stays rectangular so native regions and DWM never disagree.
+          SetWindowRgn(hWnd, nullptr, TRUE);
         }
       }
     }
@@ -256,7 +226,7 @@ void WindowExtPlugin::HandleMethodCall(
             hWnd, DWMWA_BORDER_COLOR, &no_border, sizeof(no_border));
         if (FAILED(border_status)) {
           const COLORREF fallback_border =
-              dark ? RGB(23, 23, 20) : RGB(243, 238, 230);
+              dark ? RGB(12, 17, 27) : RGB(242, 245, 250);
           DwmSetWindowAttribute(hWnd, DWMWA_BORDER_COLOR, &fallback_border,
                                 sizeof(fallback_border));
         }

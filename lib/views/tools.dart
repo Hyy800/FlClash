@@ -47,44 +47,36 @@ class _ToolViewState extends ConsumerState<ToolsView> {
 
   Widget _buildNavigationMenu(List<NavigationItem> navigationItems) {
     return Column(
-      children: [
-        for (final navigationItem in navigationItems) ...[
-          _buildNavigationMenuItem(navigationItem),
-          navigationItems.last != navigationItem
-              ? const Divider(height: 0)
-              : Container(),
-        ],
-      ],
+      children: navigationItems.map(_buildNavigationMenuItem).toList(),
     );
   }
 
   List<Widget> _getOtherList(bool enableDeveloperMode) {
-    return generateSection(
-      title: context.appLocalizations.other,
-      items: [
-        const _DisclaimerItem(),
-        if (enableDeveloperMode) const _DeveloperItem(),
-        const _InfoItem(),
-      ],
-    );
+    return [
+      const _DisclaimerItem(),
+      if (enableDeveloperMode) const _DeveloperItem(),
+      const _InfoItem(),
+    ];
   }
 
   List<Widget> _getSettingList() {
-    return generateSection(
-      title: context.appLocalizations.settings,
-      items: [
-        const _LocaleItem(),
-        const _ThemeItem(),
-        const _DnsItem(),
-        const _BackupItem(),
-        if (system.isDesktop) const _HotkeyItem(),
-        if (system.isWindows) const _LoopbackItem(),
-        if (system.isAndroid) const _AccessItem(),
-        const _ConfigItem(),
-        const _AdvancedConfigItem(),
-        const _SettingItem(),
-      ],
-    );
+    return [
+      const _LocaleItem(),
+      const _ThemeItem(),
+      const _BackupItem(),
+      if (system.isDesktop) const _HotkeyItem(),
+    ];
+  }
+
+  List<Widget> _getNetworkList() {
+    return [
+      const _DnsItem(),
+      if (system.isWindows) const _LoopbackItem(),
+      if (system.isAndroid) const _AccessItem(),
+      const _ConfigItem(),
+      const _AdvancedConfigItem(),
+      const _SettingItem(),
+    ];
   }
 
   @override
@@ -94,31 +86,44 @@ class _ToolViewState extends ConsumerState<ToolsView> {
         (state) => VM2(state.locale, state.developerMode),
       ),
     );
-    final items = [
-      Consumer(
-        builder: (_, ref, _) {
-          final state = ref.watch(moreToolsSelectorStateProvider);
-          if (state.navigationItems.isEmpty) {
-            return Container();
-          }
-          return Column(
-            children: [
-              ListHeader(title: context.appLocalizations.more),
-              _buildNavigationMenu(state.navigationItems),
-            ],
-          );
-        },
-      ),
-      ..._getSettingList(),
-      ..._getOtherList(vm2.b),
-    ];
+    final moreTools = ref.watch(moreToolsSelectorStateProvider).navigationItems;
     return CommonScaffold(
       title: context.appLocalizations.tools,
-      body: ListView.builder(
+      body: SettingsPageLayout(
         key: toolsStoreKey,
-        itemCount: items.length,
-        itemBuilder: (_, index) => items[index],
-        padding: const EdgeInsets.only(bottom: 20),
+        children: [
+          SettingsResponsiveGrid(
+            children: [
+              SettingsSection(
+                title: context.appLocalizations.settings,
+                description: context.appLocalizations.themeDesc,
+                icon: Icons.dashboard_customize_outlined,
+                margin: EdgeInsets.zero,
+                children: _getSettingList(),
+              ),
+              SettingsSection(
+                title: context.appLocalizations.network,
+                description: context.appLocalizations.networkDesc,
+                icon: Icons.hub_outlined,
+                margin: EdgeInsets.zero,
+                children: _getNetworkList(),
+              ),
+              if (moreTools.isNotEmpty)
+                SettingsSection(
+                  title: context.appLocalizations.more,
+                  icon: Icons.extension_outlined,
+                  margin: EdgeInsets.zero,
+                  children: [_buildNavigationMenu(moreTools)],
+                ),
+              SettingsSection(
+                title: context.appLocalizations.other,
+                icon: Icons.info_outline,
+                margin: EdgeInsets.zero,
+                children: _getOtherList(vm2.b),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

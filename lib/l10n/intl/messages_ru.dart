@@ -140,6 +140,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Модель вернула пустой ответ",
     ),
     "aiInputHint": MessageLookupByLibrary.simpleMessage("Введите ваш запрос"),
+    "allTargets": MessageLookupByLibrary.simpleMessage("Все"),
     "allowBypass": MessageLookupByLibrary.simpleMessage(
       "Разрешить приложениям обходить VPN",
     ),
@@ -456,7 +457,10 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("Код Geoip"),
     "global": MessageLookupByLibrary.simpleMessage("Глобальный"),
-    "globalRules": MessageLookupByLibrary.simpleMessage("Глобальные правила"),
+    "globalRules": MessageLookupByLibrary.simpleMessage("Правила"),
+    "globalRulesDesc": MessageLookupByLibrary.simpleMessage(
+      "Встроенный JavaScript объединяет правила с каждым профилем и находит отсутствующие цели в глобальном пуле узлов.",
+    ),
     "go": MessageLookupByLibrary.simpleMessage("Перейти"),
     "goDownload": MessageLookupByLibrary.simpleMessage("Перейти к загрузке"),
     "goToConfigureScript": MessageLookupByLibrary.simpleMessage(
@@ -540,6 +544,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "justNow": MessageLookupByLibrary.simpleMessage("Только что"),
     "keepAliveIntervalDesc": MessageLookupByLibrary.simpleMessage(
       "Интервал поддержания TCP-соединения",
+    ),
+    "keepOneProfileEnabled": MessageLookupByLibrary.simpleMessage(
+      "Оставьте включённым хотя бы один профиль",
     ),
     "key": MessageLookupByLibrary.simpleMessage("Ключ"),
     "language": MessageLookupByLibrary.simpleMessage("Язык"),
@@ -976,6 +983,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "ruleProviders": MessageLookupByLibrary.simpleMessage("Провайдеры правил"),
     "ruleSet": MessageLookupByLibrary.simpleMessage("Набор правил"),
     "ruleTarget": MessageLookupByLibrary.simpleMessage("Цель правила"),
+    "ruleTargetUnavailable": MessageLookupByLibrary.simpleMessage(
+      "Недоступно в этом профиле",
+    ),
     "save": MessageLookupByLibrary.simpleMessage("Сохранить"),
     "saveChanges": MessageLookupByLibrary.simpleMessage("Сохранить изменения?"),
     "script": MessageLookupByLibrary.simpleMessage("Скрипт"),
@@ -992,6 +1002,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "selectRuleSet": MessageLookupByLibrary.simpleMessage(
       "Пожалуйста, выберите набор правил",
+    ),
+    "selectRuleTarget": MessageLookupByLibrary.simpleMessage(
+      "Выбрать цель маршрутизации",
     ),
     "selectSplitStrategy": MessageLookupByLibrary.simpleMessage(
       "Пожалуйста, выберите стратегию разделения",

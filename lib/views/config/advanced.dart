@@ -3,8 +3,7 @@ import 'package:fl_clash/views/config/dns.dart';
 import 'package:fl_clash/views/config/network.dart';
 import 'package:fl_clash/views/config/on_demand.dart';
 import 'package:fl_clash/views/config/scripts.dart';
-import 'package:fl_clash/widgets/list.dart';
-import 'package:fl_clash/widgets/scaffold.dart';
+import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
 class AdvancedConfigView extends StatelessWidget {
@@ -47,8 +46,15 @@ class AdvancedConfigView extends StatelessWidget {
     ];
     return BaseScaffold(
       title: appLocalizations.advancedConfig,
-      body: generateListView(
-        items.separated(const Divider(height: 0)).toList(),
+      body: SettingsPageLayout(
+        children: [
+          SettingsSection(
+            title: appLocalizations.advancedConfig,
+            description: appLocalizations.advancedConfigDesc,
+            icon: Icons.settings_input_component_outlined,
+            children: items,
+          ),
+        ],
       ),
     );
   }

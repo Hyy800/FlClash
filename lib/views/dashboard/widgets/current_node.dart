@@ -69,7 +69,7 @@ class CurrentNode extends ConsumerWidget {
     final hasNode = currentNode.nodeName.isNotEmpty;
 
     return SizedBox(
-      height: getWidgetHeight(1),
+      height: getWidgetHeight(1) + 26.ap,
       child: CommonCard(
         onPressed: hasNode && mode != Mode.direct
             ? () {
@@ -83,9 +83,9 @@ class CurrentNode extends ConsumerWidget {
           iconData: Icons.hub_rounded,
         ),
         child: Padding(
-          padding: baseInfoEdgeInsets.copyWith(top: 2, bottom: 12),
+          padding: baseInfoEdgeInsets.copyWith(top: 8, bottom: 14),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
@@ -97,7 +97,11 @@ class CurrentNode extends ConsumerWidget {
                         : context.appLocalizations.noData,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.toLight.adjustSize(1),
+                    style: context.textTheme.titleMedium?.copyWith(
+                      color: context.colorScheme.onSurface,
+                      fontFamily: FontFamily.jetBrainsMono.value,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),

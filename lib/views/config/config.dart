@@ -10,7 +10,16 @@ class ConfigView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BaseScaffold(
       title: context.appLocalizations.basicConfig,
-      body: generateListView(generalItems),
+      body: SettingsPageLayout(
+        children: [
+          SettingsSection(
+            title: context.appLocalizations.basicConfig,
+            description: context.appLocalizations.basicConfigDesc,
+            icon: Icons.tune,
+            children: generalItems.where((item) => item is! Divider).toList(),
+          ),
+        ],
+      ),
     );
   }
 }

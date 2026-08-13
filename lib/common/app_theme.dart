@@ -10,39 +10,53 @@ abstract final class AppTheme {
     final surface = isDark
         ? pureBlack
               ? const Color(0xFF000000)
-              : const Color(0xFF1B1B18)
-        : const Color(0xFFF3EFE8);
+              : const Color(0xFF0C111B)
+        : const Color(0xFFE9EFF7);
     final scheme = baseScheme.copyWith(
+      primary: isDark ? const Color(0xFF64A8FF) : const Color(0xFF0A84FF),
+      onPrimary: isDark ? const Color(0xFF001A41) : Colors.white,
+      primaryContainer: isDark
+          ? const Color(0xFF173A63)
+          : const Color(0xFFD8EBFF),
+      onPrimaryContainer: isDark
+          ? const Color(0xFFDCE8FF)
+          : const Color(0xFF082B68),
+      secondary: isDark ? const Color(0xFF78D7FF) : const Color(0xFF007AFF),
+      tertiary: isDark ? const Color(0xFFFFD479) : const Color(0xFFFF9F0A),
       surface: surface,
       surfaceContainerLowest: isDark
           ? pureBlack
                 ? const Color(0xFF000000)
-                : const Color(0xFF171714)
-          : const Color(0xFFFBF8F2),
+                : const Color(0xFF090E17)
+          : const Color(0xFFF8FAFD),
       surfaceContainerLow: isDark
           ? pureBlack
                 ? const Color(0xFF070707)
-                : const Color(0xFF20201D)
-          : const Color(0xFFF7F3EC),
+                : const Color(0xFF111823)
+          : const Color(0xFFF1F5FA),
       surfaceContainer: isDark
           ? pureBlack
                 ? const Color(0xFF0B0B0B)
-                : const Color(0xFF262622)
-          : const Color(0xFFF0EBE3),
+                : const Color(0xFF17202D)
+          : const Color(0xFFE5ECF5),
       surfaceContainerHigh: isDark
           ? pureBlack
                 ? const Color(0xFF101010)
-                : const Color(0xFF2D2D28)
-          : const Color(0xFFE8E1D7),
+                : const Color(0xFF202B3A)
+          : const Color(0xFFD8E2EF),
       surfaceContainerHighest: isDark
           ? pureBlack
                 ? const Color(0xFF171717)
-                : const Color(0xFF363630)
-          : const Color(0xFFDED5C9),
-      outline: isDark ? const Color(0xFF908B80) : const Color(0xFF756F66),
+                : const Color(0xFF2A3748)
+          : const Color(0xFFC9D6E6),
+      onSurface: isDark ? const Color(0xFFF3F7FC) : const Color(0xFF172235),
+      onSurfaceVariant: isDark
+          ? const Color(0xFFB2C0D2)
+          : const Color(0xFF536278),
+      outline: isDark ? const Color(0xFF73849B) : const Color(0xFF69798E),
       outlineVariant: isDark
-          ? const Color(0xFF555148)
-          : const Color(0xFFC4B9AB),
+          ? const Color(0xFF334155)
+          : const Color(0xFFBCC9D9),
       shadow: const Color(0xFF000000),
       scrim: const Color(0xFF000000),
     );
@@ -51,7 +65,7 @@ abstract final class AppTheme {
       brightness: scheme.brightness,
       colorScheme: scheme,
       pageTransitionsTheme: pageTransitionsTheme,
-      visualDensity: VisualDensity.standard,
+      visualDensity: VisualDensity.compact,
     );
     final textTheme = baseTheme.textTheme
         .copyWith(
@@ -95,10 +109,10 @@ abstract final class AppTheme {
         )
         .apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
     final controlShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(10),
     );
     final panelShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(14),
     );
 
     return baseTheme.copyWith(
@@ -110,7 +124,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        toolbarHeight: 78,
+        toolbarHeight: 60,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
@@ -132,11 +146,11 @@ abstract final class AppTheme {
       iconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 22),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          minimumSize: const Size(44, 44),
+          minimumSize: const Size(38, 38),
           foregroundColor: scheme.onSurfaceVariant,
           backgroundColor: scheme.surfaceContainerHigh.withAlpha(150),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
       ),
@@ -163,9 +177,7 @@ abstract final class AppTheme {
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           textStyle: textTheme.labelLarge,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
+          shape: controlShape,
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -175,7 +187,7 @@ abstract final class AppTheme {
         highlightElevation: 0,
         backgroundColor: scheme.primaryContainer,
         foregroundColor: scheme.onPrimaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -186,42 +198,42 @@ abstract final class AppTheme {
         ),
         border: OutlineInputBorder(
           borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
         ),
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: scheme.outlineVariant.withAlpha(130)),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
         ),
         focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
       chipTheme: baseTheme.chipTheme.copyWith(
         side: BorderSide(color: scheme.outlineVariant),
         backgroundColor: scheme.surfaceContainerHigh.withAlpha(170),
         selectedColor: scheme.primaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         labelStyle: textTheme.labelMedium,
       ),
       listTileTheme: ListTileThemeData(
         iconColor: scheme.onSurfaceVariant,
         textColor: scheme.onSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-        minTileHeight: 58,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        minTileHeight: 52,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       dialogTheme: DialogThemeData(
         elevation: 0,
         backgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       popupMenuTheme: PopupMenuThemeData(
         elevation: 3,
         color: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       menuTheme: MenuThemeData(
         style: MenuStyle(
@@ -229,7 +241,7 @@ abstract final class AppTheme {
           backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerLow),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
         ),
       ),
@@ -240,7 +252,7 @@ abstract final class AppTheme {
         modalBackgroundColor: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -250,7 +262,7 @@ abstract final class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: scheme.onInverseSurface,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 68,
@@ -259,7 +271,7 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         indicatorColor: scheme.primaryContainer,
         indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(13),
         ),
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelSmall),
       ),
@@ -271,7 +283,7 @@ abstract final class AppTheme {
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: scheme.inverseSurface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         textStyle: textTheme.labelMedium?.copyWith(
           color: scheme.onInverseSurface,

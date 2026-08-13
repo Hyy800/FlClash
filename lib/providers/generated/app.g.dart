@@ -165,6 +165,58 @@ abstract class _$Requests extends $Notifier<FixedList<TrackerInfo>> {
   }
 }
 
+@ProviderFor(RuleUsages)
+final ruleUsagesProvider = RuleUsagesProvider._();
+
+final class RuleUsagesProvider
+    extends $NotifierProvider<RuleUsages, Map<int, RuleUsage>> {
+  RuleUsagesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'ruleUsagesProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$ruleUsagesHash();
+
+  @$internal
+  @override
+  RuleUsages create() => RuleUsages();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Map<int, RuleUsage> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Map<int, RuleUsage>>(value),
+    );
+  }
+}
+
+String _$ruleUsagesHash() => r'81d862e812a21187c9beb0bc02d0e346dfb06579';
+
+abstract class _$RuleUsages extends $Notifier<Map<int, RuleUsage>> {
+  Map<int, RuleUsage> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<Map<int, RuleUsage>, Map<int, RuleUsage>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Map<int, RuleUsage>, Map<int, RuleUsage>>,
+              Map<int, RuleUsage>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(Providers)
 final providersProvider = ProvidersProvider._();
 

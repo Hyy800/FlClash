@@ -43,10 +43,10 @@ class Window {
       await windowManager.setPreventClose(true);
       if (system.isWindows) {
         await windowExtManager.setFramelessWindow();
-        await windowExtManager.setWindowCornerPreference(round: true);
+        await windowExtManager.setWindowCornerPreference(round: false);
         await windowExtManager.setWindowBrightness(
-          dark: WidgetsBinding
-                  .instance.platformDispatcher.platformBrightness ==
+          dark:
+              WidgetsBinding.instance.platformDispatcher.platformBrightness ==
               Brightness.dark,
         );
       }

@@ -10,61 +10,34 @@ class AppBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
-    return RepaintBoundary(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? const [
-                        Color(0xFF171714),
-                        Color(0xFF1C1C19),
-                        Color(0xFF151613),
-                      ]
-                    : const [
-                        Color(0xFFF3EEE6),
-                        Color(0xFFE8E1D7),
-                        Color(0xFFEEF0ED),
-                      ],
-              ),
+    return ColoredBox(
+      color: colorScheme.surface,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0.72, -0.84),
+            radius: 1.25,
+            colors: [
+              colorScheme.primary.withAlpha(isDark ? 48 : 38),
+              colorScheme.secondary.withAlpha(isDark ? 20 : 18),
+              Colors.transparent,
+            ],
+            stops: const [0, 0.34, 1],
+          ),
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(-0.9, 0.96),
+              radius: 1.05,
+              colors: [
+                colorScheme.tertiary.withAlpha(isDark ? 22 : 16),
+                Colors.transparent,
+              ],
             ),
           ),
-          IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(-0.82, -0.78),
-                  radius: 0.92,
-                  colors: [
-                    const Color(0xFFD99B5E).withAlpha(isDark ? 26 : 58),
-                    Colors.transparent,
-                  ],
-                  stops: const [0, 0.86],
-                ),
-              ),
-            ),
-          ),
-          IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0.92, 0.82),
-                  radius: 0.78,
-                  colors: [
-                    colorScheme.primary.withAlpha(isDark ? 26 : 34),
-                    Colors.transparent,
-                  ],
-                  stops: const [0, 0.9],
-                ),
-              ),
-            ),
-          ),
-          child,
-        ],
+          child: child,
+        ),
       ),
     );
   }
@@ -79,7 +52,7 @@ class AppGlassPanel extends StatelessWidget {
     super.key,
     required this.child,
     this.padding,
-    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(22)),
   });
 
   @override
@@ -89,15 +62,16 @@ class AppGlassPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(
-          color: colorScheme.outlineVariant.withAlpha(isDark ? 105 : 125),
+          color: isDark
+              ? Colors.white.withAlpha(28)
+              : colorScheme.outlineVariant.withAlpha(150),
         ),
         borderRadius: borderRadius,
-        color: colorScheme.surfaceContainerLow.withAlpha(isDark ? 238 : 232),
+        color: colorScheme.surfaceContainerLowest.withAlpha(isDark ? 210 : 242),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withAlpha(isDark ? 42 : 24),
+            color: colorScheme.shadow.withAlpha(isDark ? 40 : 14),
             blurRadius: 24,
-            spreadRadius: -4,
             offset: const Offset(0, 8),
           ),
         ],

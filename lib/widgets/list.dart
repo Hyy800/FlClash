@@ -294,24 +294,20 @@ class ListItem<T> extends StatelessWidget {
           onTap: onTap,
           trailing: trailing ?? this.trailing,
           contentPadding: padding,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
         );
         if (CommonCardScope.isInside(context)) {
           return KeyedSubtree(key: key, child: listTile);
         }
         return Padding(
           key: key,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 3),
           child: Material(
-            color: color ?? colorScheme.surfaceContainerLow.withAlpha(225),
+            color: color ?? colorScheme.surfaceContainerLowest,
             clipBehavior: Clip.antiAlias,
-            shape: RoundedSuperellipseBorder(
-              side: BorderSide(
-                color: colorScheme.outlineVariant.withAlpha(85),
-              ),
-              borderRadius: BorderRadius.circular(12),
+            shape: RoundedRectangleBorder(
+              side: BorderSide(color: colorScheme.outlineVariant.withAlpha(85)),
+              borderRadius: BorderRadius.circular(7),
             ),
             child: listTile,
           ),

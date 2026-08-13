@@ -4,7 +4,9 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:fl_clash/features/overwrite/rule.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -108,12 +110,27 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     );
   }
 
+  ({RuleAction action, String content})? _getProcessRuleSource(
+    TrackerInfo trackerInfo,
+  ) {
+    final processPath = trackerInfo.metadata.processPath.trim();
+    if (processPath.isNotEmpty) {
+      return (action: RuleAction.PROCESS_PATH, content: processPath);
+    }
+    final process = trackerInfo.metadata.process.trim();
+    if (process.isNotEmpty) {
+      return (action: RuleAction.PROCESS_NAME, content: process);
+    }
+    return null;
+  }
+
   Future<void> _showRequestMenu(
     Offset globalPosition,
     TrackerInfo trackerInfo,
   ) async {
     final source = _getRuleSource(trackerInfo);
-    if (source == null) return;
+    final processSource = _getProcessRuleSource(trackerInfo);
+    if (source == null && processSource == null) return;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final position = overlay.globalToLocal(globalPosition);
     final action = await showMenu<String>(
@@ -130,47 +147,73 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
         overlay.size.height - position.dy,
       ),
       items: [
-        PopupMenuItem(
-          value: 'add_rule',
-          child: Row(
-            children: [
-              const Icon(Icons.add_road_rounded),
-              const SizedBox(width: 10),
-              Text(context.appLocalizations.addRule),
-            ],
+        if (processSource != null)
+          PopupMenuItem(
+            value: 'add_process_rule',
+            child: Row(
+              children: [
+                const Icon(Icons.apps_rounded),
+                const SizedBox(width: 10),
+                Text(context.appLocalizations.application),
+              ],
+            ),
           ),
-        ),
+        if (source != null)
+          PopupMenuItem(
+            value: 'add_address_rule',
+            child: Row(
+              children: [
+                const Icon(Icons.language_rounded),
+                const SizedBox(width: 10),
+                Text(context.appLocalizations.address),
+              ],
+            ),
+          ),
       ],
     );
-    if (action != 'add_rule' || !mounted) return;
-    await _showAddRoutingRule(source);
+    if (!mounted) return;
+    if (action == 'add_process_rule' && processSource != null) {
+      await _showAddRoutingRule(processSource);
+    } else if (action == 'add_address_rule' && source != null) {
+      await _showAddRoutingRule(source);
+    }
   }
 
   Future<void> _showAddRoutingRule(
     ({RuleAction action, String content}) source,
   ) async {
-    final profileId = ref.read(currentProfileIdProvider);
-    final targets = <String>{
-      ...RuleTarget.baseTargets,
-      ...ref.read(currentGroupsStateProvider).value.map((group) => group.name),
-    }.toList();
-    final draft = await showDialog<_RoutingRuleDraft>(
-      context: context,
-      builder: (context) =>
-          _AddRoutingRuleDialog(content: source.content, targets: targets),
+    final rule = await globalState.showCommonDialog<Rule>(
+      child: AddOrEditRuleDialog(
+        initialAction: source.action,
+        initialContent: source.content,
+      ),
     );
-    if (draft == null || !mounted) return;
-    final rule = Rule(
-      id: snowflake.id,
-      ruleAction: source.action,
-      content: source.content,
-      ruleTarget: draft.target,
-    );
-    if (profileId == null) return;
-    ref.read(profileAddedRulesProvider(profileId).notifier).put(rule);
-    ref
-        .read(setupActionProvider.notifier)
-        .applyProfileDebounce(silence: true, force: true);
+    if (rule == null || !mounted) return;
+    final previousRules = ref.read(globalRulesProvider);
+    final rules = [...ref.read(globalRulesProvider)];
+    if (rule.ruleAction == RuleAction.PROCESS_PATH ||
+        rule.ruleAction == RuleAction.PROCESS_NAME) {
+      rules.insert(0, rule);
+    } else {
+      final processRuleEnd = rules.indexWhere(
+        (item) =>
+            item.ruleAction != RuleAction.PROCESS_PATH &&
+            item.ruleAction != RuleAction.PROCESS_NAME,
+      );
+      rules.insert(processRuleEnd < 0 ? rules.length : processRuleEnd, rule);
+    }
+    ref.read(globalRulesProvider.notifier).value = List.unmodifiable(rules);
+    try {
+      await ref
+          .read(setupActionProvider.notifier)
+          .applyProfile(force: true, silence: true);
+      await preferences.saveConfig(ref.read(configProvider));
+    } catch (error) {
+      ref.read(globalRulesProvider.notifier).value = previousRules;
+      if (mounted) context.showNotifier(error.toString());
+      return;
+    }
+    if (!mounted) return;
     context.showNotifier(context.appLocalizations.addRule);
   }
 
@@ -260,82 +303,6 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
           );
         },
       ),
-    );
-  }
-}
-
-class _RoutingRuleDraft {
-  final String target;
-
-  const _RoutingRuleDraft({required this.target});
-}
-
-class _AddRoutingRuleDialog extends StatefulWidget {
-  final String content;
-  final List<String> targets;
-
-  const _AddRoutingRuleDialog({required this.content, required this.targets});
-
-  @override
-  State<_AddRoutingRuleDialog> createState() => _AddRoutingRuleDialogState();
-}
-
-class _AddRoutingRuleDialogState extends State<_AddRoutingRuleDialog> {
-  late String _target;
-
-  @override
-  void initState() {
-    super.initState();
-    _target = widget.targets.firstOrNull ?? RuleTarget.DIRECT.name;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.appLocalizations;
-    return AlertDialog(
-      clipBehavior: Clip.antiAlias,
-      title: Text(l10n.addRule),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SelectableText(
-              widget.content,
-              style: context.textTheme.bodyMedium?.toJetBrainsMono,
-            ),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<String>(
-              initialValue: _target,
-              isExpanded: true,
-              decoration: InputDecoration(labelText: l10n.ruleTarget),
-              items: widget.targets
-                  .map(
-                    (target) => DropdownMenuItem(
-                      value: target,
-                      child: Text(target, overflow: TextOverflow.ellipsis),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) setState(() => _target = value);
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel),
-        ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.pop(context, _RoutingRuleDraft(target: _target)),
-          child: Text(l10n.confirm),
-        ),
-      ],
     );
   }
 }

@@ -326,6 +326,10 @@ class _AiViewState extends ConsumerState<AiView> {
       _ => '',
     };
     setState(() {
+      if (calls.isNotEmpty) {
+        _streamedText = '';
+        _pendingDelta = '';
+      }
       _agentStatus = calls.isEmpty
           ? ''
           : target.isEmpty
@@ -1024,7 +1028,7 @@ class _AiViewState extends ConsumerState<AiView> {
     );
     if (!panel) return content;
     return AppGlassPanel(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(26),
       child: content,
     );
   }
@@ -1137,7 +1141,7 @@ class _AiViewState extends ConsumerState<AiView> {
       _scrollToBottom();
     }
     return AppGlassPanel(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(26),
       child: Column(
         children: [
           _buildSessionHeader(store),
@@ -1186,7 +1190,7 @@ class _AiViewState extends ConsumerState<AiView> {
           ),
           Divider(height: 1, color: context.colorScheme.outlineVariant),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1224,64 +1228,92 @@ class _AiViewState extends ConsumerState<AiView> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      tooltip: context.appLocalizations.addAttachment,
-                      onPressed: _busy ? null : _pickConversationAttachment,
-                      icon: const Icon(Icons.attach_file_rounded),
+                Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: context.colorScheme.surfaceContainerHigh.withAlpha(
+                      150,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: CallbackShortcuts(
-                        bindings: {
-                          const SingleActivator(
-                            LogicalKeyboardKey.keyV,
-                            control: true,
-                          ): _pasteConversationClipboard,
-                          const SingleActivator(
-                            LogicalKeyboardKey.keyV,
-                            meta: true,
-                          ): _pasteConversationClipboard,
-                        },
-                        child: Focus(
-                          onKeyEvent: (_, event) {
-                            final isEnter =
-                                event.logicalKey == LogicalKeyboardKey.enter ||
-                                event.logicalKey ==
-                                    LogicalKeyboardKey.numpadEnter;
-                            if (event is KeyDownEvent &&
-                                isEnter &&
-                                !HardwareKeyboard.instance.isShiftPressed) {
-                              _sendMessage();
-                              return KeyEventResult.handled;
-                            }
-                            return KeyEventResult.ignored;
+                    border: Border.all(
+                      color: context.colorScheme.outlineVariant,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        tooltip: context.appLocalizations.addAttachment,
+                        onPressed: _busy ? null : _pickConversationAttachment,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size.square(40),
+                          maximumSize: const Size.square(40),
+                          backgroundColor: Colors.transparent,
+                        ),
+                        icon: const Icon(Icons.attach_file_rounded),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: CallbackShortcuts(
+                          bindings: {
+                            const SingleActivator(
+                              LogicalKeyboardKey.keyV,
+                              control: true,
+                            ): _pasteConversationClipboard,
+                            const SingleActivator(
+                              LogicalKeyboardKey.keyV,
+                              meta: true,
+                            ): _pasteConversationClipboard,
                           },
-                          child: TextField(
-                            controller: _messageController,
-                            enabled: !_busy,
-                            minLines: 1,
-                            maxLines: 5,
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                            decoration: InputDecoration(
-                              hintText: context.appLocalizations.aiInputHint,
-                              border: InputBorder.none,
-                              filled: false,
+                          child: Focus(
+                            onKeyEvent: (_, event) {
+                              final isEnter =
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.enter ||
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.numpadEnter;
+                              if (event is KeyDownEvent &&
+                                  isEnter &&
+                                  !HardwareKeyboard.instance.isShiftPressed) {
+                                _sendMessage();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: TextField(
+                              controller: _messageController,
+                              enabled: !_busy,
+                              minLines: 1,
+                              maxLines: 5,
+                              keyboardType: TextInputType.multiline,
+                              textInputAction: TextInputAction.newline,
+                              decoration: InputDecoration(
+                                hintText: context.appLocalizations.aiInputHint,
+                                border: InputBorder.none,
+                                filled: false,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 11,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      tooltip: context.appLocalizations.submit,
-                      onPressed: _busy ? null : _sendMessage,
-                      icon: const Icon(Icons.arrow_upward_rounded),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        tooltip: context.appLocalizations.submit,
+                        onPressed: _busy ? null : _sendMessage,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size.square(40),
+                          maximumSize: const Size.square(40),
+                        ),
+                        icon: const Icon(Icons.arrow_upward_rounded),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1387,7 +1419,12 @@ class _MessageBubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: isUser
                 ? context.colorScheme.primaryContainer
-                : context.colorScheme.surfaceContainerHighest,
+                : context.colorScheme.surfaceContainerLow.withAlpha(230),
+            border: Border.all(
+              color: isUser
+                  ? context.colorScheme.primary.withAlpha(44)
+                  : context.colorScheme.outlineVariant.withAlpha(90),
+            ),
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(20),
               topRight: const Radius.circular(20),

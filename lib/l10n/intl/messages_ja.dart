@@ -115,6 +115,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "agree": MessageLookupByLibrary.simpleMessage("同意"),
     "aiEmptyResponse": MessageLookupByLibrary.simpleMessage("モデルから空の応答が返されました"),
     "aiInputHint": MessageLookupByLibrary.simpleMessage("ご要望を入力してください"),
+    "allTargets": MessageLookupByLibrary.simpleMessage("すべて"),
     "allowBypass": MessageLookupByLibrary.simpleMessage("アプリがVPNをバイパスすることを許可"),
     "allowBypassDesc": MessageLookupByLibrary.simpleMessage(
       "有効化すると一部アプリがVPNをバイパス",
@@ -347,7 +348,10 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("GeoIPコード"),
     "global": MessageLookupByLibrary.simpleMessage("グローバル"),
-    "globalRules": MessageLookupByLibrary.simpleMessage("グローバルルール"),
+    "globalRules": MessageLookupByLibrary.simpleMessage("ルール"),
+    "globalRulesDesc": MessageLookupByLibrary.simpleMessage(
+      "内蔵 JavaScript がルールをすべてのプロファイルへ自動統合し、不足する対象をグローバルノードプールから解決します。",
+    ),
     "go": MessageLookupByLibrary.simpleMessage("移動"),
     "goDownload": MessageLookupByLibrary.simpleMessage("ダウンロードへ"),
     "goToConfigureScript": MessageLookupByLibrary.simpleMessage("スクリプト設定に移動"),
@@ -405,6 +409,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "justNow": MessageLookupByLibrary.simpleMessage("たった今"),
     "keepAliveIntervalDesc": MessageLookupByLibrary.simpleMessage(
       "TCPキープアライブ間隔",
+    ),
+    "keepOneProfileEnabled": MessageLookupByLibrary.simpleMessage(
+      "有効なプロファイルを少なくとも1つ残してください",
     ),
     "key": MessageLookupByLibrary.simpleMessage("キー"),
     "language": MessageLookupByLibrary.simpleMessage("言語"),
@@ -749,6 +756,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "ruleProviders": MessageLookupByLibrary.simpleMessage("ルールプロバイダー"),
     "ruleSet": MessageLookupByLibrary.simpleMessage("ルールセット"),
     "ruleTarget": MessageLookupByLibrary.simpleMessage("ルール対象"),
+    "ruleTargetUnavailable": MessageLookupByLibrary.simpleMessage(
+      "このプロファイルでは利用不可",
+    ),
     "save": MessageLookupByLibrary.simpleMessage("保存"),
     "saveChanges": MessageLookupByLibrary.simpleMessage("変更を保存しますか？"),
     "script": MessageLookupByLibrary.simpleMessage("スクリプト"),
@@ -764,6 +774,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "プロキシプロバイダーを選択",
     ),
     "selectRuleSet": MessageLookupByLibrary.simpleMessage("ルールセットを選択してください"),
+    "selectRuleTarget": MessageLookupByLibrary.simpleMessage("ルーティング対象を選択"),
     "selectSplitStrategy": MessageLookupByLibrary.simpleMessage(
       "分流戦略を選択してください",
     ),

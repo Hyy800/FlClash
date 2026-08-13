@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 String navigationLabel(PageLabel label) {
-  return label == PageLabel.ai ? 'AI' : Intl.message(label.name);
+  return switch (label) {
+    PageLabel.ai => 'AI',
+    PageLabel.globalRules => Intl.message('rule'),
+    _ => Intl.message(label.name),
+  };
 }
 
 class Navigation {

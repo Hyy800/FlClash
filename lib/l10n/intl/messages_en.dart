@@ -141,6 +141,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "aiInputHint": MessageLookupByLibrary.simpleMessage(
       "Please enter your request",
     ),
+    "allTargets": MessageLookupByLibrary.simpleMessage("All"),
     "allowBypass": MessageLookupByLibrary.simpleMessage(
       "Allow applications to bypass VPN",
     ),
@@ -439,7 +440,10 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "geoipCode": MessageLookupByLibrary.simpleMessage("Geoip code"),
     "global": MessageLookupByLibrary.simpleMessage("Global"),
-    "globalRules": MessageLookupByLibrary.simpleMessage("Global rules"),
+    "globalRules": MessageLookupByLibrary.simpleMessage("Rules"),
+    "globalRulesDesc": MessageLookupByLibrary.simpleMessage(
+      "Built-in JavaScript merges rules into every profile and resolves missing targets from the global node pool.",
+    ),
     "go": MessageLookupByLibrary.simpleMessage("Go"),
     "goDownload": MessageLookupByLibrary.simpleMessage("Go to download"),
     "goToConfigureScript": MessageLookupByLibrary.simpleMessage(
@@ -519,6 +523,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "justNow": MessageLookupByLibrary.simpleMessage("Just now"),
     "keepAliveIntervalDesc": MessageLookupByLibrary.simpleMessage(
       "Tcp keep alive interval",
+    ),
+    "keepOneProfileEnabled": MessageLookupByLibrary.simpleMessage(
+      "Keep at least one profile enabled",
     ),
     "key": MessageLookupByLibrary.simpleMessage("Key"),
     "language": MessageLookupByLibrary.simpleMessage("Language"),
@@ -925,6 +932,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "ruleProviders": MessageLookupByLibrary.simpleMessage("Rule providers"),
     "ruleSet": MessageLookupByLibrary.simpleMessage("Rule set"),
     "ruleTarget": MessageLookupByLibrary.simpleMessage("Rule target"),
+    "ruleTargetUnavailable": MessageLookupByLibrary.simpleMessage(
+      "Unavailable in this profile",
+    ),
     "save": MessageLookupByLibrary.simpleMessage("Save"),
     "saveChanges": MessageLookupByLibrary.simpleMessage(
       "Do you want to save the changes?",
@@ -943,6 +953,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "selectRuleSet": MessageLookupByLibrary.simpleMessage(
       "Please select rule set",
+    ),
+    "selectRuleTarget": MessageLookupByLibrary.simpleMessage(
+      "Select routing target",
     ),
     "selectSplitStrategy": MessageLookupByLibrary.simpleMessage(
       "Please select split strategy",
