@@ -119,7 +119,7 @@ class WindowHeaderContainer extends StatelessWidget {
         if ((version <= 10 || !isMobileView) && system.isMacOS) {
           return child!;
         }
-        return Stack(
+        final content = Stack(
           children: [
             Column(
               children: [
@@ -130,8 +130,129 @@ class WindowHeaderContainer extends StatelessWidget {
             const WindowHeader(),
           ],
         );
+        if (system.isWindows) {
+          return _WindowResizeFrame(child: content);
+        }
+        return content;
       },
       child: child,
+    );
+  }
+}
+
+class _WindowResizeFrame extends StatelessWidget {
+  final Widget child;
+
+  const _WindowResizeFrame({required this.child});
+
+  Widget _buildResizeArea(ResizeEdge edge, MouseCursor cursor, String key) {
+    return MouseRegion(
+      cursor: cursor,
+      child: GestureDetector(
+        key: ValueKey(key),
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => windowManager.startResizing(edge),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const edgeSize = 8.0;
+    const cornerSize = 12.0;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: edgeSize,
+          child: _buildResizeArea(
+            ResizeEdge.left,
+            SystemMouseCursors.resizeLeft,
+            'window-resize-left',
+          ),
+        ),
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: edgeSize,
+          child: _buildResizeArea(
+            ResizeEdge.right,
+            SystemMouseCursors.resizeRight,
+            'window-resize-right',
+          ),
+        ),
+        Positioned(
+          left: 0,
+          top: 0,
+          right: 0,
+          height: edgeSize,
+          child: _buildResizeArea(
+            ResizeEdge.top,
+            SystemMouseCursors.resizeUp,
+            'window-resize-top',
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: edgeSize,
+          child: _buildResizeArea(
+            ResizeEdge.bottom,
+            SystemMouseCursors.resizeDown,
+            'window-resize-bottom',
+          ),
+        ),
+        Positioned(
+          left: 0,
+          top: 0,
+          width: cornerSize,
+          height: cornerSize,
+          child: _buildResizeArea(
+            ResizeEdge.topLeft,
+            SystemMouseCursors.resizeUpLeft,
+            'window-resize-top-left',
+          ),
+        ),
+        Positioned(
+          right: 0,
+          top: 0,
+          width: cornerSize,
+          height: cornerSize,
+          child: _buildResizeArea(
+            ResizeEdge.topRight,
+            SystemMouseCursors.resizeUpRight,
+            'window-resize-top-right',
+          ),
+        ),
+        Positioned(
+          left: 0,
+          bottom: 0,
+          width: cornerSize,
+          height: cornerSize,
+          child: _buildResizeArea(
+            ResizeEdge.bottomLeft,
+            SystemMouseCursors.resizeDownLeft,
+            'window-resize-bottom-left',
+          ),
+        ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          width: cornerSize,
+          height: cornerSize,
+          child: _buildResizeArea(
+            ResizeEdge.bottomRight,
+            SystemMouseCursors.resizeDownRight,
+            'window-resize-bottom-right',
+          ),
+        ),
+      ],
     );
   }
 }
