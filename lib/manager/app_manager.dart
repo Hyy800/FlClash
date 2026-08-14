@@ -39,6 +39,20 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
             .savePreferencesDebounce();
       }
     });
+    ref.listenManual(globalOverwriteProfileIdProvider, (prev, next) {
+      if (prev != next) {
+        ref
+            .read(setupActionProvider.notifier)
+            .applyProfileDebounce(silence: true, force: true);
+      }
+    });
+    ref.listenManual(disabledProfileIdsProvider, (prev, next) {
+      if (prev != next) {
+        ref
+            .read(setupActionProvider.notifier)
+            .applyProfileDebounce(silence: true, force: true);
+      }
+    });
     ref.listenManual(needUpdateGroupsProvider, (prev, next) {
       if (prev != next) {
         globalState.container

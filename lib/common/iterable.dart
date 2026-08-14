@@ -43,6 +43,27 @@ extension IterableExt<E> on Iterable<E> {
 }
 
 extension ListExt<T> on List<T> {
+  Future<void> concurrentForEach(
+    int maxConcurrent,
+    Future<void> Function(T item) action,
+  ) async {
+    if (maxConcurrent <= 0) {
+      throw ArgumentError.value(maxConcurrent, 'maxConcurrent');
+    }
+    var index = 0;
+
+    Future<void> worker() async {
+      while (index < length) {
+        final currentIndex = index;
+        index++;
+        await action(this[currentIndex]);
+      }
+    }
+
+    final workerCount = length < maxConcurrent ? length : maxConcurrent;
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+  }
+
   void truncate(int maxLength) {
     if (maxLength == 0) {
       return;

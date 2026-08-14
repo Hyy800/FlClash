@@ -85,13 +85,21 @@ Future<List<Group>> _toGroupsTask(ComputeGroupsState state) async {
 Future<VM2<String, String>> makeRealProfileTask(
   MakeRealProfileState data,
 ) async {
-  return compute<MakeRealProfileState, VM2<String, String>>(
-    _makeRealProfileTask,
+  final config = await makeRealProfileMapTask(data);
+  final content = await encodeYamlTask(config);
+  return VM2(content, content.toMd5());
+}
+
+Future<Map<String, dynamic>> makeRealProfileMapTask(
+  MakeRealProfileState data,
+) async {
+  return compute<MakeRealProfileState, Map<String, dynamic>>(
+    _makeRealProfileMapTask,
     data,
   );
 }
 
-Future<VM2<String, String>> _makeRealProfileTask(
+Future<Map<String, dynamic>> _makeRealProfileMapTask(
   MakeRealProfileState data,
 ) async {
   final rawConfig = Map.from(data.rawConfig);
@@ -267,8 +275,7 @@ Future<VM2<String, String>> _makeRealProfileTask(
     rawConfig['proxy-groups'] = data.proxyGroups;
   }
   rawConfig['rules'] = rules;
-  final yaml = await _encodeYaml(Map<String, dynamic>.from(rawConfig));
-  return VM2(yaml, yaml.toMd5());
+  return Map<String, dynamic>.from(rawConfig);
 }
 
 List<String> mergeProfileAddedRules(List<String> rules, List<Rule> addedRules) {

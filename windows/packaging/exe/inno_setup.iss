@@ -17,6 +17,8 @@ WizardStyle=modern
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed={{ARCH}}
 ArchitecturesInstallIn64BitMode={{ARCH}}
+CloseApplications=force
+RestartApplications=no
 
 [Code]
 procedure KillProcesses;
@@ -29,7 +31,7 @@ begin
 
   for i := 0 to GetArrayLength(Processes)-1 do
   begin
-    Exec('taskkill', '/f /im ' + Processes[i], '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /t /im "' + Processes[i] + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import '../setup.dart' as setup;
@@ -45,6 +47,27 @@ void main() {
         'dart-define-from-file=env.json',
         'split-per-abi',
       ]);
+    });
+
+    test('Windows installer replaces files from a running installation', () {
+      final script = File(
+        'windows/packaging/exe/inno_setup.iss',
+      ).readAsStringSync();
+
+      expect(script, contains('CloseApplications=force'));
+      expect(script, contains('RestartApplications=no'));
+      expect(script, contains("ExpandConstant('{sys}\\taskkill.exe')"));
+      expect(script, contains('/f /t /im'));
+    });
+
+    test('Windows frameless style remains resizable', () {
+      final source = File(
+        'plugins/window_ext/windows/window_ext_plugin.cpp',
+      ).readAsStringSync();
+
+      expect(source, contains('style &= ~WS_CAPTION;'));
+      expect(source, contains('style |= WS_THICKFRAME'));
+      expect(source, isNot(contains('~(WS_CAPTION | WS_THICKFRAME)')));
     });
   });
 }

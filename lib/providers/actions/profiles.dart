@@ -20,11 +20,20 @@ class ProfilesAction extends _$ProfilesAction {
   Future<void> deleteProfile(int id) async {
     await ref.read(profilesProvider.notifier).del(id);
     await clearEffect(id);
+    if (ref.read(globalOverwriteProfileIdProvider) == id) {
+      await ref.read(globalOverwriteProfileIdProvider.notifier).setValue(null);
+    }
+    await ref.read(profileUserAgentsProvider.notifier).remove(id);
+    await ref.read(disabledProfileIdsProvider.notifier).remove(id);
     final currentProfileId = ref.read(currentProfileIdProvider);
     if (currentProfileId == id) {
       final profiles = ref.read(profilesProvider);
-      if (profiles.isNotEmpty) {
-        final updateId = profiles.first.id;
+      final disabledProfileIds = ref.read(disabledProfileIdsProvider);
+      final enabledProfiles = profiles
+          .where((profile) => !disabledProfileIds.contains(profile.id))
+          .toList();
+      if (enabledProfiles.isNotEmpty) {
+        final updateId = enabledProfiles.first.id;
         ref.read(currentProfileIdProvider.notifier).value = updateId;
       } else {
         ref.read(currentProfileIdProvider.notifier).value = null;
@@ -34,7 +43,9 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> autoUpdateProfiles() async {
+    final disabledProfileIds = ref.read(disabledProfileIdsProvider);
     for (final profile in ref.read(profilesProvider)) {
+      if (disabledProfileIds.contains(profile.id)) continue;
       if (!profile.autoUpdate) continue;
       final isNotNeedUpdate = profile.lastUpdateDate
           ?.add(profile.autoUpdateDuration)
@@ -57,7 +68,9 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> updateProfiles() async {
+    final disabledProfileIds = ref.read(disabledProfileIdsProvider);
     for (final profile in ref.read(profilesProvider)) {
+      if (disabledProfileIds.contains(profile.id)) continue;
       if (profile.type == ProfileType.file) continue;
       await updateProfile(profile);
     }
@@ -72,9 +85,11 @@ class ProfilesAction extends _$ProfilesAction {
         ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = true;
       }
       ref.read(profilesProvider.notifier).put(profile);
-      final newProfile = await profile.update();
+      final userAgent = ref.read(profileUserAgentsProvider)[profile.id];
+      final newProfile = await profile.update(userAgent: userAgent);
       ref.read(profilesProvider.notifier).put(newProfile);
-      if (profile.id == ref.read(currentProfileIdProvider)) {
+      if (profile.id == ref.read(currentProfileIdProvider) ||
+          profile.id == ref.read(globalOverwriteProfileIdProvider)) {
         ref
             .read(setupActionProvider.notifier)
             .applyProfileDebounce(silence: true);

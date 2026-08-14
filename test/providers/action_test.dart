@@ -73,8 +73,13 @@ void main() {
     test(
       'skips profile updates that are disabled, fresh, or file-based',
       () async {
+        final disabled = Profile.normal(label: 'Disabled', url: 'bad-url')
+            .copyWith(
+              autoUpdate: true,
+              lastUpdateDate: DateTime.now().subtract(const Duration(days: 1)),
+            );
         final profiles = [
-          Profile.normal(label: 'Disabled').copyWith(autoUpdate: false),
+          disabled,
           Profile.normal(label: 'Fresh').copyWith(
             autoUpdate: true,
             lastUpdateDate: DateTime.now().add(const Duration(days: 1)),
@@ -88,6 +93,9 @@ void main() {
           overrides: [
             currentProfileIdProvider.overrideWithBuild((_, _) => null),
             profilesProvider.overrideWith(() => _TestProfiles(profiles)),
+            disabledProfileIdsProvider.overrideWith(
+              () => _TestDisabledProfileIds({disabled.id}),
+            ),
           ],
         );
         addTearDown(container.dispose);
@@ -625,6 +633,15 @@ class _TestProfiles extends Profiles {
   void reorder(List<Profile> profiles) {
     state = List.of(profiles);
   }
+}
+
+class _TestDisabledProfileIds extends DisabledProfileIds {
+  final Set<int> initial;
+
+  _TestDisabledProfileIds(this.initial);
+
+  @override
+  Set<int> build() => Set.unmodifiable(initial);
 }
 
 class _TestCoreAction extends CoreAction {

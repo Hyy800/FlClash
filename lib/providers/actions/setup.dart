@@ -281,28 +281,57 @@ class SetupAction extends _$SetupAction {
     final overrideDns = ref.read(overrideDnsProvider);
     final appendSystemDns = networkVM2.a;
     final routeMode = networkVM2.b;
-    final configMap = await coreController.getConfig(profileId);
+    final activeProfilePath = await appPath.getProfilePath(
+      profileId.toString(),
+    );
+    final activeValidationMessage = await coreController.validateConfig(
+      activeProfilePath,
+    );
+    final activeProfileValid = activeValidationMessage.isEmpty;
+    final Map<String, dynamic> configMap;
+    if (activeProfileValid) {
+      configMap = await coreController.getConfig(profileId);
+    } else {
+      commonPrint.log(
+        'Use safe base for invalid active profile $profileId: '
+        '$activeValidationMessage',
+        logLevel: LogLevel.warning,
+      );
+      configMap = {
+        'proxies': <dynamic>[],
+        'proxy-groups': <dynamic>[],
+        'proxy-providers': <String, dynamic>{},
+        'rules': <String>['MATCH,DIRECT'],
+      };
+    }
     String? scriptContent;
     final List<Rule> addedRules = [];
     final List<ProxyGroup> proxyGroups = [];
     final List<Rule> rules = [];
-    if (setupState.overwriteType == OverwriteType.script) {
-      scriptContent = await setupState.script?.content;
-    } else if (setupState.overwriteType == OverwriteType.standard) {
+    if (activeProfileValid) {
       addedRules.addAll(setupState.addedRules);
-    } else {
+    }
+    if (activeProfileValid &&
+        setupState.overwriteType == OverwriteType.script) {
+      scriptContent = await setupState.script?.content;
+    } else if (activeProfileValid &&
+        setupState.overwriteType == OverwriteType.custom) {
       proxyGroups.addAll(setupState.proxyGroups);
       rules.addAll(setupState.rules);
     }
+    final profileUserAgent = ref.read(profileUserAgentsProvider)[profileId];
     final realPatchConfig = patchConfig.copyWith(
       tun: patchConfig.tun.getRealTun(routeMode),
+      globalUa: profileUserAgent?.isNotEmpty == true
+          ? profileUserAgent
+          : patchConfig.globalUa,
     );
     Map<String, dynamic> rawConfig = configMap;
     if (scriptContent?.isNotEmpty == true) {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
     final directory = await appPath.profilesPath;
-    final res = makeRealProfileTask(
+    var finalConfig = await makeRealProfileMapTask(
       MakeRealProfileState(
         rules: rules,
         proxyGroups: proxyGroups,
@@ -316,7 +345,117 @@ class SetupAction extends _$SetupAction {
         defaultUA: defaultUA,
       ),
     );
-    return res;
+    final activeOnlyConfig = Map<String, dynamic>.from(
+      json.decode(json.encode(finalConfig)) as Map,
+    );
+    final globalSources = <GlobalProfileSource>[];
+    final disabledProfileIds = ref.read(disabledProfileIdsProvider);
+    for (final profile in ref.read(profilesProvider)) {
+      if (profile.id == profileId) continue;
+      if (disabledProfileIds.contains(profile.id)) continue;
+      try {
+        final profilePath = await appPath.getProfilePath(profile.id.toString());
+        final validationMessage = await coreController.validateConfig(
+          profilePath,
+        );
+        if (validationMessage.isNotEmpty) {
+          commonPrint.log(
+            'Skip invalid global node source ${profile.id}: '
+            '$validationMessage',
+            logLevel: LogLevel.warning,
+          );
+          continue;
+        }
+        final source = await isolateGlobalProfileSource(
+          GlobalProfileSource(
+            profileId: profile.id,
+            label: profile.realLabel,
+            config: await coreController.getConfig(profile.id),
+          ),
+          profilesPath: directory,
+        );
+        globalSources.add(source);
+      } catch (error) {
+        commonPrint.log(
+          'Skip global node source ${profile.id}: $error',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+    final safeGlobalNodePool = await buildValidatedGlobalNodePool(
+      activeConfig: finalConfig,
+      sources: globalSources,
+      profilesPath: directory,
+      validate: (candidate) async {
+        try {
+          final content = await encodeYamlTask(candidate);
+          return (await coreController.validateConfigWithData(content)).isEmpty;
+        } catch (_) {
+          return false;
+        }
+      },
+    );
+    for (final skippedProfileId in safeGlobalNodePool.skippedProfileIds) {
+      commonPrint.log(
+        'Skip invalid global node source $skippedProfileId',
+        logLevel: LogLevel.warning,
+      );
+    }
+    final globalNodePool = safeGlobalNodePool.result;
+    finalConfig = globalNodePool.config;
+    if (setupState.globalRules.isNotEmpty) {
+      final providerTargets = await loadProxyProviderTargets(
+        finalConfig,
+        profilesPath: directory,
+      );
+      final targetAliases = <String, List<String>>{
+        for (final entry in globalNodePool.targetAliases.entries)
+          entry.key: [...entry.value],
+      };
+      for (final target in providerTargets) {
+        final namespaceEnd = target.indexOf('] ');
+        if (!target.startsWith('[') || namespaceEnd < 0) continue;
+        final original = target.substring(namespaceEnd + 2);
+        final aliases = targetAliases.putIfAbsent(original, () => <String>[]);
+        if (!aliases.contains(target)) aliases.add(target);
+      }
+      final script = buildRulesOverrideScript(
+        setupState.globalRules.map((rule) => rule.rawValue),
+        additionalTargets: {...providerTargets, ...globalNodePool.targets},
+        targetAliases: targetAliases,
+      );
+      finalConfig = await handleEvaluate(script, finalConfig);
+    }
+    var content = await encodeYamlTask(finalConfig);
+    final finalValidationMessage = await coreController.validateConfigWithData(
+      content,
+    );
+    if (finalValidationMessage.isNotEmpty) {
+      commonPrint.log(
+        'Global node pool rejected, use isolated active profile: '
+        '$finalValidationMessage',
+        logLevel: LogLevel.warning,
+      );
+      finalConfig = activeOnlyConfig;
+      if (setupState.globalRules.isNotEmpty) {
+        final providerTargets = await loadProxyProviderTargets(
+          finalConfig,
+          profilesPath: directory,
+        );
+        final script = buildRulesOverrideScript(
+          setupState.globalRules.map((rule) => rule.rawValue),
+          additionalTargets: providerTargets,
+        );
+        finalConfig = await handleEvaluate(script, finalConfig);
+      }
+      content = await encodeYamlTask(finalConfig);
+      final activeValidationMessage = await coreController
+          .validateConfigWithData(content);
+      if (activeValidationMessage.isNotEmpty) {
+        throw activeValidationMessage;
+      }
+    }
+    return VM2(content, content.toMd5());
   }
 
   Future<String> getProfileWithId(int profileId) async {

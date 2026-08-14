@@ -122,6 +122,36 @@ void main() {
     });
   });
 
+  group('ListExt.concurrentForEach', () {
+    test('limits active actions without dropping items', () async {
+      var active = 0;
+      var maxActive = 0;
+      final completed = <int>[];
+
+      await List.generate(20, (index) => index).concurrentForEach(3, (
+        item,
+      ) async {
+        active++;
+        if (active > maxActive) {
+          maxActive = active;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        completed.add(item);
+        active--;
+      });
+
+      expect(maxActive, 3);
+      expect(completed.toSet(), Set<int>.from(List.generate(20, (i) => i)));
+    });
+
+    test('rejects a non-positive concurrency limit', () async {
+      await expectLater(
+        [1].concurrentForEach(0, (_) async {}),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('ListExt.copyAndPut', () {
     test('replaces matching element', () {
       final result = [1, 2, 3].copyAndPut(99, (e) => e == 2);

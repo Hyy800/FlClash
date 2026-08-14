@@ -21,6 +21,22 @@ class _TestProfiles extends Profiles {
   List<Profile> build() => initial;
 }
 
+class _TestDisabledProfileIds extends DisabledProfileIds {
+  @override
+  Set<int> build() => {};
+
+  @override
+  Future<void> setEnabled(int profileId, bool enabled) async {
+    final next = Set<int>.from(state);
+    if (enabled) {
+      next.remove(profileId);
+    } else {
+      next.add(profileId);
+    }
+    state = Set.unmodifiable(next);
+  }
+}
+
 Future<ProviderContainer> pumpProfiles(
   WidgetTester tester, {
   required List<Profile> profiles,
@@ -34,6 +50,7 @@ Future<ProviderContainer> pumpProfiles(
     overrides: [
       profilesProvider.overrideWith(() => _TestProfiles(profiles)),
       currentProfileIdProvider.overrideWithBuild((_, _) => profiles.first.id),
+      disabledProfileIdsProvider.overrideWith(_TestDisabledProfileIds.new),
     ],
   );
   addTearDown(container.dispose);
@@ -118,5 +135,36 @@ void main() {
         Key(profiles[profileIndex].id.toString()),
       );
     }
+  });
+
+  testWidgets('profile switches move selection and keep one enabled', (
+    tester,
+  ) async {
+    final profiles = [
+      Profile.normal(label: 'first'),
+      Profile.normal(label: 'second'),
+    ];
+    final container = await pumpProfiles(tester, profiles: profiles);
+    final firstSwitch = find.descendant(
+      of: find.byKey(Key(profiles.first.id.toString())),
+      matching: find.byType(Switch),
+    );
+    final secondSwitch = find.descendant(
+      of: find.byKey(Key(profiles.last.id.toString())),
+      matching: find.byType(Switch),
+    );
+
+    await tester.tap(firstSwitch);
+    await tester.pump();
+
+    expect(container.read(disabledProfileIdsProvider), {profiles.first.id});
+    expect(container.read(currentProfileIdProvider), profiles.last.id);
+    expect(tester.widget<Switch>(firstSwitch).value, isFalse);
+
+    await tester.tap(secondSwitch);
+    await tester.pump();
+
+    expect(container.read(disabledProfileIdsProvider), {profiles.first.id});
+    expect(tester.widget<Switch>(secondSwitch).value, isTrue);
   });
 }
