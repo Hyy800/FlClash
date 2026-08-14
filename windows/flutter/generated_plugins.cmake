@@ -12,7 +12,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   irondash_engine_context
   proxy
   screen_retriever_windows
-  sqlite3_flutter_libs
   super_native_extensions
   tray_manager
   url_launcher_windows

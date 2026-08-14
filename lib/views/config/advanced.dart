@@ -17,31 +17,32 @@ class AdvancedConfigView extends StatelessWidget {
         title: Text(appLocalizations.network),
         subtitle: Text(appLocalizations.networkDesc),
         leading: const Icon(Icons.vpn_key),
-        delegate: OpenDelegate(
-          blur: false,
-          widget: BaseScaffold(
-            title: appLocalizations.network,
-            body: const NetworkListView(),
-          ),
+        widget: BaseScaffold(
+          title: appLocalizations.network,
+          body: const NetworkListView(),
         ),
+        blur: false,
       ),
       ListItem.open(
         title: Text(appLocalizations.onDemand),
         subtitle: Text(appLocalizations.onDemandDesc),
         leading: const Icon(Icons.ssid_chart, fontWeight: FontWeight.w900),
-        delegate: const OpenDelegate(widget: OnDemandView(), blur: false),
+        widget: const OnDemandView(),
+        blur: false,
       ),
       ListItem.open(
         title: const Text('DNS'),
         subtitle: Text(appLocalizations.dnsDesc),
         leading: const Icon(Icons.dns),
-        delegate: const OpenDelegate(widget: DnsSettingsView(), blur: false),
+        widget: const DnsSettingsView(),
+        blur: false,
       ),
       ListItem.open(
         title: Text(appLocalizations.script),
         subtitle: Text(appLocalizations.overrideScript),
         leading: const Icon(Icons.rocket, fontWeight: FontWeight.w900),
-        delegate: const OpenDelegate(widget: ScriptsView(), blur: false),
+        widget: const ScriptsView(),
+        blur: false,
       ),
     ];
     return BaseScaffold(

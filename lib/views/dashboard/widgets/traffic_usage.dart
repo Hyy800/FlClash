@@ -148,7 +148,6 @@ class TrafficUsage extends StatelessWidget {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 4),
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [

@@ -16,10 +16,10 @@ class AddProfileView extends StatelessWidget {
         .addProfileFormFile();
   }
 
-  Future<void> _handleAddProfileFormURL(String url, {String? userAgent}) async {
+  Future<void> _handleAddProfileFormURL(String url) async {
     globalState.container
         .read(profilesActionProvider.notifier)
-        .addProfileFormURL(url, userAgent: userAgent);
+        .addProfileFormURL(url);
   }
 
   Future<void> _toScan() async {
@@ -38,11 +38,27 @@ class AddProfileView extends StatelessWidget {
   }
 
   Future<void> _toAdd() async {
-    final data = await globalState.showCommonDialog<AddProfileFormData>(
-      child: const URLFormDialog(),
+    final appLocalizations = context.appLocalizations;
+    final url = await globalState.showCommonDialog<String>(
+      child: InputDialog(
+        autovalidateMode: AutovalidateMode.onUnfocus,
+        title: appLocalizations.importFromURL,
+        labelText: appLocalizations.url,
+        value: '',
+        inputFormatters: TextInputLimits.limit(TextInputLimits.url),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return appLocalizations.emptyTip('').trim();
+          }
+          if (!value.isUrl) {
+            return appLocalizations.urlTip('').trim();
+          }
+          return null;
+        },
+      ),
     );
-    if (data != null) {
-      _handleAddProfileFormURL(data.url, userAgent: data.userAgent);
+    if (url != null) {
+      _handleAddProfileFormURL(url);
     }
   }
 
@@ -74,13 +90,6 @@ class AddProfileView extends StatelessWidget {
   }
 }
 
-class AddProfileFormData {
-  final String url;
-  final String? userAgent;
-
-  const AddProfileFormData({required this.url, this.userAgent});
-}
-
 class URLFormDialog extends StatefulWidget {
   const URLFormDialog({super.key});
 
@@ -89,20 +98,12 @@ class URLFormDialog extends StatefulWidget {
 }
 
 class _URLFormDialogState extends State<URLFormDialog> {
-  final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
-  String _userAgent = '';
 
   Future<void> _handleAddProfileFormURL() async {
-    if (_formKey.currentState?.validate() != true) {
-      return;
-    }
-    Navigator.of(context).pop(
-      AddProfileFormData(
-        url: _urlController.text,
-        userAgent: _userAgent.isEmpty ? null : _userAgent,
-      ),
-    );
+    final url = _urlController.value.text;
+    if (url.isEmpty) return;
+    Navigator.of(context).pop<String>(url);
   }
 
   @override
@@ -122,40 +123,27 @@ class _URLFormDialogState extends State<URLFormDialog> {
           child: Text(appLocalizations.submit),
         ),
       ],
-      child: Form(
-        key: _formKey,
-        child: SizedBox(
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                keyboardType: TextInputType.url,
-                minLines: 1,
-                maxLines: 5,
-                inputFormatters: TextInputLimits.limit(TextInputLimits.url),
-                onFieldSubmitted: (_) {
-                  _handleAddProfileFormURL();
-                },
-                controller: _urlController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return appLocalizations.emptyTip('').trim();
-                  }
-                  if (!value.isUrl) {
-                    return appLocalizations.urlTip('').trim();
-                  }
-                  return null;
-                },
-                decoration: InputDecoration(labelText: appLocalizations.url),
+      child: SizedBox(
+        width: 300,
+        child: Wrap(
+          runSpacing: 16,
+          children: [
+            TextField(
+              keyboardType: TextInputType.url,
+              minLines: 1,
+              maxLines: 5,
+              inputFormatters: TextInputLimits.limit(TextInputLimits.url),
+              onSubmitted: (_) {
+                _handleAddProfileFormURL();
+              },
+              onEditingComplete: _handleAddProfileFormURL,
+              controller: _urlController,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: appLocalizations.url,
               ),
-              const SizedBox(height: 12),
-              UserAgentSelector(
-                value: _userAgent,
-                onChanged: (value) => setState(() => _userAgent = value),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -82,16 +82,16 @@ Future<List<Group>> _toGroupsTask(ComputeGroupsState state) async {
   );
 }
 
-Future<Map<String, dynamic>> makeRealProfileTask(
+Future<VM2<String, String>> makeRealProfileTask(
   MakeRealProfileState data,
 ) async {
-  return compute<MakeRealProfileState, Map<String, dynamic>>(
+  return compute<MakeRealProfileState, VM2<String, String>>(
     _makeRealProfileTask,
     data,
   );
 }
 
-Future<Map<String, dynamic>> _makeRealProfileTask(
+Future<VM2<String, String>> _makeRealProfileTask(
   MakeRealProfileState data,
 ) async {
   final rawConfig = Map.from(data.rawConfig);
@@ -218,15 +218,57 @@ Future<Map<String, dynamic>> _makeRealProfileTask(
       rawConfig['dns']['nameserver'] = [...nameserver, systemDns];
     }
   }
-  final baseRules = data.rules.isEmpty
-      ? List<String>.from(rawConfig['rules'] ?? [])
-      : data.rules.map((item) => item.rawValue).toList();
-  final rules = mergeProfileAddedRules(baseRules, addedRules);
+  List<String> rules = [];
+  if (data.rules.isEmpty) {
+    if (rawConfig['rules'] != null) {
+      rules = List<String>.from(rawConfig['rules']);
+    }
+    if (addedRules.isNotEmpty) {
+      final hasMatchPlaceholder = addedRules.any(
+        (item) => item.ruleTarget?.toUpperCase() == 'MATCH',
+      );
+      String? replacementTarget;
+
+      if (hasMatchPlaceholder) {
+        for (int i = rules.length - 1; i >= 0; i--) {
+          final parsed = Rule.parse(rules[i]);
+          if (parsed.ruleAction == RuleAction.MATCH) {
+            final target = parsed.ruleTarget;
+            if (target != null && target.isNotEmpty) {
+              replacementTarget = target;
+              break;
+            }
+          }
+        }
+      }
+      final List<String> finalAddedRules;
+
+      if (replacementTarget?.isNotEmpty == true) {
+        finalAddedRules = [];
+        for (int i = 0; i < addedRules.length; i++) {
+          final parsed = addedRules[i];
+          if (parsed.ruleTarget?.toUpperCase() == 'MATCH') {
+            finalAddedRules.add(
+              parsed.copyWith(ruleTarget: replacementTarget).rawValue,
+            );
+          } else {
+            finalAddedRules.add(addedRules[i].rawValue);
+          }
+        }
+      } else {
+        finalAddedRules = addedRules.map((e) => e.rawValue).toList();
+      }
+      rules = [...finalAddedRules, ...rules];
+    }
+  } else {
+    rules = data.rules.map((item) => item.rawValue).toList();
+  }
   if (data.proxyGroups.isNotEmpty) {
     rawConfig['proxy-groups'] = data.proxyGroups;
   }
   rawConfig['rules'] = rules;
-  return Map<String, dynamic>.from(rawConfig);
+  final yaml = await _encodeYaml(Map<String, dynamic>.from(rawConfig));
+  return VM2(yaml, yaml.toMd5());
 }
 
 List<String> mergeProfileAddedRules(List<String> rules, List<Rule> addedRules) {

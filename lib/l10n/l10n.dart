@@ -2554,6 +2554,26 @@ class AppLocalizations {
     return Intl.message('Crash test', name: 'crashTest', desc: '', args: []);
   }
 
+  /// `Crash detected`
+  String get crashDetected {
+    return Intl.message(
+      'Crash detected',
+      name: 'crashDetected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The app crashed during the previous run. To prevent repeated crashes, the current profile has been cleared and automatic configuration setup was skipped.`
+  String get crashDetectedTip {
+    return Intl.message(
+      'The app crashed during the previous run. To prevent repeated crashes, the current profile has been cleared and automatic configuration setup was skipped.',
+      name: 'crashDetectedTip',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Clear Data`
   String get clearData {
     return Intl.message('Clear Data', name: 'clearData', desc: '', args: []);
@@ -3079,6 +3099,26 @@ class AppLocalizations {
     return Intl.message('Added rules', name: 'addedRules', desc: '', args: []);
   }
 
+  /// `Control global added rules`
+  String get controlGlobalAddedRules {
+    return Intl.message(
+      'Control global added rules',
+      name: 'controlGlobalAddedRules',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Edit global rules`
+  String get editGlobalRules {
+    return Intl.message(
+      'Edit global rules',
+      name: 'editGlobalRules',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Override script`
   String get overrideScript {
     return Intl.message(
@@ -3599,6 +3639,16 @@ class AppLocalizations {
     return Intl.message(
       'Input proxy group name',
       name: 'inputProxyGroupName',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Helper service unavailable; TUN mode cannot be enabled. Reinstall FlClash to restore it.`
+  String get helperCorruptTip {
+    return Intl.message(
+      'Helper service unavailable; TUN mode cannot be enabled. Reinstall FlClash to restore it.',
+      name: 'helperCorruptTip',
       desc: '',
       args: [],
     );
@@ -4599,10 +4649,10 @@ class AppLocalizations {
     );
   }
 
-  /// `{name} skipped`
+  /// `{name} is already up to date`
   String geoSkipped(Object name) {
     return Intl.message(
-      '$name skipped',
+      '$name is already up to date',
       name: 'geoSkipped',
       desc: '',
       args: [name],

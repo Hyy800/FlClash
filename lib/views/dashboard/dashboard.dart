@@ -1,15 +1,21 @@
+import 'dart:math';
+
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'widgets/core_status_button.dart';
 import 'widgets/start_button.dart';
 
 typedef _IsEditWidgetBuilder = Widget Function(bool isEdit);
+
+const _maxCrossAxisCount = 16;
+const _maxGridWidth = 280.0 * _maxCrossAxisCount / 4;
 
 class DashboardView extends ConsumerStatefulWidget {
   const DashboardView({super.key});
@@ -39,112 +45,9 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     );
   }
 
-  Future<void> _handleConnection() async {
-    final coreStatus = ref.read(coreStatusProvider);
-    if (coreStatus == CoreStatus.connecting) {
-      return;
-    }
-    final tip = coreStatus == CoreStatus.connected
-        ? context.appLocalizations.forceRestartCoreTip
-        : context.appLocalizations.restartCoreTip;
-    final res = await globalState.showMessage(message: TextSpan(text: tip));
-    if (res != true) {
-      return;
-    }
-    globalState.container.read(coreActionProvider.notifier).restartCore();
-  }
-
   List<Widget> _buildActions(bool isEdit) {
-    final appLocalizations = context.appLocalizations;
     return [
-      if (!isEdit)
-        Consumer(
-          builder: (_, ref, _) {
-            final coreStatus = ref.watch(coreStatusProvider);
-            return Tooltip(
-              message: appLocalizations.coreStatus,
-              child: FadeScaleBox(
-                alignment: Alignment.centerRight,
-                child: coreStatus == CoreStatus.connected
-                    ? IconButton.filled(
-                        visualDensity: VisualDensity.compact,
-                        iconSize: 20,
-                        padding: EdgeInsets.zero,
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF16866F),
-                          foregroundColor: switch (Theme.brightnessOf(
-                            context,
-                          )) {
-                            Brightness.light =>
-                              context.colorScheme.onSurfaceVariant,
-                            Brightness.dark =>
-                              context.colorScheme.onPrimaryFixedVariant,
-                          },
-                        ),
-                        onPressed: _handleConnection,
-                        icon: const Icon(
-                          Icons.check,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      )
-                    : FilledButton.icon(
-                        key: ValueKey(coreStatus),
-                        onPressed: _handleConnection,
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          backgroundColor: switch (coreStatus) {
-                            CoreStatus.connecting => null,
-                            CoreStatus.connected => Colors.greenAccent,
-                            CoreStatus.disconnected =>
-                              context.colorScheme.error,
-                          },
-                          foregroundColor: switch (coreStatus) {
-                            CoreStatus.connecting => null,
-                            CoreStatus.connected => switch (Theme.brightnessOf(
-                              context,
-                            )) {
-                              Brightness.light =>
-                                context.colorScheme.onSurfaceVariant,
-                              Brightness.dark => null,
-                            },
-                            CoreStatus.disconnected =>
-                              context.colorScheme.onError,
-                          },
-                        ),
-                        icon: SizedBox(
-                          height: globalState.measure.bodyMediumHeight,
-                          width: globalState.measure.bodyMediumHeight,
-                          child: switch (coreStatus) {
-                            CoreStatus.connecting => Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: context.colorScheme.onPrimary,
-                                backgroundColor: Colors.transparent,
-                              ),
-                            ),
-                            CoreStatus.connected => const Icon(
-                              Icons.check_sharp,
-                              fontWeight: FontWeight.w900,
-                            ),
-                            CoreStatus.disconnected => const Icon(
-                              Icons.restart_alt_sharp,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          },
-                        ),
-                        label: Text(switch (coreStatus) {
-                          CoreStatus.connecting => appLocalizations.connecting,
-                          CoreStatus.connected => appLocalizations.connected,
-                          CoreStatus.disconnected =>
-                            appLocalizations.disconnected,
-                        }),
-                      ),
-              ),
-            );
-          },
-        ),
+      if (!isEdit && coreLib == null) const CoreStatusButton(),
       if (isEdit)
         ValueListenableBuilder(
           valueListenable: _addedWidgetsNotifier,
@@ -166,12 +69,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
             ? IconButton(
                 key: const ValueKey(true),
                 icon: const Icon(Icons.save, key: ValueKey('save-icon')),
-                onPressed: _handleUpdateIsEdit,
+                onPressed: _handleSaveAndExit,
               )
             : IconButton(
                 key: const ValueKey(false),
                 icon: const Icon(Icons.edit, key: ValueKey('edit-icon')),
-                onPressed: _handleUpdateIsEdit,
+                onPressed: _handleEnterEdit,
               ),
       ),
     ];
@@ -199,11 +102,32 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     );
   }
 
-  Future<void> _handleUpdateIsEdit() async {
-    if (_isEditNotifier.value == true) {
-      await _handleSave();
+  void _handleEnterEdit() {
+    if (_isEditNotifier.value) {
+      return;
     }
-    _isEditNotifier.value = !_isEditNotifier.value;
+    _isEditNotifier.value = true;
+  }
+
+  void _handleExitEdit() {
+    if (!_isEditNotifier.value) {
+      return;
+    }
+    final dashboardWidgets = _getDashboardWidgets(key.currentState);
+    if (dashboardWidgets != null) {
+      _saveDashboardWidgets(dashboardWidgets);
+    }
+    _isEditNotifier.value = false;
+  }
+
+  Future<void> _handleSaveAndExit() async {
+    if (!_isEditNotifier.value) {
+      return;
+    }
+    await _handleSave();
+    if (mounted) {
+      _isEditNotifier.value = false;
+    }
   }
 
   Future<void> _handleSave() async {
@@ -211,24 +135,44 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     if (currentState == null) {
       return;
     }
-    if (mounted && currentState.children.isNotEmpty) {
-      await currentState.isTransformCompleter;
-      final dashboardWidgets = currentState.children
-          .map((item) => DashboardWidget.getDashboardWidget(item))
-          .toList();
-      ref
-          .read(appSettingProvider.notifier)
-          .update(
-            (state) => state.copyWith(dashboardWidgets: dashboardWidgets),
-          );
+    if (!mounted || currentState.snapshotChildren.isEmpty) {
+      return;
     }
+    final transformCompleted = await currentState.isTransformCompleter;
+    if (!transformCompleted ||
+        !mounted ||
+        !currentState.mounted ||
+        !identical(key.currentState, currentState)) {
+      return;
+    }
+    final dashboardWidgets = _getDashboardWidgets(currentState);
+    if (dashboardWidgets == null) {
+      return;
+    }
+    _saveDashboardWidgets(dashboardWidgets);
+  }
+
+  List<DashboardWidget>? _getDashboardWidgets(SuperGridState? currentState) {
+    if (currentState == null) {
+      return null;
+    }
+    final children = currentState.snapshotChildren;
+    if (children.isEmpty) {
+      return null;
+    }
+    return children.map(DashboardWidget.getDashboardWidget).toList();
+  }
+
+  void _saveDashboardWidgets(List<DashboardWidget> dashboardWidgets) {
+    ref
+        .read(appSettingProvider.notifier)
+        .update((state) => state.copyWith(dashboardWidgets: dashboardWidgets));
   }
 
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(dashboardStateProvider);
-    const columns = 12;
-    final spacing = 8.mAp;
+    final spacing = 14.mAp;
     final children = [
       ...dashboardState.dashboardWidgets
           .where(
@@ -251,136 +195,46 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         title: context.appLocalizations.dashboard,
         actions: _buildActions(isEdit),
         floatingActionButton: const StartButton(),
-        body: Theme(
-          data: Theme.of(context).copyWith(
-            textTheme: Theme.of(context).textTheme.apply(fontSizeFactor: 0.9),
-            iconTheme: Theme.of(context).iconTheme.copyWith(size: 19),
-          ),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(12.mAp, 6.mAp, 12.mAp, 64.mAp),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _DashboardCommandHeader(),
-                  const SizedBox(height: 8),
-                  if (isEdit)
-                    SystemBackBlock(
-                      child: CommonPopScope(
-                        onPop: (context) {
-                          _handleUpdateIsEdit();
-                          return false;
-                        },
-                        child: SuperGrid(
-                          key: key,
-                          crossAxisCount: columns,
-                          crossAxisSpacing: spacing,
-                          mainAxisSpacing: spacing,
-                          onUpdate: _handleSave,
-                          children: children,
-                        ),
-                      ),
-                    )
-                  else
-                    Grid(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: spacing,
-                      mainAxisSpacing: spacing,
-                      children: children,
-                    ),
-                ],
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16).copyWith(bottom: 88),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxGridWidth),
+                child: LayoutBuilder(
+                  builder: (_, constraints) {
+                    final columns = min(
+                      max(4 * ((constraints.maxWidth / 280).ceil()), 8),
+                      _maxCrossAxisCount,
+                    );
+                    return isEdit
+                        ? BackLayerScope(
+                            onBack: _handleExitEdit,
+                            child: SuperGrid(
+                              key: key,
+                              crossAxisCount: columns,
+                              crossAxisSpacing: spacing,
+                              mainAxisSpacing: spacing,
+                              children: children,
+                              onUpdate: () {
+                                _handleSave();
+                              },
+                            ),
+                          )
+                        : Grid(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: spacing,
+                            mainAxisSpacing: spacing,
+                            children: children,
+                          );
+                  },
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _DashboardCommandHeader extends ConsumerWidget {
-  const _DashboardCommandHeader();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final coreStatus = ref.watch(coreStatusProvider);
-    final isStart = ref.watch(isStartProvider);
-    final runTime = ref.watch(runTimeProvider);
-    final colorScheme = context.colorScheme;
-    final statusColor = switch (coreStatus) {
-      CoreStatus.connected => colorScheme.secondary,
-      CoreStatus.connecting => colorScheme.tertiary,
-      CoreStatus.disconnected => colorScheme.error,
-    };
-    final statusLabel = switch (coreStatus) {
-      CoreStatus.connected => context.appLocalizations.connected,
-      CoreStatus.connecting => context.appLocalizations.connecting,
-      CoreStatus.disconnected => context.appLocalizations.disconnected,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 620;
-          final status = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 9),
-              Text(
-                '${context.appLocalizations.coreStatus} · $statusLabel',
-                style: context.textTheme.labelLarge,
-              ),
-            ],
-          );
-          final runtime = Text(
-            isStart
-                ? utils.getTimeText(runTime)
-                : context.appLocalizations.stop,
-            style: context.textTheme.titleMedium?.copyWith(
-              color: isStart
-                  ? colorScheme.secondary
-                  : colorScheme.onSurfaceVariant,
-              fontFamily: FontFamily.jetBrainsMono.value,
-            ),
-          );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [status, const SizedBox(height: 8), runtime],
-            );
-          }
-          return Row(
-            children: [
-              const Icon(Icons.monitor_heart_outlined, size: 20),
-              const SizedBox(width: 10),
-              status,
-              const Spacer(),
-              Text(
-                'UPTIME',
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(width: 10),
-              runtime,
-            ],
-          );
-        },
       ),
     );
   }
@@ -398,9 +252,9 @@ class _AddDashboardWidgetModal extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Grid(
-          crossAxisCount: 12,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisCount: 8,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
           children: items
               .map(
                 (item) => item.wrap(

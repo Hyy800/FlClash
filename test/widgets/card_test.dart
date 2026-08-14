@@ -1,4 +1,3 @@
-import 'package:animations/animations.dart' as animations;
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,9 +9,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: CommonCard(
-            child: ListItem(title: Text('Profile information')),
-          ),
+          body: CommonCard(child: ListItem(title: Text('Profile information'))),
         ),
       ),
     );
@@ -32,20 +29,20 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: ListItem.open(
-            title: Text('Theme'),
-            delegate: OpenDelegate(widget: SizedBox()),
+            title: const Text('Theme'),
+            widget: const SizedBox(),
           ),
         ),
       ),
     );
 
-    final finder = find.byWidgetPredicate(
-      (widget) => widget is animations.OpenContainer,
+    expect(
+      find.byWidgetPredicate((widget) => widget is OpenContainer),
+      findsOneWidget,
     );
-    final openContainer = tester.widget(finder) as animations.OpenContainer;
-    expect(openContainer.closedColor, Colors.transparent);
+    expect(find.byType(ListTile), findsOneWidget);
   });
 }

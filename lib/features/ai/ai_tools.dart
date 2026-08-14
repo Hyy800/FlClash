@@ -402,7 +402,7 @@ class AiToolExecutor {
     }
     await globalState.container
         .read(setupActionProvider.notifier)
-        .updateStatus(value);
+        .setRunning(value);
     return {
       'ok': true,
       'running': globalState.container.read(isStartProvider),

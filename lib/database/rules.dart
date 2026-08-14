@@ -74,13 +74,13 @@ class RulesDao extends DatabaseAccessor<Database> with _$RulesDaoMixin {
     );
 
     query.orderBy([
-      OrderingTerm.desc(
+      OrderingTerm.asc(
         profileRuleLinks.profileId.isNull().caseMatch<int>(
           when: {const Constant(true): const Constant(1)},
           orElse: const Constant(0),
         ),
       ),
-      OrderingTerm.desc(profileRuleLinks.order),
+      OrderingTerm.asc(profileRuleLinks.order),
     ]);
 
     return query.map((row) {
@@ -134,6 +134,10 @@ class RulesDao extends DatabaseAccessor<Database> with _$RulesDaoMixin {
     return _delAll(ruleIds);
   }
 
+  Future<void> putGlobalRule(Rule rule) {
+    return _put(rule);
+  }
+
   Future<void> putProfileAddedRule(int profileId, Rule rule) {
     return _put(rule, profileId: profileId, scene: RuleScene.added);
   }
@@ -168,6 +172,13 @@ class RulesDao extends DatabaseAccessor<Database> with _$RulesDaoMixin {
         scene: RuleScene.disabled,
       ).toCompanion(),
     );
+  }
+
+  Future<int> orderGlobalRule({
+    required int ruleId,
+    required String order,
+  }) async {
+    return _order(ruleId: ruleId, order: order);
   }
 
   Future<int> orderProfileAddedRule(

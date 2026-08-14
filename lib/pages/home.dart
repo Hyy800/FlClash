@@ -7,10 +7,11 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 typedef OnSelected = void Function(int index);
 
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   void _handleToPage(PageLabel pageLabel) {
@@ -20,53 +21,69 @@ class HomePage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasViewSize = ref.watch(
+      viewSizeProvider.select((size) => !size.isEmpty),
+    );
+    if (!hasViewSize) {
+      return const SizedBox.shrink();
+    }
     return HomeBackScopeContainer(
-      child: AppBackdrop(
-        child: AppSidebarContainer(
+      child: AppSidebarContainer(
+        child: Material(
+          color: context.colorScheme.surface,
           child: Consumer(
             builder: (context, ref, child) {
               final state = ref.watch(navigationStateProvider);
               final isMobile = state.viewMode == ViewMode.mobile;
               final navigationItems = state.navigationItems;
               final currentIndex = state.currentIndex;
-              final bottomNavigationBar = _AppBottomDock(
-                items: navigationItems,
-                currentIndex: currentIndex,
-                onSelected: (index) {
-                  _handleToPage(navigationItems[index].label);
-                },
+              final bottomNavigationBar = NavigationBarTheme(
+                data: _NavigationBarDefaultsM3(context),
+                child: NavigationBar(
+                  destinations: navigationItems
+                      .map(
+                        (e) => NavigationDestination(
+                          icon: e.icon,
+                          label: Intl.message(e.label.name),
+                        ),
+                      )
+                      .toList(),
+                  onDestinationSelected: (index) {
+                    _handleToPage(navigationItems[index].label);
+                  },
+                  selectedIndex: currentIndex,
+                ),
               );
-              if (isMobile) {
-                return Column(
-                  children: [
-                    Expanded(
+              return Column(
+                children: [
+                  Flexible(
+                    flex: 1,
+                    child: FocusTraversalGroup(
+                      policy: PageTraversalPolicy(),
                       child: MediaQuery.removePadding(
                         removeTop: false,
-                        removeBottom: true,
-                        removeLeft: true,
-                        removeRight: true,
+                        removeBottom: isMobile,
+                        removeLeft: isMobile,
+                        removeRight: isMobile,
                         context: context,
                         child: child!,
                       ),
                     ),
-                    MediaQuery.removePadding(
+                  ),
+                  AnimatedVisibility.bottomNavigation(
+                    visible: isMobile,
+                    child: MediaQuery.removePadding(
                       removeTop: true,
                       removeBottom: false,
                       removeLeft: true,
                       removeRight: true,
                       context: context,
-                      child: SafeArea(
-                        top: false,
-                        minimum: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                        child: bottomNavigationBar,
-                      ),
+                      child: bottomNavigationBar,
                     ),
-                  ],
-                );
-              } else {
-                return child!;
-              }
+                  ),
+                ],
+              );
             },
             child: Consumer(
               builder: (_, ref, _) {
@@ -79,16 +96,38 @@ class HomePage extends StatelessWidget {
                   pageBuilder: (_, index) {
                     final navigationItem = navigationItems[index];
                     final navigationView = navigationItem.builder(context);
+                    final scopedView = PageFocusScope(child: navigationView);
                     final view = KeepScope(
+                      key: ValueKey(navigationItem.label),
                       keep: navigationItem.keep,
                       child: isMobile
-                          ? navigationView
+                          ? scopedView
                           : Navigator(
-                              pages: [MaterialPage(child: navigationView)],
+                              key: ValueKey(
+                                '${navigationItem.label.name}_navigator',
+                              ),
+                              pages: [MaterialPage(child: scopedView)],
                               onDidRemovePage: (_) {},
                             ),
                     );
-                    return view;
+                    return Consumer(
+                      key: ValueKey(navigationItem.label),
+                      builder: (_, ref, child) {
+                        final isActive = ref.watch(
+                          currentPageLabelProvider.select(
+                            (label) => label == navigationItem.label,
+                          ),
+                        );
+                        return PageActivityScope(
+                          isActive: isActive,
+                          child: ExcludeFocus(
+                            excluding: !isActive,
+                            child: child!,
+                          ),
+                        );
+                      },
+                      child: view,
+                    );
                   },
                 );
               },
@@ -154,20 +193,12 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       return;
     }
     final isAnimateToPage = ref.read(appSettingProvider).isAnimateToPage;
-    final currentPage = _pageController.hasClients
-        ? _pageController.page?.round() ?? _pageController.initialPage
-        : _pageController.initialPage;
-    final isAdjacent = (currentPage - index).abs() == 1;
-    final allowAnimation =
-        isAnimateToPage &&
-        !ignoreAnimateTo &&
-        isAdjacent &&
-        ref.read(isMobileViewProvider);
-    if (allowAnimation) {
+    final isMobile = ref.read(isMobileViewProvider);
+    if (isAnimateToPage && isMobile && !ignoreAnimateTo) {
       await _pageController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutQuart,
+        duration: kTabScrollDuration,
+        curve: Curves.easeOut,
       );
     } else {
       _pageController.jumpToPage(index);
@@ -194,6 +225,15 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       controller: _pageController,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: itemCount,
+      findChildIndexCallback: (key) {
+        if (key is! ValueKey<PageLabel>) {
+          return null;
+        }
+        final index = widget.navigationItems.indexWhere(
+          (item) => item.label == key.value,
+        );
+        return index == -1 ? null : index;
+      },
       itemBuilder: (context, index) {
         return widget.pageBuilder(context, index);
       },
@@ -201,115 +241,60 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   }
 }
 
-class _AppBottomDock extends StatelessWidget {
-  final List<NavigationItem> items;
-  final int currentIndex;
-  final OnSelected onSelected;
+class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
+  _NavigationBarDefaultsM3(this.context)
+    : super(
+        height: 80.0,
+        elevation: 3.0,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      );
 
-  const _AppBottomDock({
-    required this.items,
-    required this.currentIndex,
-    required this.onSelected,
-  });
+  final BuildContext context;
+  late final ColorScheme _colors = Theme.of(context).colorScheme;
+  late final TextTheme _textTheme = Theme.of(context).textTheme;
 
   @override
-  Widget build(BuildContext context) {
-    return AppGlassPanel(
-      borderRadius: BorderRadius.circular(30),
-      padding: const EdgeInsets.all(6),
-      child: SizedBox(
-        height: 62,
-        child: Row(
-          children: [
-            for (var index = 0; index < items.length; index++)
-              Expanded(
-                child: _AppBottomDockItem(
-                  item: items[index],
-                  isSelected: currentIndex == index,
-                  onPressed: () {
-                    onSelected(index);
-                  },
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+  Color? get backgroundColor => _colors.surfaceContainer;
+
+  @override
+  Color? get shadowColor => Colors.transparent;
+
+  @override
+  Color? get surfaceTintColor => Colors.transparent;
+
+  @override
+  WidgetStateProperty<IconThemeData?>? get iconTheme {
+    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
+      return IconThemeData(
+        size: 24.0,
+        color: states.contains(WidgetState.disabled)
+            ? _colors.onSurfaceVariant.opacity38
+            : states.contains(WidgetState.selected)
+            ? _colors.onSecondaryContainer
+            : _colors.onSurfaceVariant,
+      );
+    });
   }
-}
-
-class _AppBottomDockItem extends StatelessWidget {
-  final NavigationItem item;
-  final bool isSelected;
-  final VoidCallback onPressed;
-
-  const _AppBottomDockItem({
-    required this.item,
-    required this.isSelected,
-    required this.onPressed,
-  });
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-    return Semantics(
-      selected: isSelected,
-      button: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: onPressed,
-            child: AnimatedContainer(
-              duration: midDuration,
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                color: isSelected
-                    ? colorScheme.primary.withAlpha(24)
-                    : Colors.transparent,
-                border: Border.all(
-                  color: isSelected
-                      ? colorScheme.primary.withAlpha(90)
-                      : Colors.transparent,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconTheme(
-                    data: IconThemeData(
-                      size: 22,
-                      color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    child: item.icon,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    navigationLabel(item.label),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  Color? get indicatorColor => _colors.secondaryContainer;
+
+  @override
+  ShapeBorder? get indicatorShape => const StadiumBorder();
+
+  @override
+  WidgetStateProperty<TextStyle?>? get labelTextStyle {
+    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
+      final TextStyle style = _textTheme.labelMedium!;
+      return style.apply(
+        overflow: TextOverflow.ellipsis,
+        color: states.contains(WidgetState.disabled)
+            ? _colors.onSurfaceVariant.opacity38
+            : states.contains(WidgetState.selected)
+            ? _colors.onSurface
+            : _colors.onSurfaceVariant,
+      );
+    });
   }
 }
 

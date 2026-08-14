@@ -62,11 +62,7 @@ class _ProfilesViewState extends State<ProfilesView> {
     }
     _isUpdating = true;
     final List<UpdatingMessage> messages = [];
-    final disabledProfileIds = globalState.container.read(
-      disabledProfileIdsProvider,
-    );
     final updateProfiles = profiles.map<Future>((profile) async {
-      if (disabledProfileIds.contains(profile.id)) return;
       if (profile.type == ProfileType.file) return;
       try {
         await globalState.container
@@ -125,10 +121,9 @@ class _ProfilesViewState extends State<ProfilesView> {
         final appLocalizations = context.appLocalizations;
         final isLoading = ref.watch(loadingProvider(LoadingTag.profiles));
         final state = ref.watch(profilesStateProvider);
-        final spacing = 8.mAp;
+        final spacing = 14.mAp;
         return CommonScaffold(
           isLoading: isLoading,
-          appBarHeight: 60,
           title: appLocalizations.profiles,
           floatingActionButton: _buildFAB(),
           actions: _buildActions(state.profiles),
@@ -137,39 +132,47 @@ class _ProfilesViewState extends State<ProfilesView> {
                   label: appLocalizations.nullProfileDesc,
                   illustration: const ProfileEmptyIllustration(),
                 )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  child: SingleChildScrollView(
-                    key: profilesStoreKey,
-                    padding: const EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 4,
-                      bottom: 76,
-                    ),
-                    child: Grid(
-                      mainAxisSpacing: spacing,
-                      crossAxisSpacing: spacing,
-                      crossAxisCount: state.columns,
-                      mainAxisExtent: 110,
-                      children: [
-                        for (int i = 0; i < state.profiles.length; i++)
-                          GridItem(
-                            mainAxisCellCount: 1,
-                            child: ProfileItem(
-                              profile: state.profiles[i],
-                              groupValue: state.currentProfileId,
-                              onChanged: (profileId) {
-                                ref
-                                        .read(currentProfileIdProvider.notifier)
-                                        .value =
-                                    profileId;
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+              : LayoutBuilder(
+                  builder: (_, constraints) {
+                    const horizontalPadding = 16.0;
+                    final columns = utils.getProfilesColumns(
+                      constraints.maxWidth - horizontalPadding * 2,
+                    );
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: SingleChildScrollView(
+                        key: profilesStoreKey,
+                        padding: const EdgeInsets.only(
+                          left: horizontalPadding,
+                          right: horizontalPadding,
+                          top: 16,
+                          bottom: 88,
+                        ),
+                        child: Grid(
+                          mainAxisSpacing: spacing,
+                          crossAxisSpacing: spacing,
+                          crossAxisCount: columns,
+                          children: [
+                            for (int i = 0; i < state.profiles.length; i++)
+                              GridItem(
+                                child: ProfileItem(
+                                  profile: state.profiles[i],
+                                  groupValue: state.currentProfileId,
+                                  onChanged: (profileId) {
+                                    ref
+                                            .read(
+                                              currentProfileIdProvider.notifier,
+                                            )
+                                            .value =
+                                        profileId;
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
         );
       },
@@ -177,7 +180,7 @@ class _ProfilesViewState extends State<ProfilesView> {
   }
 }
 
-class ProfileItem extends ConsumerWidget {
+class ProfileItem extends StatelessWidget {
   final Profile profile;
   final int? groupValue;
   final void Function(int? value) onChanged;
@@ -233,7 +236,7 @@ class ProfileItem extends ConsumerWidget {
   List<Widget> _buildUrlProfileInfo(BuildContext context) {
     final subscriptionInfo = profile.subscriptionInfo;
     return [
-      const SizedBox(height: 5),
+      const SizedBox(height: 8),
       if (subscriptionInfo != null)
         SubscriptionInfoView(subscriptionInfo: subscriptionInfo),
       LastUpdateTimeText(
@@ -245,7 +248,7 @@ class ProfileItem extends ConsumerWidget {
 
   List<Widget> _buildFileProfileInfo(BuildContext context) {
     return [
-      const SizedBox(height: 5),
+      const SizedBox(height: 8),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
         style: context.textTheme.labelMedium?.toLight,
@@ -280,174 +283,125 @@ class ProfileItem extends ConsumerWidget {
     BaseNavigator.push(context, OverwriteView(profileId: id));
   }
 
-  Future<void> _setEnabled(
-    BuildContext context,
-    WidgetRef ref,
-    bool enabled,
-  ) async {
-    final profiles = ref.read(profilesProvider);
-    final disabledIds = ref.read(disabledProfileIdsProvider);
-    final enabledProfiles = profiles
-        .where((item) => !disabledIds.contains(item.id))
-        .toList();
-    if (!enabled && enabledProfiles.length <= 1) {
-      context.showNotifier(context.appLocalizations.keepOneProfileEnabled);
-      return;
-    }
-    if (!enabled && profile.id == ref.read(currentProfileIdProvider)) {
-      final nextProfile = profiles.firstWhere(
-        (item) => item.id != profile.id && !disabledIds.contains(item.id),
-      );
-      ref.read(currentProfileIdProvider.notifier).value = nextProfile.id;
-    }
-    await ref
-        .read(disabledProfileIdsProvider.notifier)
-        .setEnabled(profile.id, enabled);
-  }
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    final enabled = !ref.watch(disabledProfileIdsProvider).contains(profile.id);
     return CommonCard(
-      isSelected: enabled && profile.id == groupValue,
-      onPressed: enabled ? () => onChanged(profile.id) : null,
+      enterActionsOnRight: true,
+      isSelected: profile.id == groupValue,
+      onPressed: () {
+        onChanged(profile.id);
+      },
       child: ListItem(
         key: Key(profile.id.toString()),
         horizontalTitleGap: 16,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         trailing: SizedBox(
           height: 40,
-          width: 104,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Switch(
-                value: enabled,
-                onChanged: (value) => _setEnabled(context, ref, value),
-              ),
-              Consumer(
-                builder: (_, ref, _) {
-                  final isUpdating = ref.watch(
-                    isUpdatingProvider(profile.updatingKey),
-                  );
-                  return FadeThroughBox(
-                    child: isUpdating
-                        ? const Padding(
-                            key: ValueKey('loading'),
-                            padding: EdgeInsets.all(8),
-                            child: CircularProgressIndicator(),
-                          )
-                        : CommonPopupBox(
-                            key: const ValueKey('menu'),
-                            popup: CommonPopupMenu(
-                              items: [
+          width: 40,
+          child: Consumer(
+            builder: (_, ref, _) {
+              final isUpdating = ref.watch(
+                isUpdatingProvider(profile.updatingKey),
+              );
+              return FadeThroughBox(
+                child: isUpdating
+                    ? const Padding(
+                        key: ValueKey('loading'),
+                        padding: EdgeInsets.all(8),
+                        child: CommonCircleLoading(),
+                      )
+                    : CommonPopupBox(
+                        key: const ValueKey('menu'),
+                        popup: CommonPopupMenu(
+                          items: [
+                            PopupMenuItemData(
+                              icon: Icons.edit_outlined,
+                              label: appLocalizations.edit,
+                              onPressed: () {
+                                _handleShowEditExtendPage(context);
+                              },
+                            ),
+                            PopupMenuItemData(
+                              icon: Icons.visibility_outlined,
+                              label: appLocalizations.preview,
+                              onPressed: () {
+                                _handlePreview(context);
+                              },
+                            ),
+                            if (profile.type == ProfileType.url) ...[
+                              PopupMenuItemData(
+                                icon: Icons.sync_alt_sharp,
+                                label: appLocalizations.sync,
+                                onPressed: () {
+                                  updateProfile();
+                                },
+                              ),
+                            ],
+                            PopupMenuItemData(
+                              icon: Icons.emergency_outlined,
+                              label: appLocalizations.more,
+                              subItems: [
                                 PopupMenuItemData(
-                                  icon: Icons.edit_outlined,
-                                  label: appLocalizations.edit,
+                                  icon: Icons.extension_outlined,
+                                  label: appLocalizations.override,
                                   onPressed: () {
-                                    _handleShowEditExtendPage(context);
-                                  },
-                                ),
-                                PopupMenuItemData(
-                                  icon: Icons.visibility_outlined,
-                                  label: appLocalizations.preview,
-                                  onPressed: () {
-                                    _handlePreview(context);
+                                    _handlePushGenProfilePage(
+                                      context,
+                                      profile.id,
+                                    );
                                   },
                                 ),
                                 if (profile.type == ProfileType.url) ...[
                                   PopupMenuItemData(
-                                    icon: Icons.sync_alt_sharp,
-                                    label: appLocalizations.sync,
+                                    icon: Icons.copy,
+                                    label: appLocalizations.copyLink,
                                     onPressed: () {
-                                      updateProfile();
+                                      _handleCopyLink(context);
                                     },
                                   ),
                                 ],
                                 PopupMenuItemData(
-                                  icon: Icons.emergency_outlined,
-                                  label: appLocalizations.more,
-                                  subItems: [
-                                    PopupMenuItemData(
-                                      icon: Icons.extension_outlined,
-                                      label: appLocalizations.override,
-                                      onPressed: () {
-                                        _handlePushGenProfilePage(
-                                          context,
-                                          profile.id,
-                                        );
-                                      },
-                                    ),
-                                    // PopupMenuItemData(
-                                    //   icon: Icons.extension_outlined,
-                                    //   label: appLocalizations.override + "1",
-                                    //   onPressed: () {
-                                    //     final overrideProfileView = OverrideProfileView(
-                                    //       profileId: profile.id,
-                                    //     );
-                                    //     BaseNavigator.push(
-                                    //       context,
-                                    //       overrideProfileView,
-                                    //     );
-                                    //   },
-                                    // ),
-                                    if (profile.type == ProfileType.url) ...[
-                                      PopupMenuItemData(
-                                        icon: Icons.copy,
-                                        label: appLocalizations.copyLink,
-                                        onPressed: () {
-                                          _handleCopyLink(context);
-                                        },
-                                      ),
-                                    ],
-                                    PopupMenuItemData(
-                                      icon: Icons.file_copy_outlined,
-                                      label: appLocalizations.exportFile,
-                                      onPressed: () {
-                                        _handleExportFile(context);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                PopupMenuItemData(
-                                  danger: true,
-                                  icon: Icons.delete_outlined,
-                                  label: appLocalizations.delete,
+                                  icon: Icons.file_copy_outlined,
+                                  label: appLocalizations.exportFile,
                                   onPressed: () {
-                                    _handleDeleteProfile(context);
+                                    _handleExportFile(context);
                                   },
                                 ),
                               ],
                             ),
-                            targetBuilder: (open) {
-                              return IconButton(
-                                onPressed: () {
-                                  open();
-                                },
-                                icon: const Icon(Icons.more_vert),
-                              );
+                            PopupMenuItemData(
+                              danger: true,
+                              icon: Icons.delete_outlined,
+                              label: appLocalizations.delete,
+                              onPressed: () {
+                                _handleDeleteProfile(context);
+                              },
+                            ),
+                          ],
+                        ),
+                        targetBuilder: (open) {
+                          return IconButton(
+                            onPressed: () {
+                              open();
                             },
-                          ),
-                  );
-                },
-              ),
-            ],
+                            icon: const Icon(Icons.more_vert),
+                          );
+                        },
+                      ),
+              );
+            },
           ),
         ),
-        title: Transform.translate(
-          offset: const Offset(0, -7),
+        title: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 profile.realLabel,
-                style: context.textTheme.titleMedium?.copyWith(
-                  color: enabled
-                      ? context.colorScheme.onSurface
-                      : context.colorScheme.onSurfaceVariant,
-                ),
+                style: context.textTheme.titleMedium,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -524,12 +478,9 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
       key: Key(profile.id.toString()),
       position: position,
       child: DecorationListItem(
-        trailing: ReorderableDragStartListener(
+        trailing: ReorderableDelayedDragStartListener(
           index: index,
-          child: const MouseRegion(
-            cursor: SystemMouseCursors.grab,
-            child: Icon(Icons.drag_handle),
-          ),
+          child: const Icon(Icons.drag_handle),
         ),
         title: Text(profile.realLabel),
       ),
@@ -555,7 +506,7 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
             horizontal: 16,
           ).copyWith(top: context.sheetTopPadding),
           proxyDecorator: (child, index, animation) {
-            return commonProxyDecorator(child, index, animation);
+            return commonProxyDecorator(_buildItem(index), index, animation);
           },
           onReorderItem: (oldIndex, newIndex) {
             setState(() {

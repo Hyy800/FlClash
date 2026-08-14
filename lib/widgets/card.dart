@@ -2,21 +2,10 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'fade_box.dart';
 import 'text.dart';
-
-class CommonCardScope extends InheritedWidget {
-  const CommonCardScope({super.key, required super.child});
-
-  static bool isInside(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<CommonCardScope>() !=
-        null;
-  }
-
-  @override
-  bool updateShouldNotify(CommonCardScope oldWidget) => false;
-}
 
 class Info {
   final String label;
@@ -68,9 +57,8 @@ class InfoHeader extends StatelessWidget {
                       info.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: context.colorScheme.onSurfaceVariant,
-                        letterSpacing: 0.35,
                       ),
                     ),
                   ),
@@ -102,16 +90,18 @@ class CommonCard extends StatelessWidget {
     this.onPressed,
     this.selectWidget,
     this.radius,
-    required this.child,
     this.padding,
     this.enterAnimated = false,
     this.info,
     this.onLongPress,
     this.shape,
     this.isError = false,
+    this.enterActionsOnRight = false,
+    required this.child,
   }) : isSelected = isSelected ?? false;
 
   final bool enterAnimated;
+  final bool enterActionsOnRight;
   final bool isSelected;
   final bool isError;
   final void Function()? onPressed;
@@ -145,11 +135,7 @@ class CommonCard extends StatelessWidget {
       );
     }
     if (type == CommonCardType.filled) {
-      return BorderSide(
-        color: isSelected
-            ? colorScheme.primary
-            : colorScheme.outlineVariant.withAlpha(80),
-      );
+      return BorderSide.none;
     }
     final hoverColor = isSelected
         ? colorScheme.primary.opacity80
@@ -162,31 +148,32 @@ class CommonCard extends StatelessWidget {
     return BorderSide(
       color: isSelected
           ? colorScheme.primary
-          : colorScheme.outlineVariant.withAlpha(90),
+          : colorScheme.surfaceContainerHighest,
     );
   }
 
   Color? _buildBackgroundColor(BuildContext context) {
     final colorScheme = context.colorScheme;
-    if (isError) {
-      return colorScheme.errorContainer.withAlpha(isSelected ? 220 : 145);
-    }
+    // if (isError) {
+    //   if (type == CommonCardType.filled) {
+    //     return isSelected
+    //         ? colorScheme.errorContainer.opacity80
+    //         : colorScheme.errorContainer;
+    //   }
+    //   return isSelected
+    //       ? colorScheme.errorContainer.opacity60
+    //       : colorScheme.errorContainer.opacity12;
+    // }
     if (type == CommonCardType.filled) {
       if (isSelected) {
-        return Color.alphaBlend(
-          colorScheme.primary.withAlpha(25),
-          colorScheme.surfaceContainerHigh,
-        );
+        return colorScheme.secondaryContainer.opacity80;
       }
-      return colorScheme.surfaceContainerLow.withAlpha(220);
+      return colorScheme.surfaceContainerHigh;
     }
     if (isSelected) {
-      return Color.alphaBlend(
-        colorScheme.primary.withAlpha(22),
-        colorScheme.surfaceContainerLow,
-      );
+      return colorScheme.secondaryContainer;
     }
-    return colorScheme.surfaceContainerLow.withAlpha(220);
+    return colorScheme.surfaceContainerLow;
   }
 
   Color? _buildForegroundColor(BuildContext context) {
@@ -196,12 +183,12 @@ class CommonCard extends StatelessWidget {
     }
     if (type == CommonCardType.filled) {
       if (isSelected) {
-        return colorScheme.onSurface;
+        return colorScheme.onSecondaryContainer;
       }
       return colorScheme.onSurfaceVariant;
     }
     if (isSelected) {
-      return colorScheme.onSurface;
+      return colorScheme.onSecondaryContainer;
     }
     return colorScheme.onSurfaceVariant;
   }
@@ -238,43 +225,81 @@ class CommonCard extends StatelessWidget {
       childWidget = Stack(children: children);
     }
 
-    final cardShape =
-        (shape ??
-                RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(radius ?? 14),
-                ))
-            .copyWith(side: _buildBorderSide(context, const <WidgetState>{}));
-    final backgroundColor = _buildBackgroundColor(context)!;
-    final foregroundColor = _buildForegroundColor(context)!;
-    final card = AnimatedContainer(
-      duration: midDuration,
-      curve: Curves.easeOutCubic,
-      decoration: ShapeDecoration(
-        color: backgroundColor,
-        shape: cardShape,
-        shadows: const [],
-      ),
-      child: Material(
-        color: Colors.transparent,
+    final button = switch (type == CommonCardType.filled) {
+      true => FilledButton(
+        onLongPress: onLongPress,
         clipBehavior: Clip.antiAlias,
-        shape: cardShape,
-        child: InkWell(
-          customBorder: cardShape,
-          onLongPress: onLongPress,
-          onTap: onPressed,
-          child: Padding(
-            padding: padding ?? EdgeInsets.zero,
-            child: IconTheme.merge(
-              data: IconThemeData(color: _buildIconColor(context), size: 20),
-              child: DefaultTextStyle.merge(
-                style: TextStyle(color: foregroundColor),
-                child: CommonCardScope(child: childWidget),
+        style:
+            FilledButton.styleFrom(
+              padding: padding ?? EdgeInsets.zero,
+              shape:
+                  shape ??
+                  RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(radius ?? 14),
+                  ),
+              iconSize: 20,
+              iconColor: _buildIconColor(context),
+              foregroundColor: _buildForegroundColor(context),
+              side: BorderSide.none,
+              elevation: 0,
+            ).copyWith(
+              backgroundColor: WidgetStatePropertyAll(
+                _buildBackgroundColor(context),
+              ),
+              side: WidgetStateProperty.resolveWith(
+                (states) => _buildBorderSide(context, states),
               ),
             ),
-          ),
-        ),
+        onPressed: onPressed,
+        child: childWidget,
       ),
-    );
+      false => OutlinedButton(
+        onLongPress: onLongPress,
+        clipBehavior: Clip.antiAlias,
+        style:
+            OutlinedButton.styleFrom(
+              padding: padding ?? EdgeInsets.zero,
+              shape:
+                  shape ??
+                  RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(radius ?? 14),
+                  ),
+              iconSize: 20,
+              iconColor: _buildIconColor(context),
+              backgroundColor: _buildBackgroundColor(context),
+              foregroundColor: _buildForegroundColor(context),
+              elevation: 0,
+            ).copyWith(
+              side: WidgetStateProperty.resolveWith(
+                (states) => _buildBorderSide(context, states),
+              ),
+            ),
+        onPressed: onPressed,
+        child: childWidget,
+      ),
+    };
+    final card = !enterActionsOnRight
+        ? button
+        : Focus(
+            canRequestFocus: false,
+            onKeyEvent: (_, event) {
+              if (event is! KeyDownEvent ||
+                  event.logicalKey != LogicalKeyboardKey.arrowRight) {
+                return KeyEventResult.ignored;
+              }
+              final focusNode = FocusManager.instance.primaryFocus;
+              final context = focusNode?.context;
+              if (focusNode == null ||
+                  context == null ||
+                  context.findAncestorWidgetOfExactType<IconButton>() != null) {
+                return KeyEventResult.ignored;
+              }
+              return focusNode.nextFocus()
+                  ? KeyEventResult.handled
+                  : KeyEventResult.ignored;
+            },
+            child: button,
+          );
 
     return switch (enterAnimated) {
       true => FadeScaleEnterBox(child: card),
@@ -292,8 +317,8 @@ class SelectIcon extends StatelessWidget {
       color: Theme.of(context).colorScheme.inversePrimary,
       shape: const CircleBorder(),
       child: Container(
-        padding: const EdgeInsets.all(5),
-        child: const Icon(Icons.check_rounded, size: 16),
+        padding: const EdgeInsets.all(4),
+        child: const Icon(Icons.check, size: 16),
       ),
     );
   }
@@ -308,12 +333,12 @@ class SettingsBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(8),
       child: Column(
         children: [
           InfoHeader(info: Info(label: title)),
-          CommonCard(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+          Card(
+            color: context.colorScheme.surfaceContainer,
             child: Column(children: settings),
           ),
         ],

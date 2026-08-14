@@ -1,8 +1,6 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:flutter/material.dart';
 
-import 'card.dart';
-
 class SettingsPageLayout extends StatelessWidget {
   final List<Widget> children;
   final double maxWidth;
@@ -60,50 +58,48 @@ class SettingsSection extends StatelessWidget {
             bottom: BorderSide(color: colorScheme.outlineVariant),
           ),
         ),
-        child: CommonCardScope(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ColoredBox(
-                color: colorScheme.surfaceContainerHigh.withAlpha(120),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 9),
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 18, color: colorScheme.primary),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(title, style: context.textTheme.titleSmall),
-                            if (description != null)
-                              Text(
-                                description!,
-                                style: context.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ColoredBox(
+              color: colorScheme.surfaceContainerHigh.withAlpha(120),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 9),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 18, color: colorScheme.primary),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: context.textTheme.titleSmall),
+                          if (description != null)
+                            Text(
+                              description!,
+                              style: context.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-              for (var index = 0; index < children.length; index++) ...[
-                children[index],
-                if (index != children.length - 1)
-                  Divider(
-                    height: 1,
-                    indent: 18,
-                    endIndent: 18,
-                    color: colorScheme.outlineVariant.withAlpha(90),
-                  ),
-              ],
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            for (var index = 0; index < children.length; index++) ...[
+              Material(color: Colors.transparent, child: children[index]),
+              if (index != children.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 18,
+                  endIndent: 18,
+                  color: colorScheme.outlineVariant.withAlpha(90),
+                ),
             ],
-          ),
+          ],
         ),
       ),
     );

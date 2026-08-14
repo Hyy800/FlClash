@@ -79,7 +79,6 @@ const _$DashboardWidgetEnumMap = {
   DashboardWidget.tunButton: 'tunButton',
   DashboardWidget.vpnButton: 'vpnButton',
   DashboardWidget.systemProxyButton: 'systemProxyButton',
-  DashboardWidget.currentNode: 'currentNode',
   DashboardWidget.intranetIp: 'intranetIp',
   DashboardWidget.memoryInfo: 'memoryInfo',
 };

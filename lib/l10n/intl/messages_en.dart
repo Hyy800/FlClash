@@ -37,7 +37,7 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m6(label) => "Current ${label} already exists";
 
-  static String m7(name) => "${name} skipped";
+  static String m7(name) => "${name} is already up to date";
 
   static String m8(name) => "${name} updated";
 
@@ -274,6 +274,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Content cannot be empty",
     ),
     "contentScheme": MessageLookupByLibrary.simpleMessage("Content"),
+    "controlGlobalAddedRules": MessageLookupByLibrary.simpleMessage(
+      "Control global added rules",
+    ),
     "copy": MessageLookupByLibrary.simpleMessage("Copy"),
     "copyEnvVar": MessageLookupByLibrary.simpleMessage(
       "Copying environment variables",
@@ -283,6 +286,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "core": MessageLookupByLibrary.simpleMessage("Core"),
     "coreStatus": MessageLookupByLibrary.simpleMessage("Core status"),
     "country": MessageLookupByLibrary.simpleMessage("Country"),
+    "crashDetected": MessageLookupByLibrary.simpleMessage("Crash detected"),
+    "crashDetectedTip": MessageLookupByLibrary.simpleMessage(
+      "The app crashed during the previous run. To prevent repeated crashes, the current profile has been cleared and automatic configuration setup was skipped.",
+    ),
     "crashTest": MessageLookupByLibrary.simpleMessage("Crash test"),
     "crashlytics": MessageLookupByLibrary.simpleMessage("Crash Analysis"),
     "crashlyticsTip": MessageLookupByLibrary.simpleMessage(
@@ -358,6 +365,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "download": MessageLookupByLibrary.simpleMessage("Download"),
     "edit": MessageLookupByLibrary.simpleMessage("Edit"),
     "editAndRetry": MessageLookupByLibrary.simpleMessage("Edit and retry"),
+    "editGlobalRules": MessageLookupByLibrary.simpleMessage(
+      "Edit global rules",
+    ),
     "editProxy": MessageLookupByLibrary.simpleMessage("Edit proxy"),
     "editProxyGroup": MessageLookupByLibrary.simpleMessage("Edit proxy group"),
     "editRule": MessageLookupByLibrary.simpleMessage("Edit rule"),
@@ -451,6 +461,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "hasCacheChange": MessageLookupByLibrary.simpleMessage(
       "Do you want to cache the changes?",
+    ),
+    "helperCorruptTip": MessageLookupByLibrary.simpleMessage(
+      "Helper service unavailable; TUN mode cannot be enabled. Reinstall FlClash to restore it.",
     ),
     "hideFromList": MessageLookupByLibrary.simpleMessage("Hide from list"),
     "host": MessageLookupByLibrary.simpleMessage("Host"),

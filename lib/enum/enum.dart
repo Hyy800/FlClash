@@ -219,58 +219,13 @@ enum FontFamily {
 
 enum RouteMode { bypassPrivate, config }
 
-enum ActionMethod {
-  message,
-  initClash,
-  getIsInit,
-  forceGc,
-  shutdown,
-  validateConfig,
-  updateConfig,
-  getConfig,
-  getProxies,
-  changeProxy,
-  getTraffic,
-  getTotalTraffic,
-  resetTraffic,
-  asyncTestDelay,
-  getConnections,
-  closeConnections,
-  resetConnections,
-  closeConnection,
-  getExternalProviders,
-  getExternalProvider,
-  updateGeoData,
-  updateExternalProvider,
-  sideLoadExternalProvider,
-  startLog,
-  stopLog,
-  startListener,
-  stopListener,
-  getCountryCode,
-  getMemory,
-  crash,
-  setupConfig,
-  deleteFile,
-
-  ///Android,
-  setState,
-  startTun,
-  stopTun,
-  getRunTime,
-  updateDns,
-  getAndroidVpnOptions,
-  getCurrentProfileName,
-}
-
 enum AuthorizeCode { none, success, error }
 
-enum WindowsHelperServiceStatus { none, presence, running }
+enum TunAuthorizationState { none, authorized, unauthorized }
 
 enum FunctionTag {
   updateConfig,
   setupConfig,
-  updateStatus,
   updateGroups,
   addCheckIpNum,
   applyProfile,
@@ -295,26 +250,25 @@ enum FunctionTag {
 }
 
 enum DashboardWidget {
-  networkSpeed(GridItem(crossAxisCellCount: 6, child: NetworkSpeed())),
-  outboundModeV2(GridItem(crossAxisCellCount: 12, child: OutboundModeV2())),
-  outboundMode(GridItem(crossAxisCellCount: 6, child: OutboundMode())),
-  trafficUsage(GridItem(crossAxisCellCount: 6, child: TrafficUsage())),
-  networkDetection(GridItem(crossAxisCellCount: 6, child: NetworkDetection())),
+  networkSpeed(GridItem(crossAxisCellCount: 8, child: NetworkSpeed())),
+  outboundModeV2(GridItem(crossAxisCellCount: 8, child: OutboundModeV2())),
+  outboundMode(GridItem(crossAxisCellCount: 4, child: OutboundMode())),
+  trafficUsage(GridItem(crossAxisCellCount: 4, child: TrafficUsage())),
+  networkDetection(GridItem(crossAxisCellCount: 4, child: NetworkDetection())),
   tunButton(
-    GridItem(crossAxisCellCount: 6, child: TUNButton()),
+    GridItem(crossAxisCellCount: 4, child: TUNButton()),
     platforms: desktopPlatforms,
   ),
   vpnButton(
-    GridItem(crossAxisCellCount: 6, child: VpnButton()),
+    GridItem(crossAxisCellCount: 4, child: VpnButton()),
     platforms: [SupportPlatform.Android],
   ),
   systemProxyButton(
-    GridItem(crossAxisCellCount: 6, child: SystemProxyButton()),
+    GridItem(crossAxisCellCount: 4, child: SystemProxyButton()),
     platforms: desktopPlatforms,
   ),
-  currentNode(GridItem(crossAxisCellCount: 6, child: CurrentNode())),
-  intranetIp(GridItem(crossAxisCellCount: 6, child: IntranetIP())),
-  memoryInfo(GridItem(crossAxisCellCount: 6, child: MemoryInfo()));
+  intranetIp(GridItem(crossAxisCellCount: 4, child: IntranetIP())),
+  memoryInfo(GridItem(crossAxisCellCount: 4, child: MemoryInfo()));
 
   final GridItem widget;
   final List<SupportPlatform> platforms;
@@ -337,9 +291,9 @@ enum GeoResource {
   MMDB,
   @JsonValue('asn')
   ASN,
-  @JsonValue('geo-ip')
+  @JsonValue('geoip')
   GEOIP,
-  @JsonValue('geo-site')
+  @JsonValue('geosite')
   GEOSITE;
 
   static GeoResource fromJson(String value) {
@@ -354,12 +308,12 @@ enum GeoResource {
 }
 
 extension GeoResourceExt on GeoResource {
-  String get value {
+  String get configKey {
     return switch (this) {
       GeoResource.MMDB => 'mmdb',
       GeoResource.ASN => 'asn',
-      GeoResource.GEOIP => 'geo-ip',
-      GeoResource.GEOSITE => 'geo-site',
+      GeoResource.GEOIP => 'geoip',
+      GeoResource.GEOSITE => 'geosite',
     };
   }
 

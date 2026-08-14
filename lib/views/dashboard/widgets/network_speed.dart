@@ -51,7 +51,7 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
               return Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                    padding: baseInfoEdgeInsets.copyWith(bottom: 0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -77,7 +77,7 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
                   Flexible(
                     child: Padding(
                       padding: const EdgeInsets.all(
-                        10,
+                        16,
                       ).copyWith(bottom: 0, left: 0, right: 0),
                       child: LineChart(
                         gradient: true,

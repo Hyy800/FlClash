@@ -156,8 +156,8 @@ std::optional<LRESULT> WindowExtPlugin::HitTestResizeBorder(HWND hwnd,
 
 void WindowExtPlugin::EnableFramelessWindow(HWND hwnd) {
   LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-  style &= ~(WS_CAPTION | WS_THICKFRAME);
-  style |= WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+  style &= ~WS_CAPTION;
+  style |= WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
   SetWindowLongPtr(hwnd, GWL_STYLE, style);
   frameless_ = true;
 

@@ -1,8 +1,17 @@
+// ignore_for_file: deprecated_member_use
+
+import 'dart:math';
+
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:material_color_utilities/hct/hct.dart';
 
 class ThemeModeItem {
   final ThemeMode themeMode;
@@ -16,8 +25,63 @@ class ThemeModeItem {
   });
 }
 
-class ThemeView extends ConsumerWidget {
+class FontFamilyItem {
+  final FontFamily fontFamily;
+  final String label;
+
+  const FontFamilyItem({required this.fontFamily, required this.label});
+}
+
+class ThemeView extends StatelessWidget {
   const ThemeView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    return BaseScaffold(
+      title: appLocalizations.theme,
+      body: const CustomScrollView(
+        slivers: [
+          _ThemeModeItem(),
+          SliverToBoxAdapter(child: SizedBox(height: 16)),
+          _PrimaryColorItem(),
+          SliverToBoxAdapter(child: SizedBox(height: 16)),
+          _PrueBlackItem(),
+          SliverToBoxAdapter(child: SizedBox(height: 16)),
+          _TextScaleFactorItem(),
+          SliverToBoxAdapter(child: SizedBox(height: 32)),
+        ],
+      ),
+    );
+  }
+}
+
+class ItemCard extends StatelessWidget {
+  final Widget child;
+  final Info info;
+  final List<Widget> actions;
+
+  const ItemCard({
+    super.key,
+    required this.info,
+    required this.child,
+    this.actions = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      runSpacing: 16,
+      children: [
+        InfoHeader(info: info, actions: actions),
+        child,
+      ],
+    );
+  }
+}
+
+class _ThemeModeItem extends ConsumerWidget {
+  const _ThemeModeItem();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,90 +89,64 @@ class ThemeView extends ConsumerWidget {
     final themeMode = ref.watch(
       themeSettingProvider.select((state) => state.themeMode),
     );
-    final items = [
+    final List<ThemeModeItem> themeModeItems = [
       ThemeModeItem(
-        iconData: Icons.brightness_auto_rounded,
+        iconData: Icons.auto_mode,
         label: appLocalizations.auto,
         themeMode: ThemeMode.system,
       ),
       ThemeModeItem(
-        iconData: Icons.light_mode_rounded,
+        iconData: Icons.light_mode,
         label: appLocalizations.light,
         themeMode: ThemeMode.light,
       ),
       ThemeModeItem(
-        iconData: Icons.dark_mode_rounded,
+        iconData: Icons.dark_mode,
         label: appLocalizations.dark,
         themeMode: ThemeMode.dark,
       ),
     ];
-    return BaseScaffold(
-      title: appLocalizations.theme,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
-        child: AppGlassPanel(
-          borderRadius: BorderRadius.circular(26),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: context.colorScheme.primary.withAlpha(28),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Icon(
-                      Icons.contrast_rounded,
-                      color: context.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Text(
-                    appLocalizations.themeMode,
-                    style: context.textTheme.titleLarge,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 520;
-                  final List<Widget> choices = [
-                    for (final item in items)
-                      _ThemeModeChoice(
-                        item: item,
-                        isSelected: item.themeMode == themeMode,
-                        onPressed: () {
-                          ref
-                              .read(themeSettingProvider.notifier)
-                              .update(
-                                (state) =>
-                                    state.copyWith(themeMode: item.themeMode),
-                              );
-                        },
-                      ),
-                  ];
-                  if (isNarrow) {
-                    return Column(
-                      children: choices
-                          .separated(const SizedBox(height: 12))
-                          .toList(),
-                    );
-                  }
-                  return Row(
-                    children: choices
-                        .map<Widget>((item) => Expanded(child: item))
-                        .separated(const SizedBox(width: 12))
-                        .toList(),
-                  );
+    return SliverToBoxAdapter(
+      child: ItemCard(
+        info: Info(
+          label: appLocalizations.themeMode,
+          iconData: Icons.brightness_high,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: 56,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: themeModeItems.length,
+            itemBuilder: (_, index) {
+              final themeModeItem = themeModeItems[index];
+              return CommonCard(
+                isSelected: themeModeItem.themeMode == themeMode,
+                onPressed: () {
+                  ref
+                      .read(themeSettingProvider.notifier)
+                      .update(
+                        (state) =>
+                            state.copyWith(themeMode: themeModeItem.themeMode),
+                      );
                 },
-              ),
-            ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Flexible(child: Icon(themeModeItem.iconData)),
+                      const SizedBox(width: 8),
+                      Flexible(child: Text(themeModeItem.label)),
+                    ],
+                  ),
+                ),
+              );
+            },
+            separatorBuilder: (_, _) {
+              return const SizedBox(width: 16);
+            },
           ),
         ),
       ),
@@ -116,59 +154,411 @@ class ThemeView extends ConsumerWidget {
   }
 }
 
-class _ThemeModeChoice extends StatelessWidget {
-  final ThemeModeItem item;
-  final bool isSelected;
-  final VoidCallback onPressed;
+class _PrimaryColorItem extends ConsumerStatefulWidget {
+  const _PrimaryColorItem();
 
-  const _ThemeModeChoice({
-    required this.item,
-    required this.isSelected,
-    required this.onPressed,
-  });
+  @override
+  ConsumerState<_PrimaryColorItem> createState() => _PrimaryColorItemState();
+}
+
+class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
+  int? _removablePrimaryColor;
+
+  int _calcColumns(double maxWidth) {
+    return max((maxWidth / 96).ceil(), 3);
+  }
+
+  Future<void> _handleReset() async {
+    final res = await globalState.showMessage(
+      message: TextSpan(text: context.appLocalizations.resetTip),
+    );
+    if (res != true) {
+      return;
+    }
+    ref.read(themeSettingProvider.notifier).update((state) {
+      return state.copyWith(
+        primaryColors: defaultPrimaryColors,
+        primaryColor: defaultPrimaryColor,
+        schemeVariant: DynamicSchemeVariant.content,
+      );
+    });
+  }
+
+  Future<void> _handleDel() async {
+    final appLocalizations = context.appLocalizations;
+    if (_removablePrimaryColor == null) {
+      return;
+    }
+    final res = await globalState.showMessage(
+      message: TextSpan(
+        text: appLocalizations.deleteTip(appLocalizations.colorSchemes),
+      ),
+    );
+    if (res != true) {
+      return;
+    }
+    ref.read(themeSettingProvider.notifier).update((state) {
+      final newPrimaryColors = List<int>.from(state.primaryColors)
+        ..remove(_removablePrimaryColor);
+      int? newPrimaryColor = state.primaryColor;
+      if (state.primaryColor == _removablePrimaryColor) {
+        if (newPrimaryColors.contains(defaultPrimaryColor)) {
+          newPrimaryColor = defaultPrimaryColor;
+        } else {
+          newPrimaryColor = null;
+        }
+      }
+      return state.copyWith(
+        primaryColors: newPrimaryColors,
+        primaryColor: newPrimaryColor,
+      );
+    });
+    setState(() {
+      _removablePrimaryColor = null;
+    });
+  }
+
+  Future<void> _handleAdd() async {
+    final appLocalizations = context.appLocalizations;
+    final res = await globalState.showCommonDialog<int>(
+      child: const _PaletteDialog(),
+    );
+    if (res == null) {
+      return;
+    }
+    final isExists = ref.read(
+      themeSettingProvider.select((state) => state.primaryColors.contains(res)),
+    );
+    if (isExists && mounted) {
+      context.showNotifier(
+        appLocalizations.existsTip(appLocalizations.colorSchemes),
+      );
+      return;
+    }
+    ref.read(themeSettingProvider.notifier).update((state) {
+      return state.copyWith(
+        primaryColors: List.from(state.primaryColors)..add(res),
+      );
+    });
+  }
+
+  Future<void> _handleChangeSchemeVariant() async {
+    final schemeVariant = ref.read(
+      themeSettingProvider.select((state) => state.schemeVariant),
+    );
+    final value = await globalState.showCommonDialog<DynamicSchemeVariant>(
+      child: OptionsDialog<DynamicSchemeVariant>(
+        title: context.appLocalizations.colorSchemes,
+        options: DynamicSchemeVariant.values,
+        textBuilder: (item) => Intl.message('${item.name}Scheme'),
+        value: schemeVariant,
+      ),
+    );
+    if (value == null) {
+      return;
+    }
+    ref.read(themeSettingProvider.notifier).update((state) {
+      return state.copyWith(schemeVariant: value);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return CommonCard(
-      isSelected: isSelected,
-      radius: 20,
-      onPressed: onPressed,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-      child: Row(
+    final appLocalizations = context.appLocalizations;
+    final vm4 = ref.watch(
+      themeSettingProvider.select(
+        (state) => VM4(
+          state.primaryColor,
+          state.primaryColors,
+          state.schemeVariant,
+          state.primaryColor == defaultPrimaryColor &&
+              intListEquality.equals(
+                state.primaryColors,
+                defaultPrimaryColors,
+              ) &&
+              state.schemeVariant == DynamicSchemeVariant.content,
+        ),
+      ),
+    );
+    final primaryColor = vm4.a;
+    final primaryColors = [null, ...vm4.b];
+    final schemeVariant = vm4.c;
+    final isEquals = vm4.d;
+
+    return SliverToBoxAdapter(
+      child: CommonPopScope(
+        onPop: (context) {
+          if (_removablePrimaryColor != null) {
+            setState(() {
+              _removablePrimaryColor = null;
+            });
+            return false;
+          }
+          return true;
+        },
+        child: ItemCard(
+          info: Info(
+            label: appLocalizations.themeColor,
+            iconData: Icons.palette,
+          ),
+          actions: genActions([
+            if (_removablePrimaryColor == null)
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: _handleChangeSchemeVariant,
+                child: Text(Intl.message('${schemeVariant.name}Scheme')),
+              ),
+            if (_removablePrimaryColor != null)
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _removablePrimaryColor = null;
+                  });
+                },
+                child: Text(appLocalizations.cancel),
+              ),
+            if (_removablePrimaryColor == null && !isEquals)
+              IconButton.filledTonal(
+                iconSize: 20,
+                padding: const EdgeInsets.all(4),
+                visualDensity: VisualDensity.compact,
+                onPressed: _handleReset,
+                icon: const Icon(Icons.replay),
+              ),
+          ], space: 8),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                final columns = _calcColumns(constraints.maxWidth);
+                final itemWidth =
+                    (constraints.maxWidth - (columns - 1) * 16) / columns;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    for (final color in primaryColors)
+                      Container(
+                        clipBehavior: Clip.none,
+                        width: itemWidth,
+                        height: itemWidth,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            EffectGestureDetector(
+                              child: ColorSchemeBox(
+                                isSelected: color == primaryColor,
+                                primaryColor: color != null
+                                    ? Color(color)
+                                    : null,
+                                onPressed: () {
+                                  setState(() {
+                                    _removablePrimaryColor = null;
+                                  });
+                                  ref
+                                      .read(themeSettingProvider.notifier)
+                                      .update(
+                                        (state) =>
+                                            state.copyWith(primaryColor: color),
+                                      );
+                                },
+                              ),
+                              onLongPress: () {
+                                setState(() {
+                                  _removablePrimaryColor = color;
+                                });
+                              },
+                            ),
+                            if (_removablePrimaryColor != null &&
+                                _removablePrimaryColor == color)
+                              Container(
+                                color: Colors.white.opacity0,
+                                padding: const EdgeInsets.all(8),
+                                child: IconButton.filledTonal(
+                                  onPressed: _handleDel,
+                                  padding: const EdgeInsets.all(12),
+                                  iconSize: 30,
+                                  icon: Icon(
+                                    color: context.colorScheme.primary,
+                                    Icons.delete,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    if (_removablePrimaryColor == null)
+                      Container(
+                        width: itemWidth,
+                        height: itemWidth,
+                        padding: const EdgeInsets.all(4),
+                        child: IconButton.filledTonal(
+                          onPressed: _handleAdd,
+                          iconSize: 32,
+                          icon: Icon(
+                            color: context.colorScheme.primary,
+                            Icons.add,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrueBlackItem extends ConsumerWidget {
+  const _PrueBlackItem();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
+    final prueBlack = ref.watch(
+      themeSettingProvider.select((state) => state.pureBlack),
+    );
+    return SliverToBoxAdapter(
+      child: ListItem.toggle(
+        leading: const Icon(Icons.contrast),
+        horizontalTitleGap: 12,
+        title: Text(
+          appLocalizations.pureBlackMode,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: context.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        value: prueBlack,
+        onChanged: (value) {
+          ref
+              .read(themeSettingProvider.notifier)
+              .update((state) => state.copyWith(pureBlack: value));
+        },
+      ),
+    );
+  }
+}
+
+class _TextScaleFactorItem extends ConsumerWidget {
+  const _TextScaleFactorItem();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appLocalizations = context.appLocalizations;
+    final textScale = ref.watch(
+      themeSettingProvider.select((state) => state.textScale),
+    );
+    final String process = '${(textScale.scale * 100).round()}%';
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? context.colorScheme.primary
-                  : context.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ListItem.toggle(
+              leading: const Icon(Icons.text_fields),
+              horizontalTitleGap: 12,
+              title: Text(
+                appLocalizations.textScale,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: context.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              value: textScale.enable,
+              onChanged: (value) {
+                ref
+                    .read(themeSettingProvider.notifier)
+                    .update((state) => state.copyWith.textScale(enable: value));
+              },
             ),
-            child: Icon(
-              item.iconData,
-              color: isSelected
-                  ? context.colorScheme.onPrimary
-                  : context.colorScheme.onSurfaceVariant,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisSize: MainAxisSize.max,
+              spacing: 32,
+              children: [
+                Expanded(
+                  child: DisabledMask(
+                    status: !textScale.enable,
+                    child: ActivateBox(
+                      active: textScale.enable,
+                      child: SliderTheme(
+                        data: SliderDefaultsM3(context),
+                        child: Slider(
+                          padding: EdgeInsets.zero,
+                          min: minTextScale,
+                          max: maxTextScale,
+                          value: textScale.scale,
+                          onChanged: (value) {
+                            ref
+                                .read(themeSettingProvider.notifier)
+                                .update(
+                                  (state) =>
+                                      state.copyWith.textScale(scale: value),
+                                );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(process, style: context.textTheme.titleMedium),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(item.label, style: context.textTheme.titleMedium),
-          ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 160),
-            child: isSelected
-                ? Icon(
-                    Icons.check_circle_rounded,
-                    key: const ValueKey(true),
-                    color: context.colorScheme.primary,
-                  )
-                : const SizedBox(key: ValueKey(false), width: 24, height: 24),
-          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaletteDialog extends StatefulWidget {
+  const _PaletteDialog();
+
+  @override
+  State<_PaletteDialog> createState() => _PaletteDialogState();
+}
+
+class _PaletteDialogState extends State<_PaletteDialog> {
+  final _controller = ValueNotifier<Color>(Color(Hct.from(0, 0, 60).toInt()));
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    return CommonDialog(
+      title: appLocalizations.palette,
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: Text(appLocalizations.cancel),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop(_controller.value.toARGB32());
+          },
+          child: Text(appLocalizations.confirm),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 300, child: Palette(controller: _controller)),
         ],
       ),
     );
