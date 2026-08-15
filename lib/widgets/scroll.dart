@@ -19,7 +19,7 @@ class CommonScrollBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scrollbar(
+    final scrollbar = Scrollbar(
       controller: controller,
       thumbVisibility: thumbVisibility,
       trackVisibility: trackVisibility,
@@ -27,6 +27,13 @@ class CommonScrollBar extends StatelessWidget {
       radius: const Radius.circular(6),
       interactive: true,
       child: child,
+    );
+    if (Theme.of(context).platform != TargetPlatform.windows) {
+      return scrollbar;
+    }
+    return ScrollbarTheme(
+      data: ScrollbarTheme.of(context).copyWith(crossAxisMargin: 10),
+      child: scrollbar,
     );
   }
 }

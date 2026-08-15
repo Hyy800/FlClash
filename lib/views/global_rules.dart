@@ -29,7 +29,7 @@ class _GlobalRulesViewState extends ConsumerState<GlobalRulesView> {
     try {
       await ref
           .read(setupActionProvider.notifier)
-          .applyProfile(force: true, silence: true);
+          .applyRoutingRules(silence: true);
       await preferences.saveConfig(ref.read(configProvider));
       return true;
     } catch (error) {

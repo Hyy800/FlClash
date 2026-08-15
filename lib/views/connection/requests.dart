@@ -206,7 +206,7 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     try {
       await ref
           .read(setupActionProvider.notifier)
-          .applyProfile(force: true, silence: true);
+          .applyRoutingRules(silence: true);
       await preferences.saveConfig(ref.read(configProvider));
     } catch (error) {
       ref.read(globalRulesProvider.notifier).value = previousRules;

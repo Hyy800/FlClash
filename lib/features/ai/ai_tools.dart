@@ -601,9 +601,7 @@ class AiToolExecutor {
           .read(profileAddedRulesProvider(profileId!).notifier)
           .putAndWait(rule);
     }
-    await container
-        .read(setupActionProvider.notifier)
-        .applyProfile(force: true);
+    await container.read(setupActionProvider.notifier).applyRoutingRules();
     if (scope == 'global') {
       await preferences.saveConfig(container.read(configProvider));
     }
@@ -674,9 +672,7 @@ class AiToolExecutor {
       for (final rule in rules)
         rule.id == ruleId ? rule.copyWith(enabled: enabled) : rule,
     ]);
-    await container
-        .read(setupActionProvider.notifier)
-        .applyProfile(force: true);
+    await container.read(setupActionProvider.notifier).applyRoutingRules();
     await preferences.saveConfig(container.read(configProvider));
     return {'ok': true, 'rule_id': ruleId, 'enabled': enabled};
   }
@@ -713,9 +709,7 @@ class AiToolExecutor {
         ruleId,
       });
     }
-    await container
-        .read(setupActionProvider.notifier)
-        .applyProfile(force: true);
+    await container.read(setupActionProvider.notifier).applyRoutingRules();
     return {'ok': true, 'rule_id': ruleId, 'scope': scope};
   }
 

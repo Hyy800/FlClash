@@ -303,6 +303,55 @@ void main() {
   });
 
   group('SetupAction', () {
+    test(
+      'reconnects after routing rule changes and resets session usage',
+      () async {
+        const rule = Rule(
+          id: 1,
+          ruleAction: RuleAction.DOMAIN,
+          content: 'example.com',
+          ruleTarget: 'DIRECT',
+        );
+        final events = <String>[];
+        late _RoutingRulesSetupAction setupAction;
+        final container = ProviderContainer(
+          overrides: [
+            globalRulesProvider.overrideWithBuild((_, _) => const [rule]),
+            setupActionProvider.overrideWith(() {
+              setupAction = _RoutingRulesSetupAction(events);
+              return setupAction;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.read(setupActionProvider);
+        container
+            .read(ruleUsagesProvider.notifier)
+            .sample(
+              const [rule],
+              [
+                TrackerInfo(
+                  id: 'connection-1',
+                  upload: 100,
+                  download: 200,
+                  start: DateTime(2026),
+                  metadata: const Metadata(network: 'tcp'),
+                  chains: const ['Proxy'],
+                  rule: 'Domain',
+                  rulePayload: 'example.com',
+                ),
+              ],
+            );
+
+        await setupAction.applyRoutingRules(silence: true);
+
+        expect(events, ['apply:true:true', 'close']);
+        final usage = container.read(ruleUsagesProvider)[rule.id]!;
+        expect(usage.sessionTraffic, 0);
+        expect(usage.totalTraffic, 300);
+      },
+    );
+
     group('rapid status changes', () {
       test('updates runtime and traffic while core start is pending', () async {
         final startCompleter = Completer<bool>();
@@ -708,6 +757,26 @@ class _TestSetupAction extends SetupAction {
       firstApplyStarted?.complete();
       await firstApplyCompleter?.future;
     }
+  }
+}
+
+class _RoutingRulesSetupAction extends SetupAction {
+  final List<String> events;
+
+  _RoutingRulesSetupAction(this.events);
+
+  @override
+  Future<void> applyProfile({
+    bool silence = false,
+    bool force = false,
+    Future<void> Function()? preloadInvoke,
+  }) async {
+    events.add('apply:$force:$silence');
+  }
+
+  @override
+  Future<void> closeRoutingConnections() async {
+    events.add('close');
   }
 }
 

@@ -255,6 +255,17 @@ class SetupAction extends _$SetupAction {
     );
   }
 
+  Future<void> applyRoutingRules({bool silence = false}) async {
+    await applyProfile(force: true, silence: silence);
+    await closeRoutingConnections();
+    ref.read(ruleUsagesProvider.notifier).clear();
+  }
+
+  @protected
+  Future<void> closeRoutingConnections() {
+    return coreController.closeConnections();
+  }
+
   Future<void> _runSetup({
     bool silence = false,
     bool force = false,
