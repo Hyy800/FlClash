@@ -35,6 +35,7 @@ class SystemAction extends _$SystemAction {
   Future<void> cleanupExitResources(bool needSave) async {
     await Future.wait([
       if (needSave) preferences.saveConfig(ref.read(configProvider)),
+      ruleTrafficStore.flush(),
       if (macOS != null) macOS!.updateDns(true),
       if (proxy != null) proxy!.stopProxy(),
       if (tray != null) tray!.destroy(),

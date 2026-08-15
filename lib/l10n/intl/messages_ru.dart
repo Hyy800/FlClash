@@ -140,6 +140,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Модель вернула пустой ответ",
     ),
     "aiInputHint": MessageLookupByLibrary.simpleMessage("Введите ваш запрос"),
+    "aiReasoning": MessageLookupByLibrary.simpleMessage("Ход рассуждений"),
     "allTargets": MessageLookupByLibrary.simpleMessage("Все"),
     "allowBypass": MessageLookupByLibrary.simpleMessage(
       "Разрешить приложениям обходить VPN",
@@ -305,6 +306,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "create": MessageLookupByLibrary.simpleMessage("Создать"),
     "createProfile": MessageLookupByLibrary.simpleMessage("Create Profile"),
     "creationTime": MessageLookupByLibrary.simpleMessage("Время создания"),
+    "cumulativeTraffic": MessageLookupByLibrary.simpleMessage("Всего"),
     "currentNode": MessageLookupByLibrary.simpleMessage("Текущий узел"),
     "custom": MessageLookupByLibrary.simpleMessage("Пользовательский"),
     "cut": MessageLookupByLibrary.simpleMessage("Вырезать"),
@@ -1027,6 +1029,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "selected": MessageLookupByLibrary.simpleMessage("Выбрано"),
     "selectedCountTitle": m23,
+    "sessionTraffic": MessageLookupByLibrary.simpleMessage("За сеанс"),
     "settings": MessageLookupByLibrary.simpleMessage("Настройки"),
     "show": MessageLookupByLibrary.simpleMessage("Показать"),
     "shrink": MessageLookupByLibrary.simpleMessage("Сжать"),

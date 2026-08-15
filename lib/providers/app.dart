@@ -6,6 +6,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/overwrite/rule_usage.dart';
+import 'package:fl_clash/features/overwrite/rule_traffic_store.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/services.dart';
@@ -62,22 +63,38 @@ class Requests extends _$Requests with AutoDisposeNotifierMixin {
 
 @Riverpod(keepAlive: true)
 class RuleUsages extends _$RuleUsages with AutoDisposeNotifierMixin {
-  final RuleUsageAccumulator _accumulator = RuleUsageAccumulator();
+  RuleUsageAccumulator? _accumulator;
 
   @override
-  Map<int, RuleUsage> build() => const {};
+  Map<int, RuleUsage> build() {
+    _accumulator ??= RuleUsageAccumulator(
+      totalTraffic: ruleTrafficStore.totals,
+    );
+    return {
+      for (final rule in ref.watch(globalRulesProvider))
+        rule.id: RuleUsage(
+          totalTraffic: _accumulator!.totalTraffic[rule.id] ?? 0,
+        ),
+    };
+  }
 
   void sample(List<Rule> rules, List<TrackerInfo> connections) {
-    value = _accumulator.sample(
+    value = _accumulator!.sample(
       rules: rules,
       connections: connections,
       now: DateTime.now(),
     );
+    ruleTrafficStore.scheduleSave(_accumulator!.totalTraffic);
   }
 
   void clear() {
-    _accumulator.clear();
-    value = const {};
+    _accumulator!.clearSession();
+    value = {
+      for (final rule in ref.read(globalRulesProvider))
+        rule.id: RuleUsage(
+          totalTraffic: _accumulator!.totalTraffic[rule.id] ?? 0,
+        ),
+    };
   }
 }
 

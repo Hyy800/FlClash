@@ -144,6 +144,26 @@ class AppLocalizations {
     );
   }
 
+  /// `This session`
+  String get sessionTraffic {
+    return Intl.message(
+      'This session',
+      name: 'sessionTraffic',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Total usage`
+  String get cumulativeTraffic {
+    return Intl.message(
+      'Total usage',
+      name: 'cumulativeTraffic',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Network speed`
   String get networkSpeed {
     return Intl.message(
@@ -2479,6 +2499,16 @@ class AppLocalizations {
     return Intl.message(
       'Please enter your request',
       name: 'aiInputHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Thinking process`
+  String get aiReasoning {
+    return Intl.message(
+      'Thinking process',
+      name: 'aiReasoning',
       desc: '',
       args: [],
     );

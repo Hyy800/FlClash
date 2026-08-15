@@ -155,6 +155,68 @@ Future<int> _package(
   final depExit = await _ensureDependencies(platform, arch);
   if (depExit != 0) return depExit;
 
+  final distributorExit = await ensureDistributorAvailable();
+  if (distributorExit != 0) return distributorExit;
+
+  final distributorArguments = [
+    'package',
+    '--skip-clean',
+    '--platform',
+    platform,
+    '--targets',
+    targets,
+    if (androidArch != null)
+      '--build-target-platform=${_androidFlutterTarget[androidArch]!}',
+    if (flutterBuildArgs.isNotEmpty)
+      '--flutter-build-args=${flutterBuildArgs.join(',')}',
+    ...descriptionArgs,
+  ];
+  final distributorCommand = createDistributorCommand(
+    distributorArguments,
+    isWindows: Platform.isWindows,
+  );
+  final process = await Process.start(
+    distributorCommand.$1,
+    distributorCommand.$2,
+    includeParentEnvironment: true,
+    environment: createDistributorEnvironment(
+      isWindows: Platform.isWindows,
+      androidArch: androidArch,
+    ),
+  );
+
+  process.stdout.listen((data) {
+    stdout.write(utf8.decode(data));
+  });
+  process.stderr.listen((data) {
+    stderr.write(utf8.decode(data));
+  });
+  final exitCode = await process.exitCode;
+  return exitCode;
+}
+
+Map<String, String> createDistributorEnvironment({
+  required bool isWindows,
+  String? androidArch,
+}) {
+  return {
+    'ANDROID_ARCH': ?androidArch,
+    if (isWindows) 'TrackFileAccess': 'false',
+  };
+}
+
+Future<int> ensureDistributorAvailable() async {
+  final versionCommand = createDistributorCommand([
+    '--version',
+  ], isWindows: Platform.isWindows);
+  ProcessResult? versionResult;
+  try {
+    versionResult = await Process.run(versionCommand.$1, versionCommand.$2);
+  } on ProcessException {
+    versionResult = null;
+  }
+  if (versionResult?.exitCode == 0) return 0;
+
   final activateResult = await Process.run('dart', [
     'pub',
     'global',
@@ -169,37 +231,21 @@ Future<int> _package(
   ]);
   if (activateResult.exitCode != 0) {
     stderr.write(activateResult.stderr);
-    return activateResult.exitCode;
   }
+  return activateResult.exitCode;
+}
 
-  final process = await Process.start(
-    'flutter_distributor',
-    [
-      'package',
-      '--skip-clean',
-      '--platform',
-      platform,
-      '--targets',
-      targets,
-      if (androidArch != null)
-        '--build-target-platform=${_androidFlutterTarget[androidArch]!}',
-      if (flutterBuildArgs.isNotEmpty)
-        '--flutter-build-args=${flutterBuildArgs.join(',')}',
-      ...descriptionArgs,
-    ],
-    includeParentEnvironment: true,
-    environment: {'ANDROID_ARCH': ?androidArch},
-    runInShell: Platform.isWindows,
+(String, List<String>) createDistributorCommand(
+  List<String> arguments, {
+  required bool isWindows,
+}) {
+  if (!isWindows) {
+    return ('flutter_distributor', arguments);
+  }
+  return (
+    'cmd.exe',
+    ['/d', '/c', 'call', 'flutter_distributor.bat', ...arguments],
   );
-
-  process.stdout.listen((data) {
-    stdout.write(utf8.decode(data));
-  });
-  process.stderr.listen((data) {
-    stderr.write(utf8.decode(data));
-  });
-  final exitCode = await process.exitCode;
-  return exitCode;
 }
 
 String _detectArch() {

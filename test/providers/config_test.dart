@@ -140,6 +140,53 @@ void main() {
       expect(updated.activeSession.messages.single.content, 'updated request');
       expect(updated.activeSessionId, active.id);
     });
+
+    test('updates one message without removing later replies', () async {
+      final active = container.read(aiSessionsProvider).activeSession;
+      final request = AiChatMessage(role: 'user', content: 'wrong');
+      final reply = AiChatMessage(role: 'assistant', content: 'kept reply');
+      await container.read(aiSessionsProvider.notifier).replaceMessages(
+        active.id,
+        [request, reply],
+      );
+
+      await container
+          .read(aiSessionsProvider.notifier)
+          .replaceMessage(
+            active.id,
+            AiChatMessage(
+              id: request.id,
+              role: 'user',
+              content: 'corrected',
+              createdAt: request.createdAt,
+            ),
+          );
+
+      final messages = container
+          .read(aiSessionsProvider)
+          .activeSession
+          .messages;
+      expect(messages.map((item) => item.content), ['corrected', 'kept reply']);
+    });
+
+    test('updates summary without replacing visible messages', () async {
+      final active = container.read(aiSessionsProvider).activeSession;
+      final messages = [
+        AiChatMessage(role: 'user', content: 'first'),
+        AiChatMessage(role: 'assistant', content: 'second'),
+      ];
+      await container
+          .read(aiSessionsProvider.notifier)
+          .replaceMessages(active.id, messages);
+
+      await container
+          .read(aiSessionsProvider.notifier)
+          .updateSummary(active.id, 'compressed context');
+
+      final updated = container.read(aiSessionsProvider).activeSession;
+      expect(updated.summary, 'compressed context');
+      expect(updated.messages.map((item) => item.content), ['first', 'second']);
+    });
   });
 
   group('OverrideDns provider', () {

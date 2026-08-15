@@ -58,6 +58,16 @@ class AiCompletion {
   const AiCompletion({required this.message, required this.toolCalls});
 
   String get content => AiApiService.extractText(message['content']).trim();
+
+  String get reasoning =>
+      AiApiService.extractText(message['reasoning_content']).trim();
+}
+
+class AiAgentReply {
+  final String content;
+  final String reasoning;
+
+  const AiAgentReply({required this.content, this.reasoning = ''});
 }
 
 class AiApiService {
@@ -159,21 +169,33 @@ class AiApiService {
     List<Map<String, dynamic>> messages, {
     List<Map<String, dynamic>> tools = const [],
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
+    CancelToken? cancelToken,
   }) async {
     final streamed = await _create(
       config,
       messages,
       tools: tools,
-      stream: onDelta != null,
+      stream: onDelta != null || onReasoningDelta != null,
       onDelta: onDelta,
+      onReasoningDelta: onReasoningDelta,
+      cancelToken: cancelToken,
     );
     if (streamed.content.isNotEmpty || streamed.toolCalls.isNotEmpty) {
       return streamed;
     }
-    if (onDelta != null) {
-      final fallback = await _create(config, messages, tools: tools);
+    if (onDelta != null || onReasoningDelta != null) {
+      final fallback = await _create(
+        config,
+        messages,
+        tools: tools,
+        cancelToken: cancelToken,
+      );
       if (fallback.content.isNotEmpty || fallback.toolCalls.isNotEmpty) {
-        if (fallback.content.isNotEmpty) onDelta(fallback.content);
+        if (fallback.reasoning.isNotEmpty) {
+          onReasoningDelta?.call(fallback.reasoning);
+        }
+        if (fallback.content.isNotEmpty) onDelta?.call(fallback.content);
         return fallback;
       }
     }
@@ -189,6 +211,8 @@ class AiApiService {
     List<Map<String, dynamic>> tools = const [],
     bool stream = false,
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
+    CancelToken? cancelToken,
   }) {
     return switch (config.resolvedProtocol) {
       AiApiProtocol.openAiResponses => _createResponses(
@@ -197,6 +221,8 @@ class AiApiService {
         tools,
         stream,
         onDelta,
+        onReasoningDelta,
+        cancelToken,
       ),
       AiApiProtocol.anthropic => _createAnthropic(
         config,
@@ -204,6 +230,8 @@ class AiApiService {
         tools,
         stream,
         onDelta,
+        onReasoningDelta,
+        cancelToken,
       ),
       AiApiProtocol.auto || AiApiProtocol.openAiChat => _createChat(
         config,
@@ -211,6 +239,8 @@ class AiApiService {
         tools,
         stream,
         onDelta,
+        onReasoningDelta,
+        cancelToken,
       ),
     };
   }
@@ -221,6 +251,8 @@ class AiApiService {
     List<Map<String, dynamic>> tools,
     bool stream,
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
+    CancelToken? cancelToken,
   ) async {
     final response = await _dio.post<dynamic>(
       endpoint(config.baseUrl, 'chat/completions'),
@@ -231,6 +263,7 @@ class AiApiService {
         if (stream) 'stream': true,
       },
       options: _options(config, stream: stream),
+      cancelToken: cancelToken,
     );
     if (!stream) return parseChatCompletion(response.data);
     final chunks = await _readSse(
@@ -244,8 +277,8 @@ class AiApiService {
         );
         final content = extractText(delta['content']);
         final reasoning = extractText(delta['reasoning_content']);
-        final part = content.isNotEmpty ? content : reasoning;
-        if (part.isNotEmpty) onDelta?.call(part);
+        if (reasoning.isNotEmpty) onReasoningDelta?.call(reasoning);
+        if (content.isNotEmpty) onDelta?.call(content);
       },
     );
     return parseChatStream(chunks);
@@ -257,6 +290,8 @@ class AiApiService {
     List<Map<String, dynamic>> tools,
     bool stream,
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
+    CancelToken? cancelToken,
   ) async {
     final instructions = messages
         .where((message) => message['role'] == 'system')
@@ -272,6 +307,7 @@ class AiApiService {
         if (stream) 'stream': true,
       },
       options: _options(config, stream: stream),
+      cancelToken: cancelToken,
     );
     if (!stream) return parseResponsesCompletion(response.data);
     final chunks = await _readSse(
@@ -280,6 +316,11 @@ class AiApiService {
         if (event['type'] == 'response.output_text.delta') {
           final part = event['delta']?.toString() ?? '';
           if (part.isNotEmpty) onDelta?.call(part);
+        }
+        if (event['type'] == 'response.reasoning_text.delta' ||
+            event['type'] == 'response.reasoning_summary_text.delta') {
+          final part = event['delta']?.toString() ?? '';
+          if (part.isNotEmpty) onReasoningDelta?.call(part);
         }
       },
     );
@@ -292,6 +333,8 @@ class AiApiService {
     List<Map<String, dynamic>> tools,
     bool stream,
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
+    CancelToken? cancelToken,
   ) async {
     final system = messages
         .where((message) => message['role'] == 'system')
@@ -308,6 +351,7 @@ class AiApiService {
         if (stream) 'stream': true,
       },
       options: _options(config, stream: stream),
+      cancelToken: cancelToken,
     );
     if (!stream) return parseAnthropicCompletion(response.data);
     final chunks = await _readSse(
@@ -317,9 +361,13 @@ class AiApiService {
         final delta = Map<String, dynamic>.from(
           event['delta'] as Map? ?? const {},
         );
-        if (delta['type'] != 'text_delta') return;
-        final part = delta['text']?.toString() ?? '';
-        if (part.isNotEmpty) onDelta?.call(part);
+        if (delta['type'] == 'text_delta') {
+          final part = delta['text']?.toString() ?? '';
+          if (part.isNotEmpty) onDelta?.call(part);
+        } else if (delta['type'] == 'thinking_delta') {
+          final thinking = delta['thinking']?.toString() ?? '';
+          if (thinking.isNotEmpty) onReasoningDelta?.call(thinking);
+        }
       },
     );
     return parseAnthropicStream(chunks);
@@ -378,11 +426,16 @@ class AiApiService {
       if (message['function_call'] is Map)
         {'id': 'legacy_function_call', 'function': message['function_call']},
     ];
-    final content = extractText(message['content']).isNotEmpty
-        ? extractText(message['content'])
-        : extractText(message['reasoning_content']);
+    final content = extractText(message['content']);
+    final reasoning = extractText(message['reasoning_content']);
     return AiCompletion(
-      message: {...message, 'role': 'assistant', 'content': content},
+      message: {
+        ...message,
+        'role': 'assistant',
+        'content': content.isNotEmpty ? content : reasoning,
+        if (content.isNotEmpty && reasoning.isNotEmpty)
+          'reasoning_content': reasoning,
+      },
       toolCalls: [
         for (var index = 0; index < calls.length; index++)
           AiToolCall.fromJson(calls[index], index: index),
@@ -393,8 +446,10 @@ class AiApiService {
   static AiCompletion parseChatStream(
     List<Map<String, dynamic>> chunks, {
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
   }) {
     final text = StringBuffer();
+    final reasoning = StringBuffer();
     final calls = <int, Map<String, dynamic>>{};
     for (final chunk in chunks) {
       final choices = chunk['choices'] as List? ?? const [];
@@ -403,12 +458,15 @@ class AiApiService {
       final delta = Map<String, dynamic>.from(
         choice['delta'] as Map? ?? choice['message'] as Map? ?? const {},
       );
-      final part = extractText(delta['content']).isNotEmpty
-          ? extractText(delta['content'])
-          : extractText(delta['reasoning_content']);
-      if (part.isNotEmpty) {
-        text.write(part);
-        onDelta?.call(part);
+      final contentPart = extractText(delta['content']);
+      final reasoningPart = extractText(delta['reasoning_content']);
+      if (reasoningPart.isNotEmpty) {
+        reasoning.write(reasoningPart);
+        onReasoningDelta?.call(reasoningPart);
+      }
+      if (contentPart.isNotEmpty) {
+        text.write(contentPart);
+        onDelta?.call(contentPart);
       }
       final toolDeltas = delta['tool_calls'] as List? ?? const [];
       for (final item in toolDeltas.whereType<Map>()) {
@@ -443,7 +501,9 @@ class AiApiService {
     return AiCompletion(
       message: {
         'role': 'assistant',
-        'content': text.toString(),
+        'content': text.isNotEmpty ? text.toString() : reasoning.toString(),
+        if (text.isNotEmpty && reasoning.isNotEmpty)
+          'reasoning_content': reasoning.toString(),
         if (toolCalls.isNotEmpty)
           'tool_calls': toolCalls
               .map(
@@ -466,11 +526,14 @@ class AiApiService {
     final data = _map(raw);
     final output = data['output'] as List? ?? const [];
     final text = StringBuffer(extractText(data['output_text']));
+    final reasoning = StringBuffer();
     final calls = <AiToolCall>[];
     for (final item in output.whereType<Map>()) {
       final map = Map<String, dynamic>.from(item);
       if (map['type'] == 'function_call') {
         calls.add(AiToolCall.fromJson(map, index: calls.length));
+      } else if (map['type'] == 'reasoning') {
+        reasoning.write(extractText(map['summary'] ?? map['content']));
       } else {
         text.write(extractText(map['content']));
       }
@@ -479,6 +542,7 @@ class AiApiService {
       message: {
         'role': 'assistant',
         'content': text.toString(),
+        if (reasoning.isNotEmpty) 'reasoning_content': reasoning.toString(),
         if (calls.isNotEmpty) 'tool_calls': _canonicalToolCalls(calls),
       },
       toolCalls: calls,
@@ -488,8 +552,10 @@ class AiApiService {
   static AiCompletion parseResponsesStream(
     List<Map<String, dynamic>> chunks, {
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
   }) {
     final text = StringBuffer();
+    final reasoning = StringBuffer();
     final calls = <String, Map<String, dynamic>>{};
     for (final event in chunks) {
       final type = event['type']?.toString() ?? '';
@@ -497,6 +563,12 @@ class AiApiService {
         final delta = event['delta']?.toString() ?? '';
         text.write(delta);
         onDelta?.call(delta);
+      }
+      if (type == 'response.reasoning_text.delta' ||
+          type == 'response.reasoning_summary_text.delta') {
+        final delta = event['delta']?.toString() ?? '';
+        reasoning.write(delta);
+        onReasoningDelta?.call(delta);
       }
       final item = event['item'];
       if (item is Map && item['type'] == 'function_call') {
@@ -516,6 +588,10 @@ class AiApiService {
           text.write(completed.content);
           onDelta?.call(completed.content);
         }
+        if (completed.reasoning.isNotEmpty) {
+          reasoning.write(completed.reasoning);
+          onReasoningDelta?.call(completed.reasoning);
+        }
         for (final call in completed.toolCalls) {
           calls[call.id] = {
             'call_id': call.id,
@@ -529,6 +605,7 @@ class AiApiService {
       message: {
         'role': 'assistant',
         'content': text.toString(),
+        if (reasoning.isNotEmpty) 'reasoning_content': reasoning.toString(),
         if (calls.isNotEmpty)
           'tool_calls': _canonicalToolCalls(
             calls.values.map((item) => AiToolCall.fromJson(item)).toList(),
@@ -542,11 +619,14 @@ class AiApiService {
     final data = _map(raw);
     final content = data['content'] as List? ?? const [];
     final text = StringBuffer();
+    final reasoning = StringBuffer();
     final calls = <AiToolCall>[];
     for (final item in content.whereType<Map>()) {
       final map = Map<String, dynamic>.from(item);
       if (map['type'] == 'tool_use') {
         calls.add(AiToolCall.fromJson(map, index: calls.length));
+      } else if (map['type'] == 'thinking') {
+        reasoning.write(map['thinking']?.toString() ?? '');
       } else {
         text.write(extractText(map));
       }
@@ -555,6 +635,7 @@ class AiApiService {
       message: {
         'role': 'assistant',
         'content': text.toString(),
+        if (reasoning.isNotEmpty) 'reasoning_content': reasoning.toString(),
         if (calls.isNotEmpty) 'tool_calls': _canonicalToolCalls(calls),
       },
       toolCalls: calls,
@@ -564,8 +645,10 @@ class AiApiService {
   static AiCompletion parseAnthropicStream(
     List<Map<String, dynamic>> chunks, {
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
   }) {
     final text = StringBuffer();
+    final reasoning = StringBuffer();
     final calls = <int, Map<String, dynamic>>{};
     var activeIndex = 0;
     for (final event in chunks) {
@@ -588,6 +671,10 @@ class AiApiService {
           final part = delta['text']?.toString() ?? '';
           text.write(part);
           onDelta?.call(part);
+        } else if (delta['type'] == 'thinking_delta') {
+          final part = delta['thinking']?.toString() ?? '';
+          reasoning.write(part);
+          onReasoningDelta?.call(part);
         }
         if (delta['type'] == 'input_json_delta') {
           final call = calls.putIfAbsent(index, () => <String, dynamic>{});
@@ -603,6 +690,7 @@ class AiApiService {
       message: {
         'role': 'assistant',
         'content': text.toString(),
+        if (reasoning.isNotEmpty) 'reasoning_content': reasoning.toString(),
         if (toolCalls.isNotEmpty) 'tool_calls': _canonicalToolCalls(toolCalls),
       },
       toolCalls: toolCalls,
@@ -767,14 +855,16 @@ class AiAgent {
 
   const AiAgent(this.service);
 
-  Future<String> run({
+  Future<AiAgentReply> run({
     required AiConfig config,
     required List<AiChatMessage> history,
     required AiToolHandler toolHandler,
     String summary = '',
     List<AiSkill> skills = const [],
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
     AiToolStatusCallback? onToolStatus,
+    CancelToken? cancelToken,
   }) async {
     final skillPrompt = buildAiSkillPrompt(skills);
     final systemPrompt = [
@@ -788,6 +878,9 @@ class AiAgent {
     ];
 
     for (var round = 0; round < maxToolRounds; round++) {
+      if (cancelToken?.isCancelled == true) {
+        throw cancelToken!.cancelError!;
+      }
       final streamedText = StringBuffer();
       final completion = await service.createCompletion(
         config,
@@ -797,14 +890,22 @@ class AiAgent {
           streamedText.write(delta);
           onDelta?.call(delta);
         },
+        onReasoningDelta: onReasoningDelta,
+        cancelToken: cancelToken,
       );
       messages.add(completion.message);
       if (completion.toolCalls.isEmpty) {
         onToolStatus?.call(const []);
-        return completion.content;
+        return AiAgentReply(
+          content: completion.content,
+          reasoning: completion.reasoning,
+        );
       }
       onToolStatus?.call(completion.toolCalls);
       for (final call in completion.toolCalls) {
+        if (cancelToken?.isCancelled == true) {
+          throw cancelToken!.cancelError!;
+        }
         Map<String, dynamic> result;
         if (call.name.isEmpty || call.argumentError != null) {
           result = {
@@ -875,8 +976,9 @@ class AiContextCompressor {
   Future<AiSession> compress(
     AiSession session,
     AiConfig config,
-    AiApiService service,
-  ) async {
+    AiApiService service, {
+    CancelToken? cancelToken,
+  }) async {
     if (!shouldCompress(session)) return session;
     final recent = session.messages.length <= keepRecent
         ? session.messages
@@ -906,13 +1008,16 @@ class AiContextCompressor {
             }),
           ].join('\n'),
         },
-      ]);
+      ], cancelToken: cancelToken);
       return session.copyWith(
         summary: completion.content,
         messages: recent,
         updatedAt: DateTime.now(),
       );
-    } catch (_) {
+    } catch (error) {
+      if (error is DioException && error.type == DioExceptionType.cancel) {
+        rethrow;
+      }
       final fallback = session.messages.length > 40
           ? session.messages.sublist(session.messages.length - 40)
           : session.messages;
@@ -972,6 +1077,15 @@ const aiToolDefinitions = <Map<String, dynamic>>[
   {
     'type': 'function',
     'function': {
+      'name': 'get_settings',
+      'description':
+          'Read every writable Clash, application, network, VPN, theme, and proxy-style setting. Use its section objects as the basis for update_settings patches.',
+      'parameters': {'type': 'object', 'properties': {}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
       'name': 'list_profiles',
       'description': 'List all profiles and identify the current profile.',
       'parameters': {'type': 'object', 'properties': {}},
@@ -988,6 +1102,21 @@ const aiToolDefinitions = <Map<String, dynamic>>[
           'profile_id': {'type': 'integer'},
         },
         'required': ['profile_id'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'set_profile_enabled',
+      'description': 'Enable or disable automatic updates for one profile.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'profile_id': {'type': 'integer'},
+          'enabled': {'type': 'boolean'},
+        },
+        'required': ['profile_id', 'enabled'],
       },
     },
   },
@@ -1051,12 +1180,64 @@ const aiToolDefinitions = <Map<String, dynamic>>[
           },
           'scope': {
             'type': 'string',
-            'enum': ['current_profile', 'profile'],
+            'enum': ['current_profile', 'profile', 'global'],
           },
           'profile_id': {'type': 'integer'},
           'no_resolve': {'type': 'boolean'},
         },
         'required': ['rule_value', 'target'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'list_routing_rules',
+      'description': 'List global or profile-added routing rules and IDs.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'scope': {
+            'type': 'string',
+            'enum': ['current_profile', 'profile', 'global'],
+          },
+          'profile_id': {'type': 'integer'},
+        },
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'set_global_rule_enabled',
+      'description': 'Enable or disable one persistent global routing rule.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'rule_id': {'type': 'integer'},
+          'enabled': {'type': 'boolean'},
+        },
+        'required': ['rule_id', 'enabled'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'delete_routing_rule',
+      'description':
+          'Delete and apply one routing rule. Requires confirmation.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'rule_id': {'type': 'integer'},
+          'scope': {
+            'type': 'string',
+            'enum': ['current_profile', 'profile', 'global'],
+          },
+          'profile_id': {'type': 'integer'},
+        },
+        'required': ['rule_id'],
       },
     },
   },
@@ -1082,6 +1263,35 @@ const aiToolDefinitions = <Map<String, dynamic>>[
           'content': {'type': 'string'},
         },
         'required': ['name', 'content'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'set_ai_skill_enabled',
+      'description': 'Enable or disable an installed AI Skill.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'skill_id': {'type': 'string'},
+          'enabled': {'type': 'boolean'},
+        },
+        'required': ['skill_id', 'enabled'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'delete_ai_skill',
+      'description': 'Delete an installed AI Skill. Requires confirmation.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'skill_id': {'type': 'string'},
+        },
+        'required': ['skill_id'],
       },
     },
   },
@@ -1280,10 +1490,46 @@ const aiToolDefinitions = <Map<String, dynamic>>[
     'function': {
       'name': 'update_settings',
       'description':
-          'Update supported proxy and application settings. Sensitive changes require confirmation.',
+          'Patch any writable setting. Call get_settings first, then pass only changed fields in the matching section. Structured section changes require confirmation.',
       'parameters': {
         'type': 'object',
         'properties': {
+          'clash': {
+            'type': 'object',
+            'description':
+                'Partial PatchClashConfig JSON, including ports, mode, TUN, DNS, hosts, process lookup, delay, keepalive, geo resources, and controller settings.',
+            'additionalProperties': true,
+          },
+          'application': {
+            'type': 'object',
+            'description':
+                'Partial application settings JSON, including locale, dashboard, startup, logs, telemetry, update, tray, behavior, and test URL.',
+            'additionalProperties': true,
+          },
+          'network': {
+            'type': 'object',
+            'description':
+                'Partial network settings JSON, including system proxy, bypass domains, route mode, and system DNS behavior.',
+            'additionalProperties': true,
+          },
+          'vpn': {
+            'type': 'object',
+            'description':
+                'Partial Android VPN settings JSON, including access-control settings.',
+            'additionalProperties': true,
+          },
+          'theme': {
+            'type': 'object',
+            'description':
+                'Partial theme settings JSON, including mode, colors, scheme, pure black, and text scale.',
+            'additionalProperties': true,
+          },
+          'proxy_style': {
+            'type': 'object',
+            'description':
+                'Partial proxy page style JSON, including view, sorting, layout, icons, and card behavior.',
+            'additionalProperties': true,
+          },
           'mode': {
             'type': 'string',
             'enum': ['rule', 'global', 'direct'],

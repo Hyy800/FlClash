@@ -89,6 +89,14 @@ class _GlobalRulesViewState extends ConsumerState<GlobalRulesView> {
     await _commit(rules);
   }
 
+  Future<void> _setEnabled(Rule rule, bool enabled) async {
+    final rules = [
+      for (final item in ref.read(globalRulesProvider))
+        item.id == rule.id ? item.copyWith(enabled: enabled) : item,
+    ];
+    await _commit(rules);
+  }
+
   Future<void> _reorder(int oldIndex, int newIndex) async {
     final rules = [...ref.read(globalRulesProvider)];
     final rule = rules.removeAt(oldIndex);
@@ -108,7 +116,8 @@ class _GlobalRulesViewState extends ConsumerState<GlobalRulesView> {
     final targetsReady = groups.isNotEmpty;
     final activeCount = rules.where((rule) {
       final target = rule.ruleTarget;
-      return target != null &&
+      return rule.enabled &&
+          target != null &&
           (!targetsReady || availableTargets.contains(target));
     }).length;
     return CommonScaffold(
@@ -163,6 +172,8 @@ class _GlobalRulesViewState extends ConsumerState<GlobalRulesView> {
                         usage: ruleUsage[rule.id] ?? const RuleUsage(),
                         available: available,
                         saving: _saving,
+                        onEnabledChanged: (enabled) =>
+                            _setEnabled(rule, enabled),
                         onEdit: () => _addOrEdit(rule),
                         onDelete: () => _delete(rule),
                       );
@@ -289,6 +300,7 @@ class _RuleRouteCard extends StatelessWidget {
   final RuleUsage usage;
   final bool available;
   final bool saving;
+  final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -299,6 +311,7 @@ class _RuleRouteCard extends StatelessWidget {
     required this.usage,
     required this.available,
     required this.saving,
+    required this.onEnabledChanged,
     required this.onEdit,
     required this.onDelete,
   });
@@ -306,15 +319,23 @@ class _RuleRouteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
-    final targetColor = available ? colorScheme.primary : colorScheme.error;
+    final targetColor = !rule.enabled
+        ? colorScheme.onSurfaceVariant
+        : available
+        ? colorScheme.primary
+        : colorScheme.error;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
-      color: colorScheme.surfaceContainerLow,
+      color: rule.enabled
+          ? colorScheme.surfaceContainerLow
+          : colorScheme.surfaceContainerLow.withValues(alpha: 0.62),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: available
+          color: !rule.enabled
+              ? colorScheme.outlineVariant.opacity60
+              : available
               ? colorScheme.outlineVariant.opacity60
               : colorScheme.error.withValues(alpha: 0.35),
         ),
@@ -375,6 +396,10 @@ class _RuleRouteCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                  Switch(
+                    value: rule.enabled,
+                    onChanged: saving ? null : onEnabledChanged,
                   ),
                   Material(
                     color: colorScheme.surfaceContainerHigh,
@@ -453,7 +478,8 @@ class _RuleUsageStrip extends StatelessWidget {
     final networks = usage.networks.toList()..sort();
     final networkText = networks.isEmpty ? '--' : networks.join(' / ');
     final speed = usage.currentSpeed.traffic.show;
-    final traffic = usage.totalTraffic.traffic.show;
+    final sessionTraffic = usage.sessionTraffic.traffic.show;
+    final cumulativeTraffic = usage.totalTraffic.traffic.show;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -477,8 +503,13 @@ class _RuleUsageStrip extends StatelessWidget {
           ),
           _UsageItem(
             icon: Icons.data_usage_rounded,
-            label: context.appLocalizations.trafficUsage,
-            value: usage.requestCount == 0 ? '--' : traffic,
+            label: context.appLocalizations.sessionTraffic,
+            value: sessionTraffic,
+          ),
+          _UsageItem(
+            icon: Icons.all_inclusive_rounded,
+            label: context.appLocalizations.cumulativeTraffic,
+            value: cumulativeTraffic,
           ),
         ],
       ),

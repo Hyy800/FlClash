@@ -334,6 +334,34 @@ void main() {
         await action.setRunning(false);
       });
 
+      test('does not overlap slow traffic updates', () async {
+        final container = ProviderContainer(
+          overrides: [
+            initProvider.overrideWithBuild((_, _) => true),
+            commonActionProvider.overrideWith(_SlowCommonAction.new),
+            setupActionProvider.overrideWith(_RaceSetupAction.new),
+          ],
+        );
+        addTearDown(container.dispose);
+        final action =
+            container.read(setupActionProvider.notifier) as _RaceSetupAction;
+        final commonAction =
+            container.read(commonActionProvider.notifier) as _SlowCommonAction;
+
+        await action.setRunning(true);
+        expect(commonAction.updateTrafficCount, 1);
+
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
+        expect(commonAction.updateTrafficCount, 1);
+
+        commonAction.completeUpdate();
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
+        expect(commonAction.updateTrafficCount, 2);
+
+        commonAction.completeUpdate();
+        await action.setRunning(false);
+      });
+
       test('serializes listener changes while latest start owns UI', () async {
         final stopCompleter = Completer<bool>();
         final container = ProviderContainer(
@@ -768,5 +796,21 @@ class _RaceCommonAction extends CommonAction {
   @override
   Future<void> updateTraffic() async {
     updateTrafficCount++;
+  }
+}
+
+class _SlowCommonAction extends CommonAction {
+  int updateTrafficCount = 0;
+  Completer<void>? _updateCompleter;
+
+  @override
+  Future<void> updateTraffic() {
+    updateTrafficCount++;
+    _updateCompleter = Completer<void>();
+    return _updateCompleter!.future;
+  }
+
+  void completeUpdate() {
+    _updateCompleter!.complete();
   }
 }

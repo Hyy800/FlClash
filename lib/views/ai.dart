@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/ai/ai_service.dart';
@@ -31,14 +32,21 @@ class _AiViewState extends ConsumerState<AiView> {
   List<String> _models = const [];
   AiApiProtocol _protocol = AiApiProtocol.auto;
   String _streamedText = '';
+  String _streamedReasoning = '';
   String _agentStatus = '';
   String _requestError = '';
   String? _failedSessionId;
   String? _failedMessageId;
   List<AiAttachment> _pendingAttachments = const [];
   String _pendingDelta = '';
+  String _pendingReasoningDelta = '';
+  DateTime? _streamStartedAt;
   bool _frameScheduled = false;
   bool _busy = false;
+  CancelToken? _generationCancelToken;
+  Future<void>? _generationOperation;
+  String? _activeGenerationSessionId;
+  String? _activeSourceMessageId;
   bool _hideKey = true;
   StateSetter? _apiSettingsState;
   String? _lastConversationId;
@@ -286,14 +294,29 @@ class _AiViewState extends ConsumerState<AiView> {
   void _appendDelta(String delta) {
     if (!mounted || delta.isEmpty) return;
     _pendingDelta += delta;
+    _scheduleStreamFrame();
+  }
+
+  void _appendReasoningDelta(String delta) {
+    if (!mounted || delta.isEmpty) return;
+    _pendingReasoningDelta += delta;
+    _scheduleStreamFrame();
+  }
+
+  void _scheduleStreamFrame() {
     if (_frameScheduled) return;
     _frameScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _frameScheduled = false;
-      if (!mounted || _pendingDelta.isEmpty) return;
+      if (!mounted ||
+          (_pendingDelta.isEmpty && _pendingReasoningDelta.isEmpty)) {
+        return;
+      }
       setState(() {
         _streamedText += _pendingDelta;
+        _streamedReasoning += _pendingReasoningDelta;
         _pendingDelta = '';
+        _pendingReasoningDelta = '';
       });
       _scrollToBottom();
     });
@@ -328,7 +351,9 @@ class _AiViewState extends ConsumerState<AiView> {
     setState(() {
       if (calls.isNotEmpty) {
         _streamedText = '';
+        _streamedReasoning = '';
         _pendingDelta = '';
+        _pendingReasoningDelta = '';
       }
       _agentStatus = calls.isEmpty
           ? ''
@@ -341,7 +366,10 @@ class _AiViewState extends ConsumerState<AiView> {
 
   Future<void> _sendMessage() async {
     final content = _messageController.text.trim();
-    if ((content.isEmpty && _pendingAttachments.isEmpty) || _busy) return;
+    if (content.isEmpty && _pendingAttachments.isEmpty) {
+      if (_busy) await _stopGeneration();
+      return;
+    }
     AiConfig config;
     try {
       config = _draftConfig();
@@ -349,6 +377,8 @@ class _AiViewState extends ConsumerState<AiView> {
       globalState.showNotifier(error.toString());
       return;
     }
+    if (_busy) await _stopGeneration();
+    if (!mounted) return;
     final sessionId = ref.read(aiSessionsProvider).activeSessionId;
     final attachments = _pendingAttachments;
     _messageController.clear();
@@ -363,14 +393,64 @@ class _AiViewState extends ConsumerState<AiView> {
         .addMessage(sessionId, userMessage);
     setState(() {
       _streamedText = '';
+      _streamedReasoning = '';
       _pendingDelta = '';
+      _pendingReasoningDelta = '';
     });
     _scrollToBottom();
-    await _generateReply(
+    final operation = _generateReply(
       sessionId,
       draft: config,
       sourceMessageId: userMessage.id,
     );
+    _generationOperation = operation;
+    await operation;
+    if (identical(_generationOperation, operation)) {
+      _generationOperation = null;
+    }
+  }
+
+  Future<void> _stopGeneration({bool keepPartial = true}) async {
+    final operation = _generationOperation;
+    final sessionId = _activeGenerationSessionId;
+    final partialText = '$_streamedText$_pendingDelta'.trim();
+    final partialReasoning = '$_streamedReasoning$_pendingReasoningDelta'
+        .trim();
+    final startedAt = _streamStartedAt;
+    final messageCount = sessionId == null
+        ? -1
+        : ref
+                  .read(aiSessionsProvider)
+                  .sessions
+                  .where((session) => session.id == sessionId)
+                  .firstOrNull
+                  ?.messages
+                  .length ??
+              -1;
+    _generationCancelToken?.cancel('Stopped by user');
+    if (operation != null) await operation;
+    if (!keepPartial ||
+        sessionId == null ||
+        (partialText.isEmpty && partialReasoning.isEmpty)) {
+      return;
+    }
+    final session = ref
+        .read(aiSessionsProvider)
+        .sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    if (session == null || session.messages.length != messageCount) return;
+    await ref
+        .read(aiSessionsProvider.notifier)
+        .addMessage(
+          sessionId,
+          AiChatMessage(
+            role: 'assistant',
+            content: partialText,
+            reasoning: partialReasoning,
+            createdAt: startedAt,
+          ),
+        );
   }
 
   Future<void> _generateReply(
@@ -389,34 +469,48 @@ class _AiViewState extends ConsumerState<AiView> {
     _setPageState(() {
       _busy = true;
       _streamedText = '';
+      _streamedReasoning = '';
       _pendingDelta = '';
+      _pendingReasoningDelta = '';
+      _streamStartedAt = DateTime.now();
       _agentStatus = '';
       _requestError = '';
       _failedSessionId = null;
       _failedMessageId = null;
+      _activeGenerationSessionId = sessionId;
+      _activeSourceMessageId = sourceMessageId;
     });
+    final cancelToken = CancelToken();
+    _generationCancelToken = cancelToken;
     try {
-      var session = ref
+      final session = ref
           .read(aiSessionsProvider)
           .sessions
           .firstWhere((item) => item.id == sessionId);
-      session = await const AiContextCompressor().compress(
+      final contextSession = await const AiContextCompressor().compress(
         session,
         config,
         _service,
+        cancelToken: cancelToken,
       );
-      await ref.read(aiSessionsProvider.notifier).replaceSession(session);
+      if (contextSession.summary != session.summary) {
+        await ref
+            .read(aiSessionsProvider.notifier)
+            .updateSummary(session.id, contextSession.summary);
+      }
       final executor = AiToolExecutor(confirm: _confirmTool);
       final reply = await AiAgent(_service).run(
         config: config,
-        history: session.messages,
-        summary: session.summary,
+        history: contextSession.messages,
+        summary: contextSession.summary,
         skills: ref.read(aiSkillsProvider),
         toolHandler: executor.execute,
         onDelta: _appendDelta,
+        onReasoningDelta: _appendReasoningDelta,
         onToolStatus: _updateToolStatus,
+        cancelToken: cancelToken,
       );
-      if (!mounted || reply.trim().isEmpty) {
+      if (!mounted || reply.content.trim().isEmpty) {
         throw StateError(
           mounted
               ? context.appLocalizations.aiEmptyResponse
@@ -425,33 +519,59 @@ class _AiViewState extends ConsumerState<AiView> {
       }
       setState(() {
         _streamedText = '';
+        _streamedReasoning = '';
         _pendingDelta = '';
+        _pendingReasoningDelta = '';
+        _streamStartedAt = null;
         _agentStatus = '';
       });
       await ref
           .read(aiSessionsProvider.notifier)
           .addMessage(
             sessionId,
-            AiChatMessage(role: 'assistant', content: reply),
+            AiChatMessage(
+              role: 'assistant',
+              content: reply.content,
+              reasoning: reply.reasoning,
+            ),
           );
       _scrollToBottom();
     } catch (error, stackTrace) {
+      final cancelled =
+          error is DioException && error.type == DioExceptionType.cancel;
       commonPrint.log(
         'AI message failed: $error, $stackTrace',
         logLevel: LogLevel.warning,
       );
-      if (mounted) {
+      if (mounted && !cancelled) {
         setState(() {
           _streamedText = '';
+          _streamedReasoning = '';
           _pendingDelta = '';
+          _pendingReasoningDelta = '';
+          _streamStartedAt = null;
           _agentStatus = '';
           _requestError = error.toString();
           _failedSessionId = sessionId;
           _failedMessageId = sourceMessageId;
         });
+      } else if (mounted) {
+        setState(() {
+          _streamedText = '';
+          _streamedReasoning = '';
+          _pendingDelta = '';
+          _pendingReasoningDelta = '';
+          _streamStartedAt = null;
+          _agentStatus = '';
+        });
       }
     } finally {
-      if (mounted) _setPageState(() => _busy = false);
+      if (identical(_generationCancelToken, cancelToken)) {
+        _generationCancelToken = null;
+        _activeGenerationSessionId = null;
+        _activeSourceMessageId = null;
+        if (mounted) _setPageState(() => _busy = false);
+      }
     }
   }
 
@@ -463,18 +583,16 @@ class _AiViewState extends ConsumerState<AiView> {
         sessionId != ref.read(aiSessionsProvider).activeSessionId) {
       return;
     }
-    final store = ref.read(aiSessionsProvider);
-    final session = store.activeSession;
-    final index = session.messages.indexWhere((item) => item.id == messageId);
-    if (index < 0) return;
-    await ref
-        .read(aiSessionsProvider.notifier)
-        .replaceMessages(session.id, session.messages.sublist(0, index + 1));
-    await _generateReply(session.id, sourceMessageId: messageId);
+    final operation = _generateReply(sessionId, sourceMessageId: messageId);
+    _generationOperation = operation;
+    await operation;
+    if (identical(_generationOperation, operation)) {
+      _generationOperation = null;
+    }
   }
 
   Future<void> _editMessage(AiChatMessage message) async {
-    if (_busy || message.role != 'user') return;
+    if (message.role != 'user') return;
     final controller = TextEditingController(text: message.content);
     final value = await showDialog<String>(
       context: context,
@@ -505,21 +623,36 @@ class _AiViewState extends ConsumerState<AiView> {
     );
     controller.dispose();
     if (value == null || value.trim().isEmpty || !mounted) return;
+    final editingActiveRequest =
+        _busy &&
+        _activeGenerationSessionId ==
+            ref.read(aiSessionsProvider).activeSessionId &&
+        _activeSourceMessageId == message.id;
+    if (_busy) await _stopGeneration(keepPartial: !editingActiveRequest);
+    if (!mounted) return;
     final session = ref.read(aiSessionsProvider).activeSession;
-    final index = session.messages.indexWhere((item) => item.id == message.id);
-    if (index < 0) return;
     final edited = AiChatMessage(
-      id: message.id,
+      id: editingActiveRequest ? message.id : null,
       role: 'user',
       content: value.trim(),
       attachments: message.attachments,
-      createdAt: message.createdAt,
+      createdAt: editingActiveRequest ? message.createdAt : null,
     );
-    await ref.read(aiSessionsProvider.notifier).replaceMessages(session.id, [
-      ...session.messages.sublist(0, index),
-      edited,
-    ]);
-    await _generateReply(session.id, sourceMessageId: edited.id);
+    if (editingActiveRequest) {
+      await ref
+          .read(aiSessionsProvider.notifier)
+          .replaceMessage(session.id, edited);
+    } else {
+      await ref
+          .read(aiSessionsProvider.notifier)
+          .addMessage(session.id, edited);
+    }
+    final operation = _generateReply(session.id, sourceMessageId: edited.id);
+    _generationOperation = operation;
+    await operation;
+    if (identical(_generationOperation, operation)) {
+      _generationOperation = null;
+    }
   }
 
   Future<Uint8List?> _readClipboardFile(
@@ -552,10 +685,11 @@ class _AiViewState extends ConsumerState<AiView> {
       text: nextText,
       selection: TextSelection.collapsed(offset: selection.start + text.length),
     );
+    if (mounted) setState(() {});
   }
 
   Future<void> _pasteConversationClipboard() async {
-    if (_busy) return;
+    final appLocalizations = context.appLocalizations;
     try {
       final reader = await SystemClipboard.instance?.read();
       FileFormat? imageFormat;
@@ -579,7 +713,7 @@ class _AiViewState extends ConsumerState<AiView> {
         final bytes = await _readClipboardFile(reader, imageFormat);
         if (bytes == null || bytes.isEmpty) return;
         if (bytes.length > 8 * 1024 * 1024) {
-          throw FormatException(context.appLocalizations.attachmentTooLarge);
+          throw FormatException(appLocalizations.attachmentTooLarge);
         }
         if (!mounted) return;
         setState(() {
@@ -601,13 +735,14 @@ class _AiViewState extends ConsumerState<AiView> {
       globalState.showNotifier(
         error is FormatException
             ? error.message
-            : context.appLocalizations.unsupportedAttachment,
+            : appLocalizations.unsupportedAttachment,
       );
     }
   }
 
   Future<void> _pickConversationAttachment() async {
-    if (_busy || _pendingAttachments.length >= 4) return;
+    if (_pendingAttachments.length >= 4) return;
+    final appLocalizations = context.appLocalizations;
     final platformFile = await globalState.safeRun(picker.pickerFile);
     if (platformFile == null) return;
     try {
@@ -623,7 +758,7 @@ class _AiViewState extends ConsumerState<AiView> {
       AiAttachment attachment;
       if (imageMime != null) {
         if (bytes.length > 8 * 1024 * 1024) {
-          throw FormatException(context.appLocalizations.attachmentTooLarge);
+          throw FormatException(appLocalizations.attachmentTooLarge);
         }
         attachment = AiAttachment(
           name: platformFile.name,
@@ -632,7 +767,7 @@ class _AiViewState extends ConsumerState<AiView> {
         );
       } else {
         if (bytes.length > 2 * 1024 * 1024) {
-          throw FormatException(context.appLocalizations.attachmentTooLarge);
+          throw FormatException(appLocalizations.attachmentTooLarge);
         }
         final text = utf8.decode(bytes);
         attachment = AiAttachment(
@@ -650,7 +785,7 @@ class _AiViewState extends ConsumerState<AiView> {
       globalState.showNotifier(
         error is FormatException
             ? error.message
-            : context.appLocalizations.unsupportedAttachment,
+            : appLocalizations.unsupportedAttachment,
       );
     }
   }
@@ -1127,12 +1262,20 @@ class _AiViewState extends ConsumerState<AiView> {
 
   Widget _buildConversation(AiSessionStore store) {
     final messages = store.activeSession.messages;
+    final hasDraft =
+        _messageController.text.trim().isNotEmpty ||
+        _pendingAttachments.isNotEmpty;
     final visibleMessages = [
       ...messages,
       if (_agentStatus.isNotEmpty)
         AiChatMessage(role: 'status', content: _agentStatus),
-      if (_streamedText.isNotEmpty)
-        AiChatMessage(role: 'assistant', content: _streamedText),
+      if (_streamedText.isNotEmpty || _streamedReasoning.isNotEmpty)
+        AiChatMessage(
+          role: 'assistant',
+          content: _streamedText,
+          reasoning: _streamedReasoning,
+          createdAt: _streamStartedAt,
+        ),
     ];
     if (_lastConversationId != store.activeSessionId ||
         _lastConversationItemCount != visibleMessages.length) {
@@ -1215,14 +1358,12 @@ class _AiViewState extends ConsumerState<AiView> {
                             _pendingAttachments[index].name,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          onDeleted: _busy
-                              ? null
-                              : () => setState(() {
-                                  _pendingAttachments = [
-                                    ..._pendingAttachments.sublist(0, index),
-                                    ..._pendingAttachments.sublist(index + 1),
-                                  ];
-                                }),
+                          onDeleted: () => setState(() {
+                            _pendingAttachments = [
+                              ..._pendingAttachments.sublist(0, index),
+                              ..._pendingAttachments.sublist(index + 1),
+                            ];
+                          }),
                         ),
                     ],
                   ),
@@ -1245,7 +1386,7 @@ class _AiViewState extends ConsumerState<AiView> {
                     children: [
                       IconButton(
                         tooltip: context.appLocalizations.addAttachment,
-                        onPressed: _busy ? null : _pickConversationAttachment,
+                        onPressed: _pickConversationAttachment,
                         style: IconButton.styleFrom(
                           minimumSize: const Size.square(40),
                           maximumSize: const Size.square(40),
@@ -1283,11 +1424,11 @@ class _AiViewState extends ConsumerState<AiView> {
                             },
                             child: TextField(
                               controller: _messageController,
-                              enabled: !_busy,
                               minLines: 1,
                               maxLines: 5,
                               keyboardType: TextInputType.multiline,
                               textInputAction: TextInputAction.newline,
+                              onChanged: (_) => setState(() {}),
                               decoration: InputDecoration(
                                 hintText: context.appLocalizations.aiInputHint,
                                 border: InputBorder.none,
@@ -1304,13 +1445,19 @@ class _AiViewState extends ConsumerState<AiView> {
                       ),
                       const SizedBox(width: 8),
                       IconButton.filled(
-                        tooltip: context.appLocalizations.submit,
-                        onPressed: _busy ? null : _sendMessage,
+                        tooltip: _busy && !hasDraft
+                            ? context.appLocalizations.stop
+                            : context.appLocalizations.submit,
+                        onPressed: _sendMessage,
                         style: IconButton.styleFrom(
                           minimumSize: const Size.square(40),
                           maximumSize: const Size.square(40),
                         ),
-                        icon: const Icon(Icons.arrow_upward_rounded),
+                        icon: Icon(
+                          _busy && !hasDraft
+                              ? Icons.stop_rounded
+                              : Icons.arrow_upward_rounded,
+                        ),
                       ),
                     ],
                   ),
@@ -1348,6 +1495,100 @@ class _AiViewState extends ConsumerState<AiView> {
   }
 }
 
+class AiAssistantMessageContent extends StatelessWidget {
+  final String content;
+  final String reasoning;
+
+  const AiAssistantMessageContent({
+    super.key,
+    required this.content,
+    this.reasoning = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (reasoning.isNotEmpty)
+          Container(
+            key: const ValueKey('ai-reasoning'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.colorScheme.surfaceContainerHighest.withAlpha(150),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: context.colorScheme.outlineVariant.withAlpha(110),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.psychology_alt_outlined,
+                      size: 18,
+                      color: context.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.appLocalizations.aiReasoning,
+                      style: context.textTheme.labelLarge?.copyWith(
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _MarkdownMessage(content: reasoning),
+              ],
+            ),
+          ),
+        if (reasoning.isNotEmpty && content.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Divider(height: 1, color: context.colorScheme.outlineVariant),
+          const SizedBox(height: 12),
+        ],
+        if (content.isNotEmpty)
+          KeyedSubtree(
+            key: const ValueKey('ai-response'),
+            child: _MarkdownMessage(content: content),
+          ),
+      ],
+    );
+  }
+}
+
+class AiMessageTimestamp extends StatelessWidget {
+  final DateTime createdAt;
+
+  const AiMessageTimestamp({super.key, required this.createdAt});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = createdAt.toLocal();
+    final now = DateTime.now();
+    final material = MaterialLocalizations.of(context);
+    final time = material.formatTimeOfDay(
+      TimeOfDay.fromDateTime(value),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    final isToday =
+        value.year == now.year &&
+        value.month == now.month &&
+        value.day == now.day;
+    return Text(
+      isToday ? time : '${material.formatShortDate(value)} $time',
+      key: const ValueKey('ai-message-time'),
+      style: context.textTheme.labelSmall?.copyWith(
+        color: context.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   final AiChatMessage message;
   final bool busy;
@@ -1366,7 +1607,7 @@ class _MessageBubble extends StatelessWidget {
   });
 
   Future<void> _showContextMenu(BuildContext bubbleContext) async {
-    if (busy || onEdit == null) return;
+    if (onEdit == null) return;
     final overlay = Overlay.of(bubbleContext).context.findRenderObject();
     final bubble = bubbleContext.findRenderObject();
     if (overlay is! RenderBox || bubble is! RenderBox) return;
@@ -1484,7 +1725,10 @@ class _MessageBubble extends StatelessWidget {
                     ],
                   ],
                 )
-              : _MarkdownMessage(content: message.content),
+              : AiAssistantMessageContent(
+                  content: message.content,
+                  reasoning: message.reasoning,
+                ),
         ),
       ),
     );
@@ -1492,21 +1736,33 @@ class _MessageBubble extends StatelessWidget {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Column(
+          crossAxisAlignment: isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            if (failed) ...[
-              IconButton(
-                tooltip: error.isEmpty
-                    ? context.appLocalizations.messageSendFailed
-                    : error,
-                onPressed: busy ? null : onRetry,
-                color: context.colorScheme.error,
-                icon: const Icon(Icons.error_rounded),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (failed) ...[
+                  IconButton(
+                    tooltip: error.isEmpty
+                        ? context.appLocalizations.messageSendFailed
+                        : error,
+                    onPressed: busy ? null : onRetry,
+                    color: context.colorScheme.error,
+                    icon: const Icon(Icons.error_rounded),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(child: bubble),
+              ],
+            ),
+            if (!isStatus)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                child: AiMessageTimestamp(createdAt: message.createdAt),
               ),
-              const SizedBox(width: 4),
-            ],
-            Flexible(child: bubble),
           ],
         ),
       ),

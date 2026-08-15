@@ -12,6 +12,7 @@ class _RunRequest {
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
   Timer? _runtimeTimer;
+  Future<void>? _trafficUpdateOperation;
   final _setupScheduler = SerialTaskScheduler();
   final _listenerScheduler = SerialTaskScheduler();
   _RunRequest? _latestRunRequest;
@@ -36,6 +37,9 @@ class SetupAction extends _$SetupAction {
     unawaited(_runSetup(force: true));
     ref.read(logsProvider.notifier).value = FixedList(500);
     ref.read(requestsProvider.notifier).value = FixedList(500);
+    ref
+        .read(ruleUsagesProvider.notifier)
+        .sample(ref.read(globalRulesProvider), const []);
   }
 
   void _setLocalRunning(bool running) {
@@ -58,7 +62,22 @@ class SetupAction extends _$SetupAction {
 
   void _refreshRunningState() {
     _updateRunTime();
-    unawaited(ref.read(commonActionProvider.notifier).updateTraffic());
+    if (_trafficUpdateOperation != null) {
+      return;
+    }
+    final operation = ref.read(commonActionProvider.notifier).updateTraffic();
+    _trafficUpdateOperation = operation;
+    unawaited(_completeTrafficUpdate(operation));
+  }
+
+  Future<void> _completeTrafficUpdate(Future<void> operation) async {
+    try {
+      await operation;
+    } finally {
+      if (identical(_trafficUpdateOperation, operation)) {
+        _trafficUpdateOperation = null;
+      }
+    }
   }
 
   void _updateRunTime() {
@@ -136,6 +155,9 @@ class SetupAction extends _$SetupAction {
     resetCoreTraffic();
     ref.read(trafficsProvider.notifier).clear();
     ref.read(totalTrafficProvider.notifier).value = const Traffic();
+    ref
+        .read(ruleUsagesProvider.notifier)
+        .sample(ref.read(globalRulesProvider), const []);
     ref.read(checkIpNumProvider.notifier).add();
   }
 
@@ -403,7 +425,10 @@ class SetupAction extends _$SetupAction {
     }
     final globalNodePool = safeGlobalNodePool.result;
     finalConfig = globalNodePool.config;
-    if (setupState.globalRules.isNotEmpty) {
+    final enabledGlobalRules = setupState.globalRules
+        .where((rule) => rule.enabled)
+        .toList();
+    if (enabledGlobalRules.isNotEmpty) {
       final providerTargets = await loadProxyProviderTargets(
         finalConfig,
         profilesPath: directory,
@@ -420,7 +445,7 @@ class SetupAction extends _$SetupAction {
         if (!aliases.contains(target)) aliases.add(target);
       }
       final script = buildRulesOverrideScript(
-        setupState.globalRules.map((rule) => rule.rawValue),
+        enabledRuleValues(enabledGlobalRules),
         additionalTargets: {...providerTargets, ...globalNodePool.targets},
         targetAliases: targetAliases,
       );
@@ -437,13 +462,13 @@ class SetupAction extends _$SetupAction {
         logLevel: LogLevel.warning,
       );
       finalConfig = activeOnlyConfig;
-      if (setupState.globalRules.isNotEmpty) {
+      if (enabledGlobalRules.isNotEmpty) {
         final providerTargets = await loadProxyProviderTargets(
           finalConfig,
           profilesPath: directory,
         );
         final script = buildRulesOverrideScript(
-          setupState.globalRules.map((rule) => rule.rawValue),
+          enabledRuleValues(enabledGlobalRules),
           additionalTargets: providerTargets,
         );
         finalConfig = await handleEvaluate(script, finalConfig);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/ai/ai_service.dart';
 import 'package:fl_clash/features/ai/ai_tools.dart';
@@ -135,6 +136,36 @@ void main() {
       expect(result.toolCalls.single.arguments, {'profile_id': 42});
     });
 
+    test('separates streamed reasoning from the final response', () {
+      final contentDeltas = <String>[];
+      final reasoningDeltas = <String>[];
+      final result = AiApiService.parseChatStream(
+        [
+          {
+            'choices': [
+              {
+                'delta': {'reasoning_content': 'Think first.'},
+              },
+            ],
+          },
+          {
+            'choices': [
+              {
+                'delta': {'content': 'Final answer.'},
+              },
+            ],
+          },
+        ],
+        onDelta: contentDeltas.add,
+        onReasoningDelta: reasoningDeltas.add,
+      );
+
+      expect(result.content, 'Final answer.');
+      expect(result.reasoning, 'Think first.');
+      expect(contentDeltas, ['Final answer.']);
+      expect(reasoningDeltas, ['Think first.']);
+    });
+
     test('parses legacy function_call', () {
       final result = AiApiService.parseChatCompletion({
         'choices': [
@@ -221,6 +252,40 @@ void main() {
     expect(aiSystemPrompt, contains('Persist until'));
   });
 
+  test('every declared AI tool has an executor implementation', () {
+    final declared = aiToolDefinitions
+        .map((tool) => tool['function'] as Map<String, dynamic>)
+        .map((function) => function['name'] as String)
+        .toSet();
+
+    expect(declared, AiToolExecutor.supportedToolNames);
+  });
+
+  test('settings patches preserve unchanged nested values', () {
+    final merged = mergeAiSettingsPatch(
+      {
+        'mode': 'rule',
+        'dns': {
+          'enable': true,
+          'listen': '0.0.0.0:1053',
+          'nameserver': ['223.5.5.5'],
+        },
+      },
+      {
+        'dns': {
+          'nameserver': ['1.1.1.1'],
+        },
+      },
+    );
+
+    expect(merged['mode'], 'rule');
+    expect(merged['dns'], {
+      'enable': true,
+      'listen': '0.0.0.0:1053',
+      'nameserver': ['1.1.1.1'],
+    });
+  });
+
   test(
     'agent forwards transport deltas without duplicating the reply',
     () async {
@@ -237,9 +302,30 @@ void main() {
       );
 
       expect(deltas, ['he', 'llo']);
-      expect(reply, 'hello');
+      expect(reply.content, 'hello');
+      expect(reply.reasoning, isEmpty);
     },
   );
+
+  test('agent stops before sending when cancellation is requested', () async {
+    final cancelToken = CancelToken()..cancel('stop');
+
+    await expectLater(
+      AiAgent(_StreamingAiApiService()).run(
+        config: const AiConfig(model: 'test'),
+        history: const [],
+        toolHandler: (_) async => const {},
+        cancelToken: cancelToken,
+      ),
+      throwsA(
+        isA<DioException>().having(
+          (error) => error.type,
+          'type',
+          DioExceptionType.cancel,
+        ),
+      ),
+    );
+  });
 
   group('AI routing rule detection', () {
     test('detects domains and wildcard suffixes', () {
@@ -292,6 +378,8 @@ class _StreamingAiApiService extends AiApiService {
     List<Map<String, dynamic>> messages, {
     List<Map<String, dynamic>> tools = const [],
     AiStreamCallback? onDelta,
+    AiStreamCallback? onReasoningDelta,
+    CancelToken? cancelToken,
   }) async {
     onDelta?.call('he');
     await Future<void>.delayed(Duration.zero);

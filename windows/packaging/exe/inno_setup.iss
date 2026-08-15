@@ -17,7 +17,7 @@ WizardStyle=modern
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed={{ARCH}}
 ArchitecturesInstallIn64BitMode={{ARCH}}
-CloseApplications=force
+CloseApplications=yes
 RestartApplications=no
 
 [Code]
@@ -27,12 +27,45 @@ var
   i: Integer;
   ResultCode: Integer;
 begin
-  Processes := ['FlClash.exe', 'FlClashCore.exe', 'FlClashHelperService.exe'];
+  Processes := ['FlClashCore.exe', 'FlClashHelperService.exe'];
 
   for i := 0 to GetArrayLength(Processes)-1 do
   begin
     Exec(ExpandConstant('{sys}\taskkill.exe'), '/f /t /im "' + Processes[i] + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
+end;
+
+function UpdateShutdownRequestPath(): String;
+begin
+  Result := ExpandConstant('{userappdata}\com.follow\clash\update.shutdown');
+end;
+
+function RequestGracefulShutdown(): Boolean;
+var
+  RequestPath: String;
+  WindowHandle: HWND;
+  WaitCount: Integer;
+begin
+  RequestPath := UpdateShutdownRequestPath();
+  ForceDirectories(ExtractFileDir(RequestPath));
+  SaveStringToFile(RequestPath, 'update', False);
+  WindowHandle := FindWindowByWindowName('FlClash');
+  if WindowHandle <> 0 then
+  begin
+    SendMessage(WindowHandle, $0010, 0, 0);
+    for WaitCount := 1 to 100 do
+    begin
+      if FindWindowByWindowName('FlClash') = 0 then
+        Break;
+      Sleep(100);
+    end;
+  end;
+  Result := FindWindowByWindowName('FlClash') = 0;
+end;
+
+procedure ClearShutdownRequest;
+begin
+  DeleteFile(UpdateShutdownRequestPath());
 end;
 
 procedure UnregisterHelperService;
@@ -49,13 +82,35 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  if not RequestGracefulShutdown() then
+  begin
+    Result := 'FlClash could not exit safely. Exit it from the system tray and retry.';
+    Exit;
+  end;
   UnregisterHelperService;
   KillProcesses;
   Result := '';
 end;
 
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    ClearShutdownRequest;
+end;
+
+procedure DeinitializeSetup;
+begin
+  ClearShutdownRequest;
+end;
+
 function InitializeUninstall(): Boolean;
 begin
+  if not RequestGracefulShutdown() then
+  begin
+    MsgBox('FlClash could not exit safely. Exit it from the system tray and retry.', mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
   UnregisterHelperService;
   KillProcesses;
   Result := True;

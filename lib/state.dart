@@ -19,6 +19,7 @@ import 'common/common.dart';
 import 'common/migration.dart';
 import 'database/database.dart';
 import 'enum/enum.dart';
+import 'features/overwrite/rule_traffic_store.dart';
 import 'l10n/l10n.dart';
 import 'models/models.dart';
 import 'providers/providers.dart';
@@ -85,6 +86,15 @@ class GlobalState {
   Future<ProviderContainer> _initData(int version) async {
     packageInfo = await PackageInfo.fromPlatform();
     var config = await migration.run();
+    await preferences.loadAiData(await appPath.aiDataPath);
+    try {
+      await ruleTrafficStore.initialize(await appPath.ruleTrafficDataPath);
+    } catch (error) {
+      commonPrint.log(
+        'Failed to load cumulative rule traffic: $error',
+        logLevel: LogLevel.warning,
+      );
+    }
     _didCrashOnPreviousExecution = await system.didCrashOnPreviousExecution();
     if (_didCrashOnPreviousExecution) {
       config = config.copyWith(currentProfileId: null);

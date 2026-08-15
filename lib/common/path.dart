@@ -63,6 +63,16 @@ class AppPath {
     return join(mHomeDirPath, 'database.sqlite');
   }
 
+  Future<String> get aiDataPath async {
+    final mHomeDirPath = await homeDirPath;
+    return join(mHomeDirPath, 'ai.json');
+  }
+
+  Future<String> get ruleTrafficDataPath async {
+    final mHomeDirPath = await homeDirPath;
+    return join(mHomeDirPath, 'rule_traffic.json');
+  }
+
   Future<String> get backupFilePath async {
     final mHomeDirPath = await homeDirPath;
     return join(mHomeDirPath, 'backup.zip');
@@ -81,6 +91,11 @@ class AppPath {
   Future<String> get lockFilePath async {
     final homeDirPath = await appPath.homeDirPath;
     return join(homeDirPath, 'FlClash.lock');
+  }
+
+  Future<String> get updateShutdownRequestPath async {
+    final mHomeDirPath = await homeDirPath;
+    return join(mHomeDirPath, 'update.shutdown');
   }
 
   Future<String> get configFilePath async {

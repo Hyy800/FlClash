@@ -92,6 +92,7 @@ void main() {
       now: start,
     )[rule.id]!;
     expect(initial.totalTraffic, 300);
+    expect(initial.sessionTraffic, 300);
     expect(initial.currentSpeed, 0);
     expect(initial.requestCount, 1);
 
@@ -101,6 +102,7 @@ void main() {
       now: start.add(const Duration(seconds: 1)),
     )[rule.id]!;
     expect(next.totalTraffic, 900);
+    expect(next.sessionTraffic, 900);
     expect(next.currentSpeed, 600);
 
     final closed = accumulator.sample(
@@ -120,6 +122,36 @@ void main() {
     )[rule.id]!;
     expect(cleared.totalTraffic, 0);
     expect(cleared.requestCount, 0);
+  });
+
+  test('keeps persisted totals separate from this session', () {
+    const rule = Rule(
+      id: 6,
+      ruleAction: RuleAction.DOMAIN,
+      content: 'persisted.example',
+      ruleTarget: 'DIRECT',
+    );
+    final accumulator = RuleUsageAccumulator(totalTraffic: const {6: 1000});
+
+    final usage = accumulator.sample(
+      rules: const [rule],
+      connections: [
+        TrackerInfo(
+          id: 'persisted-connection',
+          upload: 100,
+          download: 200,
+          start: DateTime(2026),
+          metadata: const Metadata(network: 'tcp'),
+          chains: const ['DIRECT'],
+          rule: 'Domain',
+          rulePayload: 'persisted.example',
+        ),
+      ],
+      now: DateTime(2026),
+    )[rule.id]!;
+
+    expect(usage.sessionTraffic, 300);
+    expect(usage.totalTraffic, 1300);
   });
 
   test('matches the camel-case rule type returned by the Mihomo core', () {
@@ -150,5 +182,33 @@ void main() {
     expect(usage.networks, {'TCP'});
     expect(usage.totalTraffic, 6144);
     expect(usage.requestCount, 1);
+  });
+
+  test('does not attribute traffic to a disabled rule', () {
+    const rule = Rule(
+      id: 5,
+      ruleAction: RuleAction.DOMAIN,
+      content: 'disabled.example',
+      ruleTarget: 'DIRECT',
+      enabled: false,
+    );
+    final usage = buildRuleUsage(
+      const [rule],
+      [
+        TrackerInfo(
+          id: 'disabled-connection',
+          upload: 100,
+          download: 200,
+          start: DateTime(2026),
+          metadata: const Metadata(network: 'tcp'),
+          chains: const ['DIRECT'],
+          rule: 'Domain',
+          rulePayload: 'disabled.example',
+        ),
+      ],
+    )[rule.id]!;
+
+    expect(usage.totalTraffic, 0);
+    expect(usage.requestCount, 0);
   });
 }

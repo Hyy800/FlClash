@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import atexit
 import argparse
+import ctypes
 import hashlib
 import json
 import os
@@ -536,6 +538,87 @@ def verify_repo() -> None:
         raise BuildError(f'脚本不在有效的 FlClash 仓库中: {REPO_ROOT}')
 
 
+def ensure_build_workspace() -> Path:
+    if re.fullmatch(r'[A-Za-z0-9._-]+', REPO_ROOT.name) is None:
+        raise BuildError(f'仓库目录名必须使用纯 ASCII 安全字符: {REPO_ROOT.name}')
+    drive_mask = ctypes.windll.kernel32.GetLogicalDrives()
+    for letter in reversed('PQRSTUVWXYZ'):
+        drive_root = Path(f'{letter}:/')
+        workspace = drive_root / REPO_ROOT.name
+        try:
+            if workspace.is_dir() and os.path.samefile(workspace, REPO_ROOT):
+                log(f'构建工作区: {workspace}')
+                return workspace
+        except OSError:
+            pass
+        drive_index = ord(letter) - ord('A')
+        if drive_mask & (1 << drive_index):
+            continue
+        drive = f'{letter}:'
+        result = subprocess.run(
+            ['subst.exe', drive, str(REPO_ROOT.parent)],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+        )
+        if result.returncode != 0:
+            continue
+        try:
+            matches_repo = workspace.is_dir() and os.path.samefile(
+                workspace,
+                REPO_ROOT,
+            )
+        except OSError:
+            matches_repo = False
+        if not matches_repo:
+            subprocess.run(['subst.exe', drive, '/D'], check=False)
+            continue
+
+        def release_workspace(mapped_drive: str = drive) -> None:
+            subprocess.run(
+                ['subst.exe', mapped_drive, '/D'],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+        atexit.register(release_workspace)
+        log(f'构建工作区: {workspace}')
+        return workspace
+    raise BuildError('无法分配 P: 到 Z: 范围内的 ASCII 构建盘符。')
+
+
+def reset_windows_build_state(build_root: Path) -> None:
+    generated_path = REPO_ROOT / 'build/windows'
+    cache_path = generated_path / 'x64/CMakeCache.txt'
+    if not cache_path.is_file():
+        return
+    try:
+        cache = cache_path.read_text(encoding='utf-8', errors='replace')
+    except OSError as error:
+        raise BuildError(f'无法读取 Windows 原生构建缓存: {error}') from error
+    expected_source = (build_root / 'windows').as_posix().lower()
+    cached_source = next(
+        (
+            line.partition('=')[2].strip().replace('\\', '/').lower()
+            for line in cache.splitlines()
+            if line.startswith('CMAKE_HOME_DIRECTORY:INTERNAL=')
+        ),
+        '',
+    )
+    if cached_source == expected_source:
+        return
+    log(f'清理过期 Windows 原生构建缓存: {generated_path}')
+    try:
+        shutil.rmtree(generated_path)
+    except OSError as error:
+        raise BuildError(
+            f'无法清理 Windows 原生构建缓存: {error}',
+        ) from error
+
+
 def list_artifacts() -> None:
     output = REPO_ROOT / 'dist'
     artifacts = sorted(path for path in output.glob('*') if path.is_file())
@@ -551,7 +634,7 @@ def list_artifacts() -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            '自动安装 Windows 构建依赖，并通过仓库 setup.dart 生成 FlClash 安装包和便携包。'
+            '自动安装 Windows 构建依赖，并通过仓库 setup.dart 生成 FlClash 安装包。'
         ),
     )
     parser.add_argument(
@@ -562,8 +645,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--targets',
-        default='exe,zip',
-        help='逗号分隔的打包目标（默认: exe,zip）',
+        default='exe',
+        help='逗号分隔的打包目标（默认: exe）',
     )
     parser.add_argument(
         '--flutter-version',
@@ -576,8 +659,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--github-mirror',
-        default='https://gitclone.com/github.com',
-        help='GitHub Git 镜像；传 direct 禁用（默认: https://gitclone.com/github.com）',
+        default='direct',
+        help='GitHub Git 镜像；传 direct 禁用（默认: direct）',
     )
     parser.add_argument(
         '--retries',
@@ -670,14 +753,23 @@ def main() -> int:
     if args.check_only or args.install_only:
         return 0
 
+    build_root = ensure_build_workspace()
+    reset_windows_build_state(build_root)
+
     if not args.skip_submodules:
-        run(['git', 'config', 'core.longpaths', 'true'])
-        run(['git', 'submodule', 'update', '--init', '--recursive'])
-    run([str(flutter), 'config', '--enable-windows-desktop'])
+        run(['git', 'config', 'core.longpaths', 'true'], cwd=build_root)
+        run(
+            ['git', 'submodule', 'update', '--init', '--recursive'],
+            cwd=build_root,
+        )
+    run(
+        [str(flutter), 'config', '--enable-windows-desktop'],
+        cwd=build_root,
+    )
     if not args.skip_pub_get:
-        run([str(flutter), 'pub', 'get'])
+        run([str(flutter), 'pub', 'get'], cwd=build_root)
     if not args.skip_generation:
-        run([str(dart), 'run', 'intl_utils:generate'])
+        run([str(dart), 'run', 'intl_utils:generate'], cwd=build_root)
         run(
             [
                 str(dart),
@@ -686,6 +778,7 @@ def main() -> int:
                 'build',
                 '--delete-conflicting-outputs',
             ],
+            cwd=build_root,
         )
 
     setup_command = [
@@ -701,7 +794,7 @@ def main() -> int:
         setup_command.append('--verbose')
     package_succeeded = False
     for attempt in range(1, args.retries + 1):
-        result = run(setup_command, check=False)
+        result = run(setup_command, check=False, cwd=build_root)
         if result.returncode == 0:
             package_succeeded = True
             break

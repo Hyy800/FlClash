@@ -16,6 +16,26 @@ typedef AiToolConfirmation =
 
 typedef AiRoutingRuleSource = ({RuleAction action, String content});
 
+Map<String, dynamic> mergeAiSettingsPatch(
+  Map<String, dynamic> current,
+  Map<String, dynamic> patch,
+) {
+  final result = Map<String, dynamic>.from(current);
+  for (final entry in patch.entries) {
+    final previous = result[entry.key];
+    final value = entry.value;
+    if (previous is Map && value is Map) {
+      result[entry.key] = mergeAiSettingsPatch(
+        Map<String, dynamic>.from(previous),
+        Map<String, dynamic>.from(value),
+      );
+    } else {
+      result[entry.key] = value;
+    }
+  }
+  return result;
+}
+
 AiRoutingRuleSource parseAiRoutingRuleSource(String input) {
   var value = input.trim();
   if (value.isEmpty) {
@@ -109,18 +129,61 @@ class AiToolExecutor {
 
   const AiToolExecutor({required this.confirm});
 
+  static const supportedToolNames = {
+    'list_capabilities',
+    'get_app_state',
+    'get_settings',
+    'list_profiles',
+    'switch_profile',
+    'set_profile_enabled',
+    'list_proxy_groups',
+    'switch_proxy',
+    'test_proxy_delays',
+    'add_routing_rule',
+    'list_routing_rules',
+    'set_global_rule_enabled',
+    'delete_routing_rule',
+    'list_ai_skills',
+    'import_ai_skill',
+    'set_ai_skill_enabled',
+    'delete_ai_skill',
+    'set_running',
+    'set_global_overwrite_profile',
+    'set_profile_user_agent',
+    'update_profile_subscription',
+    'rename_profile',
+    'delete_profile',
+    'restart_core',
+    'close_connections',
+    'refresh_proxy_groups',
+    'update_all_profiles',
+    'clear_logs_and_requests',
+    'get_profile_yaml',
+    'validate_yaml',
+    'create_profile_yaml',
+    'replace_profile_yaml',
+    'update_settings',
+  };
+
   Future<Map<String, dynamic>> execute(AiToolCall call) async {
     return switch (call.name) {
       'list_capabilities' => _listCapabilities(),
       'get_app_state' => _getAppState(),
+      'get_settings' => _getSettings(),
       'list_profiles' => _listProfiles(),
       'switch_profile' => _switchProfile(call.arguments),
+      'set_profile_enabled' => _setProfileEnabled(call.arguments),
       'list_proxy_groups' => _listProxyGroups(),
       'switch_proxy' => _switchProxy(call.arguments),
       'test_proxy_delays' => _testProxyDelays(call.arguments),
       'add_routing_rule' => _addRoutingRule(call.arguments),
+      'list_routing_rules' => _listRoutingRules(call.arguments),
+      'set_global_rule_enabled' => _setGlobalRuleEnabled(call.arguments),
+      'delete_routing_rule' => _deleteRoutingRule(call.arguments),
       'list_ai_skills' => _listAiSkills(),
       'import_ai_skill' => _importAiSkill(call.arguments),
+      'set_ai_skill_enabled' => _setAiSkillEnabled(call.arguments),
+      'delete_ai_skill' => _deleteAiSkill(call.arguments),
       'set_running' => _setRunning(call.arguments),
       'set_global_overwrite_profile' => _setGlobalOverwriteProfile(
         call.arguments,
@@ -156,7 +219,9 @@ class AiToolExecutor {
       'close_connections',
       'clear_logs_and_requests',
       'add_routing_rule',
+      'delete_routing_rule',
       'import_ai_skill',
+      'delete_ai_skill',
     };
     return {
       'ok': true,
@@ -212,9 +277,23 @@ class AiToolExecutor {
     };
   }
 
+  Map<String, dynamic> _getSettings() {
+    final container = globalState.container;
+    return {
+      'ok': true,
+      'clash': container.read(patchClashConfigProvider).toJson(),
+      'application': container.read(appSettingProvider).toJson(),
+      'network': container.read(networkSettingProvider).toJson(),
+      'vpn': container.read(vpnSettingProvider).toJson(),
+      'theme': container.read(themeSettingProvider).toJson(),
+      'proxy_style': container.read(proxiesStyleSettingProvider).toJson(),
+    };
+  }
+
   Map<String, dynamic> _listProfiles() {
     final container = globalState.container;
     final currentId = container.read(currentProfileIdProvider);
+    final disabledIds = container.read(disabledProfileIdsProvider);
     return {
       'ok': true,
       'profiles': container
@@ -225,6 +304,7 @@ class AiToolExecutor {
               'label': profile.realLabel,
               'type': profile.type.name,
               'current': profile.id == currentId,
+              'enabled': !disabledIds.contains(profile.id),
               'url': profile.url,
               'overwrite_type': profile.overwriteType.name,
             },
@@ -249,6 +329,29 @@ class AiToolExecutor {
           .applyProfile(force: true);
     }
     return {'ok': true, 'profile_id': profileId, 'label': profile.realLabel};
+  }
+
+  Future<Map<String, dynamic>> _setProfileEnabled(
+    Map<String, dynamic> arguments,
+  ) async {
+    final profileId = _readInt(arguments, 'profile_id');
+    final enabled = arguments['enabled'];
+    if (enabled is! bool) {
+      throw const FormatException('enabled must be a boolean.');
+    }
+    final container = globalState.container;
+    if (container.read(profilesProvider).getProfile(profileId) == null) {
+      return {'ok': false, 'error': 'Profile $profileId was not found.'};
+    }
+    await container
+        .read(disabledProfileIdsProvider.notifier)
+        .setEnabled(profileId, enabled);
+    if (profileId == container.read(currentProfileIdProvider)) {
+      await container
+          .read(setupActionProvider.notifier)
+          .applyProfile(force: true);
+    }
+    return {'ok': true, 'profile_id': profileId, 'enabled': enabled};
   }
 
   Map<String, dynamic> _listProxyGroups() {
@@ -339,7 +442,7 @@ class AiToolExecutor {
     }
     final testUrl = container.read(realTestUrlProvider(group.testUrl));
     final results = <Map<String, dynamic>>[];
-    for (final batch in proxies.batch(20)) {
+    for (final batch in proxies.batch(100)) {
       final values = await Future.wait(
         batch.map((proxy) async {
           try {
@@ -439,17 +542,20 @@ class AiToolExecutor {
     final scope =
         arguments['scope']?.toString().trim().toLowerCase() ??
         'current_profile';
-    if (!{'current_profile', 'profile'}.contains(scope)) {
+    if (!{'current_profile', 'profile', 'global'}.contains(scope)) {
       return {
         'ok': false,
-        'error': 'scope must be current_profile or profile.',
+        'error': 'scope must be current_profile, profile, or global.',
       };
     }
-    final profileId = scope == 'profile'
+    final profileId = scope == 'global'
+        ? null
+        : scope == 'profile'
         ? _readInt(arguments, 'profile_id')
         : container.read(currentProfileIdProvider);
-    if (profileId == null ||
-        container.read(profilesProvider).getProfile(profileId) == null) {
+    if (scope != 'global' &&
+        (profileId == null ||
+            container.read(profilesProvider).getProfile(profileId) == null)) {
       return {'ok': false, 'error': 'The target profile was not found.'};
     }
 
@@ -460,9 +566,9 @@ class AiToolExecutor {
       ruleTarget: target,
       noResolve: arguments['no_resolve'] as bool? ?? false,
     );
-    final existingRules = container
-        .read(profileAddedRulesProvider(profileId).notifier)
-        .value;
+    final existingRules = scope == 'global'
+        ? container.read(globalRulesProvider)
+        : container.read(profileAddedRulesProvider(profileId!).notifier).value;
     final duplicate = existingRules.any(
       (item) =>
           item.ruleAction == rule.ruleAction &&
@@ -482,15 +588,25 @@ class AiToolExecutor {
 
     final approved = await confirm(
       'add_routing_rule',
-      '${rule.rawValue}\nscope: $scope\nprofile_id: $profileId',
+      '${rule.rawValue}\nscope: $scope${profileId == null ? '' : '\nprofile_id: $profileId'}',
     );
     if (!approved) return {'ok': false, 'cancelled': true};
-    await container
-        .read(profileAddedRulesProvider(profileId).notifier)
-        .putAndWait(rule);
+    if (scope == 'global') {
+      container.read(globalRulesProvider.notifier).value = List.unmodifiable([
+        ...existingRules,
+        rule,
+      ]);
+    } else {
+      await container
+          .read(profileAddedRulesProvider(profileId!).notifier)
+          .putAndWait(rule);
+    }
     await container
         .read(setupActionProvider.notifier)
         .applyProfile(force: true);
+    if (scope == 'global') {
+      await preferences.saveConfig(container.read(configProvider));
+    }
     return {
       'ok': true,
       'changed': true,
@@ -502,6 +618,105 @@ class AiToolExecutor {
       'profile_id': profileId,
       'applied': true,
     };
+  }
+
+  Map<String, dynamic> _listRoutingRules(Map<String, dynamic> arguments) {
+    final container = globalState.container;
+    final scope =
+        arguments['scope']?.toString().trim().toLowerCase() ?? 'global';
+    if (!{'current_profile', 'profile', 'global'}.contains(scope)) {
+      return {
+        'ok': false,
+        'error': 'scope must be current_profile, profile, or global.',
+      };
+    }
+    final profileId = scope == 'global'
+        ? null
+        : scope == 'profile'
+        ? _readInt(arguments, 'profile_id')
+        : container.read(currentProfileIdProvider);
+    if (scope != 'global' && profileId == null) {
+      return {'ok': false, 'error': 'The target profile was not found.'};
+    }
+    final rules = scope == 'global'
+        ? container.read(globalRulesProvider)
+        : container.read(profileAddedRulesProvider(profileId!).notifier).value;
+    return {
+      'ok': true,
+      'scope': scope,
+      'profile_id': ?profileId,
+      'rules': rules
+          .map(
+            (rule) => {
+              'id': rule.id,
+              'value': rule.rawValue,
+              'enabled': rule.enabled,
+            },
+          )
+          .toList(),
+    };
+  }
+
+  Future<Map<String, dynamic>> _setGlobalRuleEnabled(
+    Map<String, dynamic> arguments,
+  ) async {
+    final ruleId = _readInt(arguments, 'rule_id');
+    final enabled = arguments['enabled'];
+    if (enabled is! bool) {
+      throw const FormatException('enabled must be a boolean.');
+    }
+    final container = globalState.container;
+    final rules = container.read(globalRulesProvider);
+    if (!rules.any((rule) => rule.id == ruleId)) {
+      return {'ok': false, 'error': 'Global rule $ruleId was not found.'};
+    }
+    container.read(globalRulesProvider.notifier).value = List.unmodifiable([
+      for (final rule in rules)
+        rule.id == ruleId ? rule.copyWith(enabled: enabled) : rule,
+    ]);
+    await container
+        .read(setupActionProvider.notifier)
+        .applyProfile(force: true);
+    await preferences.saveConfig(container.read(configProvider));
+    return {'ok': true, 'rule_id': ruleId, 'enabled': enabled};
+  }
+
+  Future<Map<String, dynamic>> _deleteRoutingRule(
+    Map<String, dynamic> arguments,
+  ) async {
+    final ruleId = _readInt(arguments, 'rule_id');
+    final listed = _listRoutingRules(arguments);
+    if (listed['ok'] != true) return listed;
+    final rules = (listed['rules'] as List).whereType<Map>();
+    final rule = rules
+        .where((item) => item['id'] == ruleId)
+        .cast<Map<dynamic, dynamic>>()
+        .firstOrNull;
+    if (rule == null) {
+      return {'ok': false, 'error': 'Rule $ruleId was not found.'};
+    }
+    final scope = listed['scope'] as String;
+    final approved = await confirm(
+      'delete_routing_rule',
+      '${rule['value']}\nscope: $scope',
+    );
+    if (!approved) return {'ok': false, 'cancelled': true};
+    final container = globalState.container;
+    if (scope == 'global') {
+      container.read(globalRulesProvider.notifier).value = List.unmodifiable(
+        container.read(globalRulesProvider).where((item) => item.id != ruleId),
+      );
+      await preferences.saveConfig(container.read(configProvider));
+    } else {
+      final profileId = listed['profile_id'] as int;
+      container.read(profileAddedRulesProvider(profileId).notifier).delAll({
+        ruleId,
+      });
+    }
+    await container
+        .read(setupActionProvider.notifier)
+        .applyProfile(force: true);
+    return {'ok': true, 'rule_id': ruleId, 'scope': scope};
   }
 
   Map<String, dynamic> _listAiSkills() {
@@ -544,6 +759,43 @@ class AiToolExecutor {
       'enabled': skill.enabled,
       'characters': skill.content.length,
     };
+  }
+
+  Future<Map<String, dynamic>> _setAiSkillEnabled(
+    Map<String, dynamic> arguments,
+  ) async {
+    final skillId = _readString(arguments, 'skill_id');
+    final enabled = arguments['enabled'];
+    if (enabled is! bool) {
+      throw const FormatException('enabled must be a boolean.');
+    }
+    final skills = globalState.container.read(aiSkillsProvider);
+    if (!skills.any((skill) => skill.id == skillId)) {
+      return {'ok': false, 'error': 'AI Skill $skillId was not found.'};
+    }
+    await globalState.container
+        .read(aiSkillsProvider.notifier)
+        .setEnabled(skillId, enabled);
+    return {'ok': true, 'skill_id': skillId, 'enabled': enabled};
+  }
+
+  Future<Map<String, dynamic>> _deleteAiSkill(
+    Map<String, dynamic> arguments,
+  ) async {
+    final skillId = _readString(arguments, 'skill_id');
+    final skill = globalState.container
+        .read(aiSkillsProvider)
+        .where((item) => item.id == skillId)
+        .firstOrNull;
+    if (skill == null) {
+      return {'ok': false, 'error': 'AI Skill $skillId was not found.'};
+    }
+    final approved = await confirm('delete_ai_skill', skill.name);
+    if (!approved) return {'ok': false, 'cancelled': true};
+    await globalState.container
+        .read(aiSkillsProvider.notifier)
+        .deleteSkill(skillId);
+    return {'ok': true, 'skill_id': skillId, 'name': skill.name};
   }
 
   Future<Map<String, dynamic>> _setGlobalOverwriteProfile(
@@ -789,13 +1041,29 @@ class AiToolExecutor {
       return {'ok': false, 'error': 'No settings were provided.'};
     }
     final container = globalState.container;
+    const sectionKeys = {
+      'clash',
+      'application',
+      'network',
+      'vpn',
+      'theme',
+      'proxy_style',
+    };
+    for (final key in sectionKeys) {
+      final value = arguments[key];
+      if (value != null && value is! Map) {
+        throw FormatException('$key must be an object.');
+      }
+    }
+    final hasSectionPatch = sectionKeys.any(arguments.containsKey);
     final tunValue = arguments['tun'] as bool?;
     final systemProxyValue = arguments['system_proxy'] as bool?;
     final currentTun = container.read(patchClashConfigProvider).tun.enable;
     final currentSystemProxy = container
         .read(networkSettingProvider)
         .systemProxy;
-    if ((tunValue != null && tunValue != currentTun) ||
+    if (hasSectionPatch ||
+        (tunValue != null && tunValue != currentTun) ||
         (systemProxyValue != null && systemProxyValue != currentSystemProxy)) {
       final approved = await confirm(
         'update_settings',
@@ -804,6 +1072,67 @@ class AiToolExecutor {
       if (!approved) {
         return {'ok': false, 'cancelled': true};
       }
+    }
+
+    if (arguments['clash'] case final Map value) {
+      final current = container.read(patchClashConfigProvider);
+      final next = PatchClashConfig.fromJson(
+        mergeAiSettingsPatch(
+          current.toJson(),
+          Map<String, dynamic>.from(value),
+        ),
+      );
+      container.read(patchClashConfigProvider.notifier).update((_) => next);
+    }
+    if (arguments['application'] case final Map value) {
+      final current = container.read(appSettingProvider);
+      final next = AppSettingProps.fromJson(
+        mergeAiSettingsPatch(
+          current.toJson(),
+          Map<String, dynamic>.from(value),
+        ),
+      );
+      container.read(appSettingProvider.notifier).update((_) => next);
+    }
+    if (arguments['network'] case final Map value) {
+      final current = container.read(networkSettingProvider);
+      final next = NetworkProps.fromJson(
+        mergeAiSettingsPatch(
+          current.toJson(),
+          Map<String, dynamic>.from(value),
+        ),
+      );
+      container.read(networkSettingProvider.notifier).update((_) => next);
+    }
+    if (arguments['vpn'] case final Map value) {
+      final current = container.read(vpnSettingProvider);
+      final next = VpnProps.fromJson(
+        mergeAiSettingsPatch(
+          current.toJson(),
+          Map<String, dynamic>.from(value),
+        ),
+      );
+      container.read(vpnSettingProvider.notifier).update((_) => next);
+    }
+    if (arguments['theme'] case final Map value) {
+      final current = container.read(themeSettingProvider);
+      final next = ThemeProps.fromJson(
+        mergeAiSettingsPatch(
+          current.toJson(),
+          Map<String, dynamic>.from(value),
+        ),
+      );
+      container.read(themeSettingProvider.notifier).update((_) => next);
+    }
+    if (arguments['proxy_style'] case final Map value) {
+      final current = container.read(proxiesStyleSettingProvider);
+      final next = ProxiesStyleProps.fromJson(
+        mergeAiSettingsPatch(
+          current.toJson(),
+          Map<String, dynamic>.from(value),
+        ),
+      );
+      container.read(proxiesStyleSettingProvider.notifier).update((_) => next);
     }
 
     container.read(patchClashConfigProvider.notifier).update((state) {
@@ -883,9 +1212,25 @@ class AiToolExecutor {
           .read(appSettingProvider.notifier)
           .update((state) => state.copyWith(customUserAgent: value));
     }
-    await container
-        .read(setupActionProvider.notifier)
-        .applyProfile(force: true);
+    const profileKeys = {
+      'clash',
+      'network',
+      'vpn',
+      'mode',
+      'system_proxy',
+      'tun',
+      'allow_lan',
+      'ipv6',
+      'mixed_port',
+      'global_user_agent',
+      'dns_enabled',
+      'dns_nameservers',
+    };
+    if (profileKeys.any(arguments.containsKey)) {
+      await container
+          .read(setupActionProvider.notifier)
+          .applyProfile(force: true);
+    }
     return {'ok': true, 'settings': _getAppState()};
   }
 

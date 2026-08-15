@@ -198,7 +198,7 @@ final class RuleUsagesProvider
   }
 }
 
-String _$ruleUsagesHash() => r'81d862e812a21187c9beb0bc02d0e346dfb06579';
+String _$ruleUsagesHash() => r'b2c3182a6fd5d0ea2508cae7720ce71c72297560';
 
 abstract class _$RuleUsages extends $Notifier<Map<int, RuleUsage>> {
   Map<int, RuleUsage> build();

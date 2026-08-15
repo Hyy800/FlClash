@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:fl_clash/features/ai/ai_data_store.dart';
+import 'package:fl_clash/features/overwrite/rule_traffic_store.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,6 +26,8 @@ class Preferences {
   AiConfig _aiConfig = const AiConfig();
   AiSessionStore _aiSessionStore = AiSessionStore.initial();
   List<AiSkill> _aiSkills = const [];
+  AiDataStore? _aiDataStore;
+  Future<void> _aiWriteOperation = Future<void>.value();
 
   Future<bool> get isInit async =>
       await sharedPreferencesCompleter.future != null;
@@ -155,71 +160,111 @@ class Preferences {
 
   AiConfig get aiConfig => _aiConfig;
 
-  Future<void> loadAiConfig() async {
+  Future<void> loadAiData(String path) async {
+    final store = AiDataStore(File(path));
+    _aiDataStore = store;
+    final savedData = await store.read();
+    if (savedData != null) {
+      _applyAiData(savedData);
+      await _removeLegacyAiData();
+      return;
+    }
     final preferences = await sharedPreferencesCompleter.future;
+    final hasLegacyData =
+        preferences?.containsKey(_aiConfigKey) == true ||
+        preferences?.containsKey(_aiSessionsKey) == true ||
+        preferences?.containsKey(_aiSkillsKey) == true;
+    if (!hasLegacyData) return;
+    _aiConfig = _readLegacyAiConfig(preferences?.getString(_aiConfigKey));
+    _aiSessionStore = _readLegacyAiSessions(
+      preferences?.getString(_aiSessionsKey),
+    );
+    _aiSkills = _readLegacyAiSkills(preferences?.getString(_aiSkillsKey));
+    await _saveAiData();
+    await _removeLegacyAiData();
+  }
+
+  Future<void> _removeLegacyAiData() async {
+    final preferences = await sharedPreferencesCompleter.future;
+    if (preferences == null) return;
+    await preferences.remove(_aiConfigKey);
+    await preferences.remove(_aiSessionsKey);
+    await preferences.remove(_aiSkillsKey);
+  }
+
+  void _applyAiData(AiData data) {
+    _aiConfig = data.config;
+    _aiSessionStore = data.sessions;
+    _aiSkills = List.unmodifiable(data.skills);
+  }
+
+  AiConfig _readLegacyAiConfig(String? rawValue) {
     try {
-      final rawValue = preferences?.getString(_aiConfigKey);
-      _aiConfig = rawValue == null
+      return rawValue == null
           ? const AiConfig()
           : AiConfig.fromJson(
               Map<String, dynamic>.from(json.decode(rawValue) as Map),
             );
     } catch (_) {
-      _aiConfig = const AiConfig();
+      return const AiConfig();
     }
   }
 
   Future<void> setAiConfig(AiConfig value) async {
     _aiConfig = value;
-    final preferences = await sharedPreferencesCompleter.future;
-    await preferences?.setString(_aiConfigKey, json.encode(value.toJson()));
+    await _saveAiData();
   }
 
   AiSessionStore get aiSessionStore => _aiSessionStore;
 
-  Future<void> loadAiSessions() async {
-    final preferences = await sharedPreferencesCompleter.future;
+  AiSessionStore _readLegacyAiSessions(String? rawValue) {
     try {
-      final rawValue = preferences?.getString(_aiSessionsKey);
-      _aiSessionStore = rawValue == null
+      return rawValue == null
           ? AiSessionStore.initial()
           : AiSessionStore.fromJson(
               Map<String, dynamic>.from(json.decode(rawValue) as Map),
             );
     } catch (_) {
-      _aiSessionStore = AiSessionStore.initial();
+      return AiSessionStore.initial();
     }
   }
 
   Future<void> setAiSessions(AiSessionStore value) async {
     _aiSessionStore = value;
-    final preferences = await sharedPreferencesCompleter.future;
-    await preferences?.setString(_aiSessionsKey, json.encode(value.toJson()));
+    await _saveAiData();
   }
 
   List<AiSkill> get aiSkills => _aiSkills;
 
-  Future<void> loadAiSkills() async {
-    final preferences = await sharedPreferencesCompleter.future;
+  List<AiSkill> _readLegacyAiSkills(String? rawValue) {
     try {
-      final rawValue = preferences?.getString(_aiSkillsKey);
       final data = rawValue == null ? const [] : json.decode(rawValue) as List;
-      _aiSkills = data
+      return data
           .whereType<Map>()
           .map((item) => AiSkill.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     } catch (_) {
-      _aiSkills = const [];
+      return const [];
     }
   }
 
   Future<void> setAiSkills(List<AiSkill> value) async {
     _aiSkills = List.unmodifiable(value);
-    final preferences = await sharedPreferencesCompleter.future;
-    await preferences?.setString(
-      _aiSkillsKey,
-      json.encode(value.map((skill) => skill.toJson()).toList()),
-    );
+    await _saveAiData();
+  }
+
+  Future<void> _saveAiData() {
+    Future<void> write() async {
+      final store = _aiDataStore;
+      if (store == null) return;
+      await store.write(
+        AiData(config: _aiConfig, sessions: _aiSessionStore, skills: _aiSkills),
+      );
+    }
+
+    final operation = _aiWriteOperation.catchError((_) {}).then((_) => write());
+    _aiWriteOperation = operation;
+    return operation;
   }
 
   Future<void> saveShareState(SharedState shareState) async {
@@ -274,6 +319,12 @@ class Preferences {
   }
 
   Future<void> clearPreferences() async {
+    await _aiWriteOperation.catchError((_) {});
+    await _aiDataStore?.delete();
+    await ruleTrafficStore.delete();
+    _aiConfig = const AiConfig();
+    _aiSessionStore = AiSessionStore.initial();
+    _aiSkills = const [];
     final sharedPreferencesIns = await sharedPreferencesCompleter.future;
     await sharedPreferencesIns?.clear();
   }

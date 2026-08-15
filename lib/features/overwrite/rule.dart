@@ -261,6 +261,7 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
       ruleTarget: _ruleTargetController.text,
       noResolve: _noResolve,
       src: _src,
+      enabled: widget.rule?.enabled ?? true,
     );
     Navigator.of(context).pop(rule);
   }

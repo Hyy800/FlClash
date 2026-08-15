@@ -309,6 +309,10 @@ List<String> mergeProfileAddedRules(List<String> rules, List<Rule> addedRules) {
   return [...finalAddedRules, ...rules];
 }
 
+Iterable<String> enabledRuleValues(Iterable<Rule> rules) {
+  return rules.where((rule) => rule.enabled).map((rule) => rule.rawValue);
+}
+
 Future<List<String>> shakingProfileTask(
   VM2<Iterable<int>, Iterable<int>> data,
 ) async {

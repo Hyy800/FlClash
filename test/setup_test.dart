@@ -49,13 +49,74 @@ void main() {
       ]);
     });
 
+    test('Windows distributor command preserves batch exit codes', () {
+      final command = setup.createDistributorCommand([
+        'package',
+        '--targets',
+        'zip',
+      ], isWindows: true);
+
+      expect(command.$1, 'cmd.exe');
+      expect(command.$2, [
+        '/d',
+        '/c',
+        'call',
+        'flutter_distributor.bat',
+        'package',
+        '--targets',
+        'zip',
+      ]);
+    });
+
+    test('non-Windows distributor command runs the executable directly', () {
+      final command = setup.createDistributorCommand([
+        'package',
+      ], isWindows: false);
+
+      expect(command.$1, 'flutter_distributor');
+      expect(command.$2, ['package']);
+    });
+
+    test(
+      'installed distributor is reused without network activation',
+      () async {
+        expect(await setup.ensureDistributorAvailable(), 0);
+      },
+    );
+
+    test('Windows packaging disables broken MSBuild file tracking', () {
+      expect(setup.createDistributorEnvironment(isWindows: true), {
+        'TrackFileAccess': 'false',
+      });
+    });
+
+    test('Android packaging preserves the requested architecture', () {
+      expect(
+        setup.createDistributorEnvironment(
+          isWindows: false,
+          androidArch: 'arm64',
+        ),
+        {'ANDROID_ARCH': 'arm64'},
+      );
+    });
+
     test('Windows installer replaces files from a running installation', () {
       final script = File(
         'windows/packaging/exe/inno_setup.iss',
       ).readAsStringSync();
 
-      expect(script, contains('CloseApplications=force'));
+      expect(script, contains('CloseApplications=yes'));
+      expect(script, isNot(contains('CloseApplications=force')));
       expect(script, contains('RestartApplications=no'));
+      expect(
+        script,
+        contains(r'{userappdata}\com.follow\clash\update.shutdown'),
+      );
+      expect(script, contains('RequestGracefulShutdown()'));
+      expect(script, contains(r'SendMessage(WindowHandle, $0010, 0, 0);'));
+      expect(script, contains("FindWindowByWindowName('FlClash')"));
+      expect(script, contains("Processes := ['FlClashCore.exe',"));
+      expect(script, isNot(contains("Processes := ['FlClash.exe',")));
       expect(script, contains("ExpandConstant('{sys}\\taskkill.exe')"));
       expect(script, contains('/f /t /im'));
     });

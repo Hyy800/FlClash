@@ -28,6 +28,20 @@ void main() {
       expect(result.first, 'DOMAIN-SUFFIX,local.example,DIRECT');
       expect(result.last, 'MATCH,PROXY');
     });
+
+    test('excludes individually disabled global rules', () {
+      final values = enabledRuleValues(const [
+        Rule(id: 1, content: 'enabled.example', ruleTarget: 'DIRECT'),
+        Rule(
+          id: 2,
+          content: 'disabled.example',
+          ruleTarget: 'DIRECT',
+          enabled: false,
+        ),
+      ]);
+
+      expect(values, ['DOMAIN,enabled.example,DIRECT']);
+    });
   });
 
   group('global JavaScript override', () {

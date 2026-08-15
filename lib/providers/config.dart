@@ -342,6 +342,35 @@ class AiSessions extends Notifier<AiSessionStore> {
     );
   }
 
+  Future<void> replaceMessage(String sessionId, AiChatMessage message) async {
+    final session = state.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    if (session == null ||
+        !session.messages.any((item) => item.id == message.id)) {
+      return;
+    }
+    await replaceSession(
+      session.copyWith(
+        messages: [
+          for (final item in session.messages)
+            item.id == message.id ? message : item,
+        ],
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> updateSummary(String sessionId, String summary) async {
+    final session = state.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    if (session == null || session.summary == summary) return;
+    await replaceSession(
+      session.copyWith(summary: summary, updatedAt: DateTime.now()),
+    );
+  }
+
   Future<void> replaceSession(AiSession session) async {
     await _save(
       AiSessionStore(

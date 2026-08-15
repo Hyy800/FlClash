@@ -47,6 +47,21 @@ void main() {
     expect(content.last.toString(), contains('data:image/png;base64'));
   });
 
+  test('assistant reasoning persists but is excluded from API history', () {
+    final message = AiChatMessage(
+      role: 'assistant',
+      content: 'Final answer',
+      reasoning: 'Internal reasoning',
+    );
+
+    final restored = AiChatMessage.fromJson(message.toJson());
+    expect(restored.reasoning, 'Internal reasoning');
+    expect(restored.toApiJson(), {
+      'role': 'assistant',
+      'content': 'Final answer',
+    });
+  });
+
   test('text-only attachments use the attached file envelope', () {
     final message = AiChatMessage(
       role: 'user',

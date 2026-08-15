@@ -330,6 +330,7 @@ abstract class Rule with _$Rule {
     String? subRule,
     @Default(false) bool noResolve,
     @Default(false) bool src,
+    @Default(true) bool enabled,
     String? order,
   }) = _Rule;
 

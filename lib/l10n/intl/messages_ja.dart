@@ -115,6 +115,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "agree": MessageLookupByLibrary.simpleMessage("同意"),
     "aiEmptyResponse": MessageLookupByLibrary.simpleMessage("モデルから空の応答が返されました"),
     "aiInputHint": MessageLookupByLibrary.simpleMessage("ご要望を入力してください"),
+    "aiReasoning": MessageLookupByLibrary.simpleMessage("思考過程"),
     "allTargets": MessageLookupByLibrary.simpleMessage("すべて"),
     "allowBypass": MessageLookupByLibrary.simpleMessage("アプリがVPNをバイパスすることを許可"),
     "allowBypassDesc": MessageLookupByLibrary.simpleMessage(
@@ -232,6 +233,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "create": MessageLookupByLibrary.simpleMessage("作成"),
     "createProfile": MessageLookupByLibrary.simpleMessage("Create Profile"),
     "creationTime": MessageLookupByLibrary.simpleMessage("作成時間"),
+    "cumulativeTraffic": MessageLookupByLibrary.simpleMessage("累計使用量"),
     "currentNode": MessageLookupByLibrary.simpleMessage("現在のノード"),
     "custom": MessageLookupByLibrary.simpleMessage("カスタム"),
     "cut": MessageLookupByLibrary.simpleMessage("切り取り"),
@@ -792,6 +794,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectSubRule": MessageLookupByLibrary.simpleMessage("サブルールを選択してください"),
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
     "selectedCountTitle": m23,
+    "sessionTraffic": MessageLookupByLibrary.simpleMessage("今回の使用量"),
     "settings": MessageLookupByLibrary.simpleMessage("設定"),
     "show": MessageLookupByLibrary.simpleMessage("表示"),
     "shrink": MessageLookupByLibrary.simpleMessage("縮小"),

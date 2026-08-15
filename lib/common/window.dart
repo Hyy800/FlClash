@@ -7,6 +7,18 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_ext/window_ext.dart';
 import 'package:window_manager/window_manager.dart';
 
+Future<bool> consumeUpdateShutdownRequest(File file, {DateTime? now}) async {
+  try {
+    if (!await file.exists()) return false;
+    final modifiedAt = await file.lastModified();
+    await file.delete();
+    final age = (now ?? DateTime.now()).difference(modifiedAt).inMinutes.abs();
+    return age <= 10;
+  } catch (_) {
+    return false;
+  }
+}
+
 class Window {
   static Window? _instance;
 

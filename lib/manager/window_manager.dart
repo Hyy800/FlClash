@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -20,6 +21,8 @@ class WindowManager extends ConsumerStatefulWidget {
 
 class _WindowContainerState extends ConsumerState<WindowManager>
     with WindowListener, WindowExtListener {
+  bool _updateShutdownRequested = false;
+
   @override
   Widget build(BuildContext context) {
     return widget.child;
@@ -44,7 +47,17 @@ class _WindowContainerState extends ConsumerState<WindowManager>
 
   @override
   void onWindowClose() async {
-    await ref.read(systemActionProvider.notifier).handleClose();
+    _updateShutdownRequested =
+        _updateShutdownRequested ||
+        await consumeUpdateShutdownRequest(
+          File(await appPath.updateShutdownRequestPath),
+        );
+    final systemAction = ref.read(systemActionProvider.notifier);
+    if (_updateShutdownRequested) {
+      await systemAction.handleExit(true);
+    } else {
+      await systemAction.handleClose();
+    }
     super.onWindowClose();
   }
 

@@ -204,6 +204,7 @@ class AiChatMessage {
   final String id;
   final String role;
   final String content;
+  final String reasoning;
   final List<AiAttachment> attachments;
   final DateTime createdAt;
 
@@ -211,6 +212,7 @@ class AiChatMessage {
     String? id,
     required this.role,
     required this.content,
+    this.reasoning = '',
     this.attachments = const [],
     DateTime? createdAt,
   }) : id = id ?? _newAiId(),
@@ -221,6 +223,7 @@ class AiChatMessage {
       id: json['id'] as String?,
       role: json['role'] as String? ?? 'assistant',
       content: json['content'] as String? ?? '',
+      reasoning: json['reasoning'] as String? ?? '',
       attachments: (json['attachments'] as List? ?? const [])
           .whereType<Map>()
           .map((item) => AiAttachment.fromJson(Map<String, dynamic>.from(item)))
@@ -235,6 +238,7 @@ class AiChatMessage {
     'id': id,
     'role': role,
     'content': content,
+    if (reasoning.isNotEmpty) 'reasoning': reasoning,
     if (attachments.isNotEmpty)
       'attachments': attachments.map((item) => item.toJson()).toList(),
     'createdAt': createdAt.millisecondsSinceEpoch,

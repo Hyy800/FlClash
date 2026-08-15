@@ -5,7 +5,7 @@ use interprocess::local_socket::prelude::*;
 use interprocess::local_socket::{GenericFilePath, ListenerNonblockingMode, ListenerOptions};
 use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, SyncSender, TrySendError};
+use std::sync::mpsc::{self, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -132,11 +132,12 @@ pub fn send_ipc_message(data: Vec<u8>) -> Result<(), String> {
         .clone()
         .ok_or("IPC client is not connected")?;
 
-    match tx.try_send(data) {
-        Ok(()) => Ok(()),
-        Err(TrySendError::Full(_)) => Err("IPC send queue is full".into()),
-        Err(TrySendError::Disconnected(_)) => Err("IPC client is disconnected".into()),
-    }
+    enqueue_ipc_message(&tx, data)
+}
+
+fn enqueue_ipc_message(tx: &SyncSender<Vec<u8>>, data: Vec<u8>) -> Result<(), String> {
+    tx.send(data)
+        .map_err(|_| "IPC client is disconnected".into())
 }
 
 fn validate_frame_len(len: usize) -> io::Result<u32> {
@@ -404,7 +405,7 @@ fn io_loop(name: String, sink: StreamSink<Vec<u8>, SseCodec>) {
         let writer = thread::spawn(move || {
             let mut error = None;
             while writer_running.load(Ordering::SeqCst) && server_active() {
-                match rx.recv_timeout(IO_POLL_INTERVAL) {
+                match rx.recv() {
                     Ok(data) => {
                         if let Err(e) = write_frame(&mut sender, &data, &writer_running) {
                             if e.kind() != io::ErrorKind::Interrupted {
@@ -413,8 +414,7 @@ fn io_loop(name: String, sink: StreamSink<Vec<u8>, SseCodec>) {
                             break;
                         }
                     }
-                    Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    Err(_) => break,
                 }
             }
             writer_running.store(false, Ordering::SeqCst);
@@ -571,5 +571,31 @@ mod tests {
         assert!(!is_expected_disconnect_error(&io::Error::from(
             io::ErrorKind::InvalidData,
         )));
+    }
+
+    #[test]
+    fn full_send_queue_waits_for_capacity() {
+        let (tx, rx) = mpsc::sync_channel(1);
+        enqueue_ipc_message(&tx, vec![1]).unwrap();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+
+        let sender = thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            result_tx.send(enqueue_ipc_message(&tx, vec![2])).unwrap();
+        });
+
+        started_rx.recv().unwrap();
+        assert!(matches!(
+            result_rx.recv_timeout(Duration::from_millis(100)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
+        assert_eq!(rx.recv().unwrap(), vec![1]);
+        assert!(result_rx
+            .recv_timeout(Duration::from_secs(1))
+            .unwrap()
+            .is_ok());
+        assert_eq!(rx.recv().unwrap(), vec![2]);
+        sender.join().unwrap();
     }
 }

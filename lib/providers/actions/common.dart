@@ -27,15 +27,39 @@ class CommonAction extends _$CommonAction {
     });
   }
 
+  @protected
+  Future<Traffic> getCurrentTraffic(bool onlyStatisticsProxy) {
+    return coreController.getTraffic(onlyStatisticsProxy);
+  }
+
+  @protected
+  Future<Traffic> getCurrentTotalTraffic(bool onlyStatisticsProxy) {
+    return coreController.getTotalTraffic(onlyStatisticsProxy);
+  }
+
+  @protected
+  Future<List<TrackerInfo>> getCurrentConnections() {
+    return coreController.getConnections();
+  }
+
   Future<void> updateTraffic() async {
     final onlyStatisticsProxy = ref.read(
       appSettingProvider.select((state) => state.onlyStatisticsProxy),
     );
     try {
-      final traffic = await coreController.getTraffic(onlyStatisticsProxy);
-      ref.read(trafficsProvider.notifier).addTraffic(traffic);
-      ref.read(totalTrafficProvider.notifier).value = await coreController
-          .getTotalTraffic(onlyStatisticsProxy);
+      final results = await Future.wait<Object>([
+        getCurrentTraffic(onlyStatisticsProxy),
+        getCurrentTotalTraffic(onlyStatisticsProxy),
+        getCurrentConnections(),
+      ]);
+      ref.read(trafficsProvider.notifier).addTraffic(results[0] as Traffic);
+      ref.read(totalTrafficProvider.notifier).value = results[1] as Traffic;
+      ref
+          .read(ruleUsagesProvider.notifier)
+          .sample(
+            ref.read(globalRulesProvider),
+            results[2] as List<TrackerInfo>,
+          );
     } catch (error) {
       commonPrint.log(
         'updateTraffic error: $error',

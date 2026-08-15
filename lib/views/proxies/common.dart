@@ -6,7 +6,14 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const int proxyDelayTestMaxConcurrent = 8;
+const int proxyDelayTestMaxConcurrent = 100;
+
+Future<void> runProxyDelayTests<T>(
+  List<T> items,
+  Future<void> Function(T item) test,
+) {
+  return items.concurrentForEach(proxyDelayTestMaxConcurrent, test);
+}
 
 double get listHeaderHeight {
   final measure = globalState.measure;
@@ -82,10 +89,7 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
 }
 
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
-  await proxies.concurrentForEach(
-    proxyDelayTestMaxConcurrent,
-    (proxy) => proxyDelayTest(proxy, testUrl),
-  );
+  await runProxyDelayTests(proxies, (proxy) => proxyDelayTest(proxy, testUrl));
   globalState.container.read(sortNumProvider.notifier).add();
 }
 

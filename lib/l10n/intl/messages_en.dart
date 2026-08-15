@@ -141,6 +141,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "aiInputHint": MessageLookupByLibrary.simpleMessage(
       "Please enter your request",
     ),
+    "aiReasoning": MessageLookupByLibrary.simpleMessage("Thinking process"),
     "allTargets": MessageLookupByLibrary.simpleMessage("All"),
     "allowBypass": MessageLookupByLibrary.simpleMessage(
       "Allow applications to bypass VPN",
@@ -298,6 +299,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "create": MessageLookupByLibrary.simpleMessage("Create"),
     "createProfile": MessageLookupByLibrary.simpleMessage("Create Profile"),
     "creationTime": MessageLookupByLibrary.simpleMessage("Creation time"),
+    "cumulativeTraffic": MessageLookupByLibrary.simpleMessage("Total usage"),
     "currentNode": MessageLookupByLibrary.simpleMessage("Current node"),
     "custom": MessageLookupByLibrary.simpleMessage("Custom"),
     "cut": MessageLookupByLibrary.simpleMessage("Cut"),
@@ -978,6 +980,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "selected": MessageLookupByLibrary.simpleMessage("Selected"),
     "selectedCountTitle": m23,
+    "sessionTraffic": MessageLookupByLibrary.simpleMessage("This session"),
     "settings": MessageLookupByLibrary.simpleMessage("Settings"),
     "show": MessageLookupByLibrary.simpleMessage("Show"),
     "shrink": MessageLookupByLibrary.simpleMessage("Shrink"),

@@ -5,12 +5,14 @@ import 'package:fl_clash/models/models.dart';
 
 class RuleUsage {
   final Set<String> networks;
+  final int sessionTraffic;
   final int totalTraffic;
   final int currentSpeed;
   final int requestCount;
 
   const RuleUsage({
     this.networks = const {},
+    this.sessionTraffic = 0,
     this.totalTraffic = 0,
     this.currentSpeed = 0,
     this.requestCount = 0,
@@ -19,10 +21,16 @@ class RuleUsage {
 
 class RuleUsageAccumulator {
   final Map<String, int> _previousConnectionTraffic = {};
-  final Map<int, int> _totalTraffic = {};
+  final Map<int, int> _sessionTraffic = {};
+  final Map<int, int> _totalTraffic;
   final Map<int, Set<String>> _networks = {};
   final Map<int, Set<String>> _requestIds = {};
   DateTime? _previousSampleTime;
+
+  RuleUsageAccumulator({Map<int, int> totalTraffic = const {}})
+    : _totalTraffic = Map<int, int>.from(totalTraffic);
+
+  Map<int, int> get totalTraffic => Map.unmodifiable(_totalTraffic);
 
   Map<int, RuleUsage> sample({
     required Iterable<Rule> rules,
@@ -50,6 +58,7 @@ class RuleUsageAccumulator {
       final delta = previousTraffic == null
           ? connectionTraffic
           : max(connectionTraffic - previousTraffic, 0);
+      _sessionTraffic[rule.id] = (_sessionTraffic[rule.id] ?? 0) + delta;
       _totalTraffic[rule.id] = (_totalTraffic[rule.id] ?? 0) + delta;
       final network = connection.metadata.network.trim().toUpperCase();
       if (network.isNotEmpty) {
@@ -69,6 +78,7 @@ class RuleUsageAccumulator {
       for (final rule in ruleList)
         rule.id: RuleUsage(
           networks: Set.unmodifiable(_networks[rule.id] ?? const {}),
+          sessionTraffic: _sessionTraffic[rule.id] ?? 0,
           totalTraffic: _totalTraffic[rule.id] ?? 0,
           currentSpeed: currentSpeeds[rule.id] ?? 0,
           requestCount: _requestIds[rule.id]?.length ?? 0,
@@ -78,7 +88,16 @@ class RuleUsageAccumulator {
 
   void clear() {
     _previousConnectionTraffic.clear();
+    _sessionTraffic.clear();
     _totalTraffic.clear();
+    _networks.clear();
+    _requestIds.clear();
+    _previousSampleTime = null;
+  }
+
+  void clearSession() {
+    _previousConnectionTraffic.clear();
+    _sessionTraffic.clear();
     _networks.clear();
     _requestIds.clear();
     _previousSampleTime = null;
@@ -115,6 +134,7 @@ Map<int, RuleUsage> buildRuleUsage(
     }
     result[rule.id] = RuleUsage(
       networks: networks,
+      sessionTraffic: totalTraffic,
       totalTraffic: totalTraffic,
       currentSpeed: currentSpeed,
       requestCount: requestCount,
@@ -124,6 +144,7 @@ Map<int, RuleUsage> buildRuleUsage(
 }
 
 bool matchesRule(Rule rule, TrackerInfo request) {
+  if (!rule.enabled) return false;
   if (_normalizeRuleType(request.rule) !=
       _normalizeRuleType(rule.ruleAction.value)) {
     return false;
