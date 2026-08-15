@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fl_clash/common/global_node_pool.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 
 void main() {
   test('flattens provider caches so remote failures stay isolated', () async {
@@ -145,7 +146,7 @@ proxies:
     expect(providers, hasLength(1));
     final provider = providers.values.single as Map;
     expect(provider['override']['additional-prefix'], '[Remote] ');
-    expect(provider['path'], contains(r'providers\3\proxies'));
+    expect(provider['path'], contains(path.join('providers', '3', 'proxies')));
     final groups = result.config['proxy-groups'] as List;
     expect(groups.single['name'], '[Remote] · ALL');
     expect(groups.single['use'], [providers.keys.single]);

@@ -120,8 +120,13 @@ class _WindowContainerState extends ConsumerState<WindowManager>
 
 class WindowHeaderContainer extends StatelessWidget {
   final Widget child;
+  final bool? windowsResizeFrame;
 
-  const WindowHeaderContainer({super.key, required this.child});
+  const WindowHeaderContainer({
+    super.key,
+    required this.child,
+    this.windowsResizeFrame,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +148,7 @@ class WindowHeaderContainer extends StatelessWidget {
             const WindowHeader(),
           ],
         );
-        if (system.isWindows) {
+        if (windowsResizeFrame ?? system.isWindows) {
           return _WindowResizeFrame(child: content);
         }
         return content;

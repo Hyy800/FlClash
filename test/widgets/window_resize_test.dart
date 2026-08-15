@@ -36,7 +36,10 @@ void main() {
       ProviderScope(
         overrides: [versionProvider.overrideWithBuild((_, _) => 15)],
         child: const MaterialApp(
-          home: WindowHeaderContainer(child: ColoredBox(color: Colors.black)),
+          home: WindowHeaderContainer(
+            windowsResizeFrame: true,
+            child: ColoredBox(color: Colors.black),
+          ),
         ),
       ),
     );
