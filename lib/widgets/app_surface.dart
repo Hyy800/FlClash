@@ -10,16 +10,31 @@ class AppBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
-    return ColoredBox(
-      color: colorScheme.surface,
+    final middleColor = Color.alphaBlend(
+      colorScheme.primary.withAlpha(isDark ? 34 : 30),
+      colorScheme.surface,
+    );
+    final endColor = Color.alphaBlend(
+      colorScheme.secondary.withAlpha(isDark ? 24 : 22),
+      colorScheme.surfaceContainerLow,
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colorScheme.surface, middleColor, endColor],
+          stops: const [0, 0.52, 1],
+        ),
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: RadialGradient(
             center: const Alignment(0.72, -0.84),
             radius: 1.25,
             colors: [
-              colorScheme.primary.withAlpha(isDark ? 48 : 38),
-              colorScheme.secondary.withAlpha(isDark ? 20 : 18),
+              colorScheme.primary.withAlpha(isDark ? 52 : 40),
+              colorScheme.secondary.withAlpha(isDark ? 22 : 20),
               Colors.transparent,
             ],
             stops: const [0, 0.34, 1],

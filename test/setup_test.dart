@@ -6,6 +6,12 @@ import '../setup.dart' as setup;
 
 void main() {
   group('setup.dart', () {
+    test('defaults to the stable application environment', () {
+      final results = setup.createSetupArgParser().parse([]);
+
+      expect(results['env'], 'stable');
+    });
+
     test('parses -v as verbose mode', () {
       final results = setup.createSetupArgParser().parse(['android', '-v']);
 

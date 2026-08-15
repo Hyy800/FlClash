@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IS_STABLE: ${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
+  IS_STABLE: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')) }}
   FLUTTER_VERSION: '3.44.4'
 
 jobs:
@@ -124,7 +124,7 @@ jobs:
         run: cargo test --manifest-path services/helper/Cargo.toml --features windows-service
 
   build:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     needs: [ test, windows-helper-test ]
     runs-on: ${{ matrix.os }}
     strategy:

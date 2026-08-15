@@ -7,7 +7,6 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 typedef OnSelected = void Function(int index);
 
@@ -31,21 +30,27 @@ class HomePage extends ConsumerWidget {
     return HomeBackScopeContainer(
       child: AppSidebarContainer(
         child: Material(
-          color: context.colorScheme.surface,
+          color: Colors.transparent,
           child: Consumer(
             builder: (context, ref, child) {
               final state = ref.watch(navigationStateProvider);
               final isMobile = state.viewMode == ViewMode.mobile;
               final navigationItems = state.navigationItems;
               final currentIndex = state.currentIndex;
+              final compactNavigation =
+                  navigationItems.length >= 5 ||
+                  MediaQuery.sizeOf(context).width < 400;
               final bottomNavigationBar = NavigationBarTheme(
-                data: _NavigationBarDefaultsM3(context),
+                data: _NavigationBarDefaultsM3(
+                  context,
+                  compact: compactNavigation,
+                ),
                 child: NavigationBar(
                   destinations: navigationItems
                       .map(
                         (e) => NavigationDestination(
                           icon: e.icon,
-                          label: Intl.message(e.label.name),
+                          label: navigationLabel(e.label),
                         ),
                       )
                       .toList(),
@@ -242,11 +247,13 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
 }
 
 class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
-  _NavigationBarDefaultsM3(this.context)
+  _NavigationBarDefaultsM3(this.context, {required bool compact})
     : super(
         height: 80.0,
         elevation: 3.0,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        labelBehavior: compact
+            ? NavigationDestinationLabelBehavior.onlyShowSelected
+            : NavigationDestinationLabelBehavior.alwaysShow,
       );
 
   final BuildContext context;
@@ -254,7 +261,7 @@ class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
   late final TextTheme _textTheme = Theme.of(context).textTheme;
 
   @override
-  Color? get backgroundColor => _colors.surfaceContainer;
+  Color? get backgroundColor => _colors.surfaceContainer.withAlpha(238);
 
   @override
   Color? get shadowColor => Colors.transparent;

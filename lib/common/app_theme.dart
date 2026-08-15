@@ -2,61 +2,82 @@ import 'package:flutter/material.dart';
 
 abstract final class AppTheme {
   static ThemeData build({
-    required ColorScheme baseScheme,
+    required Brightness brightness,
     required PageTransitionsTheme pageTransitionsTheme,
-    bool pureBlack = false,
   }) {
-    final isDark = baseScheme.brightness == Brightness.dark;
-    final surface = isDark
-        ? pureBlack
-              ? const Color(0xFF000000)
-              : const Color(0xFF0C111B)
-        : const Color(0xFFE9EFF7);
+    final isDark = brightness == Brightness.dark;
+    final baseScheme = isDark
+        ? const ColorScheme.dark()
+        : const ColorScheme.light();
     final scheme = baseScheme.copyWith(
-      primary: isDark ? const Color(0xFF64A8FF) : const Color(0xFF0A84FF),
-      onPrimary: isDark ? const Color(0xFF001A41) : Colors.white,
+      primary: isDark ? const Color(0xFFAFC4FF) : const Color(0xFF4B5FC6),
+      onPrimary: isDark ? const Color(0xFF142552) : const Color(0xFFFFFFFF),
       primaryContainer: isDark
-          ? const Color(0xFF173A63)
-          : const Color(0xFFD8EBFF),
+          ? const Color(0xFF31457B)
+          : const Color(0xFFDDE4FF),
       onPrimaryContainer: isDark
-          ? const Color(0xFFDCE8FF)
-          : const Color(0xFF082B68),
-      secondary: isDark ? const Color(0xFF78D7FF) : const Color(0xFF007AFF),
-      tertiary: isDark ? const Color(0xFFFFD479) : const Color(0xFFFF9F0A),
-      surface: surface,
+          ? const Color(0xFFDFE5FF)
+          : const Color(0xFF17245A),
+      secondary: isDark ? const Color(0xFF83D1E1) : const Color(0xFF16798B),
+      onSecondary: isDark ? const Color(0xFF00363F) : const Color(0xFFFFFFFF),
+      secondaryContainer: isDark
+          ? const Color(0xFF164E59)
+          : const Color(0xFFBDEAF1),
+      onSecondaryContainer: isDark
+          ? const Color(0xFFB6EBF5)
+          : const Color(0xFF0A3C46),
+      tertiary: isDark ? const Color(0xFFDAB7FF) : const Color(0xFF7C4D9D),
+      onTertiary: isDark ? const Color(0xFF45215D) : const Color(0xFFFFFFFF),
+      tertiaryContainer: isDark
+          ? const Color(0xFF57366F)
+          : const Color(0xFFF0D9FF),
+      onTertiaryContainer: isDark
+          ? const Color(0xFFF0DAFF)
+          : const Color(0xFF321342),
+      error: isDark ? const Color(0xFFFFB4AB) : const Color(0xFFB3261E),
+      onError: isDark ? const Color(0xFF690005) : const Color(0xFFFFFFFF),
+      errorContainer: isDark
+          ? const Color(0xFF93000A)
+          : const Color(0xFFFFDAD6),
+      onErrorContainer: isDark
+          ? const Color(0xFFFFDAD6)
+          : const Color(0xFF410002),
+      surface: isDark ? const Color(0xFF08111F) : const Color(0xFFDDE5F0),
+      surfaceDim: isDark ? const Color(0xFF08111F) : const Color(0xFFC6D1E0),
+      surfaceBright: isDark ? const Color(0xFF2D3D57) : const Color(0xFFF6F8FC),
       surfaceContainerLowest: isDark
-          ? pureBlack
-                ? const Color(0xFF000000)
-                : const Color(0xFF090E17)
+          ? const Color(0xFF050C17)
           : const Color(0xFFF8FAFD),
       surfaceContainerLow: isDark
-          ? pureBlack
-                ? const Color(0xFF070707)
-                : const Color(0xFF111823)
-          : const Color(0xFFF1F5FA),
+          ? const Color(0xFF0D1727)
+          : const Color(0xFFEDF2F8),
       surfaceContainer: isDark
-          ? pureBlack
-                ? const Color(0xFF0B0B0B)
-                : const Color(0xFF17202D)
-          : const Color(0xFFE5ECF5),
+          ? const Color(0xFF121E30)
+          : const Color(0xFFE4EAF3),
       surfaceContainerHigh: isDark
-          ? pureBlack
-                ? const Color(0xFF101010)
-                : const Color(0xFF202B3A)
-          : const Color(0xFFD8E2EF),
+          ? const Color(0xFF19263A)
+          : const Color(0xFFD7E0EB),
       surfaceContainerHighest: isDark
-          ? pureBlack
-                ? const Color(0xFF171717)
-                : const Color(0xFF2A3748)
-          : const Color(0xFFC9D6E6),
-      onSurface: isDark ? const Color(0xFFF3F7FC) : const Color(0xFF172235),
+          ? const Color(0xFF223149)
+          : const Color(0xFFC8D4E2),
+      onSurface: isDark ? const Color(0xFFE7ECF5) : const Color(0xFF172033),
       onSurfaceVariant: isDark
-          ? const Color(0xFFB2C0D2)
-          : const Color(0xFF536278),
-      outline: isDark ? const Color(0xFF73849B) : const Color(0xFF69798E),
+          ? const Color(0xFFBAC4D7)
+          : const Color(0xFF4D5D73),
+      outline: isDark ? const Color(0xFF8491A8) : const Color(0xFF64758B),
       outlineVariant: isDark
-          ? const Color(0xFF334155)
-          : const Color(0xFFBCC9D9),
+          ? const Color(0xFF394760)
+          : const Color(0xFFAEBCCD),
+      surfaceTint: isDark ? const Color(0xFFAFC4FF) : const Color(0xFF4B5FC6),
+      inverseSurface: isDark
+          ? const Color(0xFFE7ECF5)
+          : const Color(0xFF263246),
+      onInverseSurface: isDark
+          ? const Color(0xFF263246)
+          : const Color(0xFFF2F5FB),
+      inversePrimary: isDark
+          ? const Color(0xFF4B5FC6)
+          : const Color(0xFFAFC4FF),
       shadow: const Color(0xFF000000),
       scrim: const Color(0xFF000000),
     );

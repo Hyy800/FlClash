@@ -86,7 +86,7 @@ class Navigation {
         icon: const Icon(Icons.auto_awesome_rounded),
         label: PageLabel.ai,
         builder: (_) => const AiView(key: GlobalObjectKey(PageLabel.ai)),
-        modes: [NavigationItemMode.desktop],
+        modes: [NavigationItemMode.mobile, NavigationItemMode.desktop],
       ),
       NavigationItem(
         icon: const Icon(Icons.tune_rounded),

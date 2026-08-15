@@ -310,18 +310,21 @@ void main() {
       expect(result.themeMode, ThemeMode.dark);
     });
 
-    test('safeFromJson migrates the legacy pink interface color', () {
+    test('safeFromJson removes legacy theme variants', () {
       final result = ThemeProps.safeFromJson({
         'primaryColor': legacyPrimaryColor,
         'primaryColors': [legacyPrimaryColor],
-        'themeMode': 'dark',
-        'schemeVariant': 'content',
-        'pureBlack': false,
+        'themeMode': 'system',
+        'schemeVariant': 'expressive',
+        'pureBlack': true,
         'textScale': {'enable': false, 'scale': 1.0},
       });
 
-      expect(result.primaryColor, defaultPrimaryColor);
+      expect(result.primaryColor, isNull);
       expect(result.primaryColors, defaultPrimaryColors);
+      expect(result.themeMode, ThemeMode.dark);
+      expect(result.schemeVariant, DynamicSchemeVariant.content);
+      expect(result.pureBlack, isFalse);
     });
 
     test('round-trip with custom values', () {

@@ -34,7 +34,7 @@ const defaultNetworkProps = NetworkProps();
 const defaultProxiesStyleProps = ProxiesStyleProps();
 const defaultWindowProps = WindowProps();
 const defaultAccessControlProps = AccessControlProps();
-const defaultThemeProps = ThemeProps(primaryColor: defaultPrimaryColor);
+const defaultThemeProps = ThemeProps();
 
 const List<DashboardWidget> defaultDashboardWidgets = [
   DashboardWidget.networkSpeed,
@@ -223,12 +223,14 @@ abstract class ThemeProps with _$ThemeProps {
     }
     try {
       final themeProps = ThemeProps.fromJson(json);
-      if (themeProps.primaryColor != legacyPrimaryColor) {
-        return themeProps;
-      }
       return themeProps.copyWith(
-        primaryColor: defaultPrimaryColor,
+        primaryColor: null,
         primaryColors: defaultPrimaryColors,
+        themeMode: themeProps.themeMode == ThemeMode.light
+            ? ThemeMode.light
+            : ThemeMode.dark,
+        schemeVariant: DynamicSchemeVariant.content,
+        pureBlack: false,
       );
     } catch (_) {
       return defaultThemeProps;

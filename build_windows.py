@@ -640,8 +640,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--env',
         choices=('pre', 'stable'),
-        default='pre',
-        help='应用环境（默认: pre）',
+        default='stable',
+        help='应用环境（默认: stable）',
     )
     parser.add_argument(
         '--targets',

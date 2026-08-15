@@ -776,6 +776,86 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('narrow mobile navigation keeps five destinations accessible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Widget page(PageLabel label) => Center(child: Text(label.name));
+    final container = ProviderContainer(
+      overrides: [
+        navigationItemsStateProvider.overrideWithValue(
+          NavigationItemsState(
+            value: [
+              NavigationItem(
+                icon: const Icon(Icons.dashboard),
+                label: PageLabel.dashboard,
+                builder: (_) => page(PageLabel.dashboard),
+              ),
+              NavigationItem(
+                icon: const Icon(Icons.hub),
+                label: PageLabel.proxies,
+                builder: (_) => page(PageLabel.proxies),
+              ),
+              NavigationItem(
+                icon: const Icon(Icons.folder),
+                label: PageLabel.profiles,
+                builder: (_) => page(PageLabel.profiles),
+              ),
+              NavigationItem(
+                icon: const Icon(Icons.auto_awesome),
+                label: PageLabel.ai,
+                builder: (_) => page(PageLabel.ai),
+              ),
+              NavigationItem(
+                icon: const Icon(Icons.tune),
+                label: PageLabel.tools,
+                builder: (_) => page(PageLabel.tools),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    globalState.container = container;
+    container.read(viewSizeProvider.notifier).value = const Size(360, 800);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const _TestApp(child: HomePage()),
+      ),
+    );
+    await tester.pump();
+
+    final navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    final themeFinder = find.ancestor(
+      of: find.byType(NavigationBar),
+      matching: find.byType(NavigationBarTheme),
+    );
+    final navigationTheme = tester.widget<NavigationBarTheme>(
+      themeFinder.first,
+    );
+    expect(navigationBar.destinations, hasLength(5));
+    expect(
+      navigationTheme.data.labelBehavior,
+      NavigationDestinationLabelBehavior.onlyShowSelected,
+    );
+    expect(find.byIcon(Icons.auto_awesome).hitTestable(), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+    expect(container.read(currentPageLabelProvider), PageLabel.ai);
+    expect(find.text(PageLabel.ai.name), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _TestApp extends StatelessWidget {

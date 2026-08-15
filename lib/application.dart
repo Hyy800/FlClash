@@ -9,6 +9,7 @@ import 'package:fl_clash/manager/manager.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -35,14 +36,6 @@ class ApplicationState extends ConsumerState<Application> {
       TargetPlatform.macOS: commonSharedXPageTransitions,
     },
   );
-
-  ColorScheme _getAppColorScheme({required Brightness brightness}) {
-    return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2563EB),
-      brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-    );
-  }
 
   @override
   void initState() {
@@ -153,10 +146,12 @@ class ApplicationState extends ConsumerState<Application> {
             GlobalWidgetsLocalizations.delegate,
           ],
           builder: (_, child) {
-            return AppEnvManager(
-              child: _buildApp(
-                child: _buildPlatformState(
-                  child: _buildState(child: _buildPlatformApp(child: child!)),
+            return AppBackdrop(
+              child: AppEnvManager(
+                child: _buildApp(
+                  child: _buildPlatformState(
+                    child: _buildState(child: _buildPlatformApp(child: child!)),
+                  ),
                 ),
               ),
             );
@@ -168,11 +163,11 @@ class ApplicationState extends ConsumerState<Application> {
           themeMode: themeMode,
           theme: AppTheme.build(
             pageTransitionsTheme: _pageTransitionsTheme,
-            baseScheme: _getAppColorScheme(brightness: Brightness.light),
+            brightness: Brightness.light,
           ),
           darkTheme: AppTheme.build(
             pageTransitionsTheme: _pageTransitionsTheme,
-            baseScheme: _getAppColorScheme(brightness: Brightness.dark),
+            brightness: Brightness.dark,
           ),
           home: child!,
         );
